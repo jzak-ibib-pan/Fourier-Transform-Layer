@@ -6,6 +6,7 @@ class TimeHistory(Callback):
     def __init__(self):
         self.times = []
         self._epoch_time_start = 0
+        super(TimeHistory, self).__init__()
 
     def on_train_begin(self, logs={}):
         self.times = []
