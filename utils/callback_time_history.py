@@ -4,9 +4,9 @@ from time import time
 
 class TimeHistory(Callback):
     def __init__(self):
+        super(TimeHistory, self).__init__()
         self.times = []
         self._epoch_time_start = 0
-        super(TimeHistory, self).__init__()
 
     def on_train_begin(self, logs={}):
         self.times = []
