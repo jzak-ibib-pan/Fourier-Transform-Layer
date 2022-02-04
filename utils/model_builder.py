@@ -7,8 +7,9 @@ from tensorflow.keras.layers import Flatten, Dense
 from tensorflow.keras.applications.mobilenet import MobileNet
 
 
-class ModelBuilder():
-    def __init__(self):
+# Generic builder
+class ModelBuilder:
+    def __init__(self, **kwargs):
         self.model = self.build((32, 32, 1))
 
     def save_model_info(self, filename, extension='', filepath=''):
@@ -19,6 +20,7 @@ class ModelBuilder():
             if '.' not in format_used:
                 format_used = '.' + format_used
             with open(join(filepath, filename_expanded + format_used), 'w') as fil:
+
                 with redirect_stdout(fil):
                     self.model.summary()
             return filename_expanded
@@ -39,6 +41,7 @@ class ModelBuilder():
         return filename_expanded
 
 
+# Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
     def __init__(self):
         super(CNNBuilder, self).__init__()
@@ -47,9 +50,11 @@ class CNNBuilder(ModelBuilder):
     def build(input_shape, noof_classes=1):
         backbone = MobileNet(input_shape, weights=None, include_top=False)
         architecture = backbone.output
-        arch = backbone.output
         # Classify
-        flat = Flatten()(arch)
+        flat = Flatten()(architecture)
+        act = 'softmax'
+        if noof_classes == 1:
+            act = 'sigmoid'
         out = Dense(noof_classes, activation=act)(flat)
         return Model(inputs=[backbone.input], outputs=[out])
 
