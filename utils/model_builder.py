@@ -13,3 +13,7 @@ class ModelBuilder(Model):
 
     def _save_model_info(self):
         return self.input_shape
+
+
+if __name__ == '__main__':
+    print(0)
