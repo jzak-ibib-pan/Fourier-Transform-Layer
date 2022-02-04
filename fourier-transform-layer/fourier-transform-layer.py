@@ -9,7 +9,6 @@ class FTL(Layer):
         # recommended - None, relu or selu
         assert not (inverse is True and phase_training is True), 'You cannot phase train and inverse at the same time.'
         self.kernel = None
-        # 13.03.2021 - właściwie zbędne przy obrazach
         self.kernel_imag = None
         self.activ = None
         if activation == 'relu':
@@ -30,15 +29,14 @@ class FTL(Layer):
     def build(self, input_shape):
         self.kernel = self.add_weight(name='kernel',
                                       shape=tuple(input_shape[1:]),
-                                      # shape=tuple([input_shape[1], input_shape[2]//2 + 1]),
                                       initializer=self.initializer,
                                       trainable=True)
         self.kernel_imag = self.add_weight(name='kernel_imag',
                                            shape=tuple(input_shape[1:]),
-                                           # shape=tuple([input_shape[1], input_shape[2]//2 + 1]),
                                            initializer=self.initializer,
                                            trainable=True)
-        super(FTL, self).build(input_shape)  # Be sure to call this at the end
+        # Be sure to call this at the end
+        super(FTL, self).build(input_shape)
 
     def call(self, input_tensor):
         # ifft for 2-tuple input
@@ -51,14 +49,9 @@ class FTL(Layer):
                 return self.activ(x)
             return x
 
-        # shapes = tf.shape(input_tensor)[1:]
-        # x = tf.signal.fftshift(tf.signal.fft3d(tf.cast(input_tensor, tf.complex64)))
         x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
-        # x = tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
         real = tf.math.real(x)
         imag = tf.math.imag(x)
-        # real = tf.divide(tf.math.real(x), tf.math.reduce_max(tf.math.real(x)))
-        # imag = tf.divide(tf.math.imag(x), tf.math.reduce_max(tf.math.imag(x)))
 
         real = tf.multiply(real, self.kernel)
         imag = tf.multiply(imag, self.kernel_imag)
