@@ -4,13 +4,13 @@ from os.path import join
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense
-from tensorflow.keras.applications.mobilenet import MobileNet
+import tensorflow.keras.applications as apps
 
 
 # Generic builder
 class ModelBuilder:
     def __init__(self, **kwargs):
-        self.model = self.build((32, 32, 1))
+        self.model = []
 
     def save_model_info(self, filename, extension='', filepath=''):
             filename_expanded = self._expand_filename(filename, filepath)
@@ -43,12 +43,15 @@ class ModelBuilder:
 
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
-    def __init__(self):
+    def __init__(self, model_type='mnist', input_shape=(32, 32, 1), noof_classes=1):
         super(CNNBuilder, self).__init__()
+        self.model = self.build(model_type, input_shape, noof_classes)
 
     @staticmethod
-    def build(input_shape, noof_classes=1):
-        backbone = MobileNet(input_shape, weights=None, include_top=False)
+    def build(model_type, input_shape, noof_classes):
+        if 'mobilenet' in model_type.lower() and '2' in model_type.lower():
+            backbone = apps.mobilenet_v2.MobileNetV2(input_shape, weights=None, include_top=False)
+
         architecture = backbone.output
         # Classify
         flat = Flatten()(architecture)
