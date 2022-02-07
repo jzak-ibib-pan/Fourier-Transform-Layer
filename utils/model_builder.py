@@ -47,15 +47,18 @@ class CNNBuilder(ModelBuilder):
         super(CNNBuilder, self).__init__()
         self.model = self.build(model_type, input_shape, noof_classes)
 
+    def compile(self, optimizer, loss, **kwargs):
+        self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
+
     @staticmethod
     def build(model_type, input_shape, noof_classes, weights=None):
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
-                # import Mobilenet
+                # load Mobilenet
                 backbone = apps.mobilenet.MobileNet(input_shape, weights=weights, include_top=False)
             else:
-                # import Mobilenetv2
+                # load Mobilenetv2
                 backbone = apps.mobilenet_v2.MobileNetV2(input_shape, weights=weights, include_top=False)
                 # update BatchNormalization momentum - otherwise MobilenetV2 does not work
                 for layer in backbone.layers:
@@ -72,7 +75,6 @@ class CNNBuilder(ModelBuilder):
                 backbone = apps.resnet_v2.ResNet50V2(input_shape, weights=weights, include_top=False)
             elif '101' in model_type_low:
                 backbone = apps.resnet_v2.ResNet101V2(input_shape, weights=weights, include_top=False)
-
         architecture = backbone.output
         # Classify
         flat = Flatten()(architecture)
