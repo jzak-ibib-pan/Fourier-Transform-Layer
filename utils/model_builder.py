@@ -48,7 +48,10 @@ class CNNBuilder(ModelBuilder):
         self.model = self.build(model_type, input_shape, noof_classes)
 
     def compile(self, optimizer, loss, **kwargs):
-        self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
+        if 'metrics' in list(kwargs.keys()):
+            self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
+            return
+        self.model.compile(optimizer=optimizer, loss=loss)
 
     @staticmethod
     def build(model_type, input_shape, noof_classes, weights=None):
