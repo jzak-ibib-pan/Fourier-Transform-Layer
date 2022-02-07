@@ -10,30 +10,41 @@ import tensorflow.keras.applications as apps
 # Generic builder
 class ModelBuilder:
     def __init__(self, **kwargs):
+        self._params_build = {'model_type': '',
+                             'input_shape': '',
+                             'noof_classes': '',
+                             'weights': '',
+                             }
+        self._params_compile = {'optimizer': '',
+                               'loss': '',
+                               }
         self.model = []
 
-    def compile(self, optimizer, loss, **kwargs):
+    def build_model(self, model_type, input_shape, noof_classes, weights=None):
+        self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
+                                                 noof_classes=noof_classes, weights=weights)
+
+    def compile_model(self, optimizer, loss, **kwargs):
+        self._params_compile = self._update_params(self._params_compile, optimizer=optimizer, loss=loss)
         if 'metrics' in list(kwargs.keys()):
+            self._params_compile.update({'metrics': kwargs['metrics']})
             self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
             return
         self.model.compile(optimizer=optimizer, loss=loss)
 
     def save_model_info(self, filename, extension='', filepath=''):
-            filename_expanded = self._expand_filename(filename, filepath)
-            format_used = extension
-            if len(format_used) < 1:
-                format_used = '.txt'
-            if '.' not in format_used:
-                format_used = '.' + format_used
-            with open(join(filepath, filename_expanded + format_used), 'w') as fil:
-
-                with redirect_stdout(fil):
-                    self.model.summary()
-            return filename_expanded
-
-    @staticmethod
-    def build(input_shape, noof_classes=1):
-        return []
+        filename_expanded = self._expand_filename(filename, filepath)
+        format_used = extension
+        if len(format_used) < 1:
+            format_used = '.txt'
+        if '.' not in format_used:
+            format_used = '.' + format_used
+        with open(join(filepath, filename_expanded + format_used), 'w') as fil:
+            fil.write(str(self._params_build) + '\n')
+            fil.write(str(self._params_compile) + '\n')
+            with redirect_stdout(fil):
+                self.model.summary()
+        return filename_expanded
 
     @staticmethod
     def _expand_filename(filename, filepath=''):
@@ -46,15 +57,22 @@ class ModelBuilder:
         filename_expanded = f'{filename}_{it}_{date}'
         return filename_expanded
 
+    # a method to change the values of parameter holders
+    @staticmethod
+    def _update_params(parameters, **kwargs):
+        for key in list(parameters.keys()):
+            parameters[key] = kwargs[key]
+        return parameters
+
 
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
-    def __init__(self, model_type='mnist', input_shape=(32, 32, 1), noof_classes=1):
+    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 1), noof_classes=1):
         super(CNNBuilder, self).__init__()
-        self.model = self.build(model_type, input_shape, noof_classes)
+        self.model = self.build_model(model_type, input_shape, noof_classes)
 
-    @staticmethod
-    def build(model_type, input_shape, noof_classes, weights=None):
+    def build_model(self, model_type, input_shape, noof_classes, weights=None):
+        super(CNNBuilder, self).build_model(model_type, input_shape, noof_classes, weights)
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
@@ -90,4 +108,5 @@ class CNNBuilder(ModelBuilder):
 
 if __name__ == '__main__':
     builder = CNNBuilder()
+    builder.compile_model('adam' , 'accuracy')
     builder.save_model_info('test', '.txt', '../test')
