@@ -12,6 +12,12 @@ class ModelBuilder:
     def __init__(self, **kwargs):
         self.model = []
 
+    def compile(self, optimizer, loss, **kwargs):
+        if 'metrics' in list(kwargs.keys()):
+            self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
+            return
+        self.model.compile(optimizer=optimizer, loss=loss)
+
     def save_model_info(self, filename, extension='', filepath=''):
             filename_expanded = self._expand_filename(filename, filepath)
             format_used = extension
@@ -46,12 +52,6 @@ class CNNBuilder(ModelBuilder):
     def __init__(self, model_type='mnist', input_shape=(32, 32, 1), noof_classes=1):
         super(CNNBuilder, self).__init__()
         self.model = self.build(model_type, input_shape, noof_classes)
-
-    def compile(self, optimizer, loss, **kwargs):
-        if 'metrics' in list(kwargs.keys()):
-            self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
-            return
-        self.model.compile(optimizer=optimizer, loss=loss)
 
     @staticmethod
     def build(model_type, input_shape, noof_classes, weights=None):
