@@ -3,7 +3,7 @@ from os import listdir
 from os.path import join
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Flatten, Dense
+from tensorflow.keras.layers import Flatten, Dense, BatchNormalization
 import tensorflow.keras.applications as apps
 
 
@@ -48,9 +48,30 @@ class CNNBuilder(ModelBuilder):
         self.model = self.build(model_type, input_shape, noof_classes)
 
     @staticmethod
-    def build(model_type, input_shape, noof_classes):
-        if 'mobilenet' in model_type.lower() and '2' in model_type.lower():
-            backbone = apps.mobilenet_v2.MobileNetV2(input_shape, weights=None, include_top=False)
+    def build(model_type, input_shape, noof_classes, weights=None):
+        model_type_low = model_type.lower()
+        if 'mobilenet' in model_type_low:
+            if '2' not in model_type_low:
+                # import Mobilenet
+                backbone = apps.mobilenet.MobileNet(input_shape, weights=weights, include_top=False)
+            else:
+                # import Mobilenetv2
+                backbone = apps.mobilenet_v2.MobileNetV2(input_shape, weights=weights, include_top=False)
+                # update BatchNormalization momentum - otherwise MobilenetV2 does not work
+                for layer in backbone.layers:
+                    if type(layer) != type(BatchNormalization):
+                        continue
+                    layer.momentum=0.9
+        elif 'vgg' in model_type_low:
+            if '16' in model_type_low:
+                backbone = apps.vgg16.VGG16(input_shape, weights=weights, include_top=False)
+            elif '19' in model_type_low:
+                backbone = apps.vgg19.VGG19(input_shape, weights=weights, include_top=False)
+        elif 'resnet' in model_type_low:
+            if '50' in model_type_low:
+                backbone = apps.resnet_v2.ResNet50V2(input_shape, weights=weights, include_top=False)
+            elif '101' in model_type_low:
+                backbone = apps.resnet_v2.ResNet101V2(input_shape, weights=weights, include_top=False)
 
         architecture = backbone.output
         # Classify
