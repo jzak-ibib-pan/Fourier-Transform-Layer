@@ -3,8 +3,10 @@ from os import listdir
 from os.path import join
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Flatten, Dense, BatchNormalization
+from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input
 import tensorflow.keras.applications as apps
+# Otherwise FTL cannot be called
+from fourier_transform_layer.fourier_transform_layer import FTL
 
 
 # Generic builder
@@ -123,7 +125,27 @@ class CNNBuilder(ModelBuilder):
         return Model(inputs=[backbone.input], outputs=[out])
 
 
+# Fourier Model for classification
+class FourierBuilder(ModelBuilder):
+    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1):
+        super(FourierBuilder, self).__init__()
+        self.model = self.build_model(model_type, input_shape, noof_classes)
+
+    def build_model(self, model_type, input_shape, noof_classes, weights=None):
+        super(FourierBuilder, self).build_model(model_type, input_shape, noof_classes, weights)
+        model_type_low = model_type.lower()
+        inp = Input(input_shape)
+        arch = FTL(activation='relu', inverse='inverse' in model_type_low, initializer='ones')(inp)
+        flat = Flatten()(arch)
+        if noof_classes == 1:
+            act = 'sigmoid'
+        else:
+            act = 'softmax'
+        out = Dense(noof_classes, activation=act, kernel_initializer='ones')(flat)
+        return Model(inp, out)
+
+
 if __name__ == '__main__':
-    builder = CNNBuilder()
+    builder = FourierBuilder('fourier_inverse')
     builder.compile_model('adam' , 'mse')
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
