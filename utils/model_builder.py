@@ -26,6 +26,7 @@ class ModelBuilder:
         self._LENGTH = 0
         self._update_length(self._calculate_lengths(self._params_build))
         self._update_length(self._calculate_lengths(self._params_compile))
+        # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
                            'default': False,
                            }
