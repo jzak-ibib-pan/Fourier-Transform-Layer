@@ -15,7 +15,7 @@ class ModelBuilder:
         self._params_build = {'model_type': '',
                              'input_shape': '',
                              'noof_classes': '',
-                             'weights': '',
+                             # 'weights': '',
                              }
         self._params_compile = {'optimizer': '',
                                'loss': '',
@@ -29,16 +29,15 @@ class ModelBuilder:
         self.model = []
 
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        weights = None
-        if 'weights' in kwargs.keys():
-            weights = kwargs['weights']
         self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
-                                                 noof_classes=noof_classes, weights=weights)
+                                                 noof_classes=noof_classes, **kwargs)
+        self._update_length(self._calculate_lengths(self._params_build))
 
     def compile_model(self, optimizer, loss, **kwargs):
         self._params_compile = self._update_params(self._params_compile, optimizer=optimizer, loss=loss)
         if 'metrics' in kwargs.keys():
             self._params_compile.update({'metrics': kwargs['metrics']})
+            self._update_length(self._calculate_lengths(self._params_compile))
             self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
             return
         self.model.compile(optimizer=optimizer, loss=loss)
@@ -94,7 +93,9 @@ class ModelBuilder:
 
     @staticmethod
     def _calculate_lengths(params):
-        return max([len(f) for f in params.keys()])
+        length_keys = max([len(str(f)) for f in params.keys()])
+        length_vals = max([len(str(f)) for f in params.values()])
+        return max([length_keys, length_vals])
 
 
 # Standard CNNs for classification
@@ -147,15 +148,11 @@ class FourierBuilder(ModelBuilder):
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
         super(FourierBuilder, self).build_model(model_type, input_shape, noof_classes, **kwargs)
         ftl_activation = 'relu'
+        if 'ftl_activation' in kwargs.keys():
+            ftl_activation = kwargs['ftl_activation']
         ftl_initializer = 'ones'
-        if any(['ftl' in f for f in kwargs.keys()]):
-            if 'ftl_activation' in kwargs.keys():
-                ftl_activation = kwargs['ftl_activation']
-            if 'ftl_initializer' in kwargs.keys():
-                ftl_initializer = kwargs['ftl_initializer']
-        self._params_build = self._update_params(self._params_build,
-                                                 ftl_activation=ftl_activation, ftl_initializer=ftl_initializer)
-        self._update_length(self._calculate_lengths(self._params_build))
+        if 'ftl_initializer' in kwargs.keys():
+            ftl_initializer = kwargs['ftl_initializer']
         model_type_low = model_type.lower()
         inp = Input(input_shape)
         arch = FTL(activation=ftl_activation, inverse='inverse' in model_type_low, initializer=ftl_initializer)(inp)
@@ -169,7 +166,7 @@ class FourierBuilder(ModelBuilder):
 
 
 if __name__ == '__main__':
-    builder = FourierBuilder('fourier_inverse')
+    builder = FourierBuilder('fourier_inverse', ftl_activation='relu')
     builder.compile_model('adam' , 'mse')
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt',
                             summary=True)
