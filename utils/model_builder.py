@@ -181,6 +181,9 @@ class FourierBuilder(ModelBuilder):
         out = Dense(noof_classes, activation=act, kernel_initializer='ones')(flat)
         return Model(inp, out)
 
+    def sample(self, direction, weigths=None):
+        return self.model
+
 
 if __name__ == '__main__':
     builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=False)
