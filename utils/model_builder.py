@@ -39,6 +39,7 @@ class ModelBuilder:
         self.model.compile(optimizer=optimizer, loss=loss)
 
     def save_model_info(self, filename, notes='', filepath='', summary=False, extension=''):
+        assert type(notes) == str, 'Notes must be a string.'
         filename_expanded = self._expand_filename(filename, filepath)
         format_used = extension
         if len(format_used) < 1:
@@ -48,7 +49,7 @@ class ModelBuilder:
         with open(join(filepath, filename_expanded + format_used), 'w') as fil:
             for action in ['build', 'compile']:
                 fil.write(self._prepare_text(action))
-            fil.write(notes)
+            fil.write(notes + '\n')
             if summary:
                 with redirect_stdout(fil):
                     self.model.summary()
@@ -125,4 +126,4 @@ class CNNBuilder(ModelBuilder):
 if __name__ == '__main__':
     builder = CNNBuilder()
     builder.compile_model('adam' , 'mse')
-    builder.save_model_info('test', '.txt', '../test')
+    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
