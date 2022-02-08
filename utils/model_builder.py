@@ -103,11 +103,8 @@ class CNNBuilder(ModelBuilder):
         super(CNNBuilder, self).__init__()
         self.model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
 
-    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        super(CNNBuilder, self).build_model(model_type, input_shape, noof_classes, **kwargs)
-        weights = None
-        if 'weights' in kwargs.keys():
-            weights = kwargs['weights']
+    def build_model(self, model_type, input_shape, noof_classes, weights=None, **kwargs):
+        super(CNNBuilder, self).build_model(model_type, input_shape, noof_classes, weights=None, **kwargs)
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
@@ -173,6 +170,10 @@ class FourierBuilder(ModelBuilder):
 
 if __name__ == '__main__':
     builder = FourierBuilder('fourier_inverse')
+    builder.compile_model('adam' , 'mse')
+    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt',
+                            summary=True)
+    builder = CNNBuilder('mobilenet')
     builder.compile_model('adam' , 'mse')
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt',
                             summary=True)
