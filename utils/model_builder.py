@@ -63,7 +63,7 @@ class ModelBuilder:
     def _prepare_text(self, what='build'):
         text_build = f'{what.capitalize()} parameters\n'
         for key, value in zip(self._PARAMS[what].keys(), self._PARAMS[what].values()):
-            text_build += f'\t{key:{self._LENGTH}} - ' \
+            text_build += f'\t{key:{self._LENGTH}}- ' \
                               f'{str(value).rjust(self._LENGTH)}\n'
         return text_build
 
