@@ -18,6 +18,12 @@ class ModelBuilder:
         self._params_compile = {'optimizer': '',
                                'loss': '',
                                }
+        self._PARAMS = {'build': self._params_build,
+                        'compile': self._params_compile,
+                        }
+        length_max_build = max([len(f) for f in self._params_build.keys()])
+        length_max_compile = max([len(f) for f in self._params_compile.keys()])
+        self._LENGTH = max([length_max_build, length_max_compile])
         self.model = []
 
     def build_model(self, model_type, input_shape, noof_classes, weights=None):
@@ -26,13 +32,13 @@ class ModelBuilder:
 
     def compile_model(self, optimizer, loss, **kwargs):
         self._params_compile = self._update_params(self._params_compile, optimizer=optimizer, loss=loss)
-        if 'metrics' in list(kwargs.keys()):
+        if 'metrics' in kwargs.keys():
             self._params_compile.update({'metrics': kwargs['metrics']})
             self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
             return
         self.model.compile(optimizer=optimizer, loss=loss)
 
-    def save_model_info(self, filename, extension='', filepath=''):
+    def save_model_info(self, filename, extension='', filepath='', summary=False):
         filename_expanded = self._expand_filename(filename, filepath)
         format_used = extension
         if len(format_used) < 1:
@@ -40,11 +46,20 @@ class ModelBuilder:
         if '.' not in format_used:
             format_used = '.' + format_used
         with open(join(filepath, filename_expanded + format_used), 'w') as fil:
-            fil.write(str(self._params_build) + '\n')
-            fil.write(str(self._params_compile) + '\n')
-            with redirect_stdout(fil):
-                self.model.summary()
+            for action in ['build', 'compile']:
+                fil.write(self._prepare_text(action))
+            if summary:
+                with redirect_stdout(fil):
+                    self.model.summary()
         return filename_expanded
+
+    # method for text cleanup
+    def _prepare_text(self, what='build'):
+        text_build = f'{what.capitalize()} parameters\n'
+        for key, value in zip(self._PARAMS[what].keys(), self._PARAMS[what].values()):
+            text_build += f'\t{key:{self._LENGTH}} - ' \
+                              f'{str(value).rjust(self._LENGTH)}\n'
+        return text_build
 
     @staticmethod
     def _expand_filename(filename, filepath=''):
@@ -60,7 +75,7 @@ class ModelBuilder:
     # a method to change the values of parameter holders
     @staticmethod
     def _update_params(parameters, **kwargs):
-        for key in list(parameters.keys()):
+        for key in parameters.keys():
             parameters[key] = kwargs[key]
         return parameters
 
@@ -108,5 +123,5 @@ class CNNBuilder(ModelBuilder):
 
 if __name__ == '__main__':
     builder = CNNBuilder()
-    builder.compile_model('adam' , 'accuracy')
+    builder.compile_model('adam' , 'mse')
     builder.save_model_info('test', '.txt', '../test')
