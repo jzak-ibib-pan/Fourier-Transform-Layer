@@ -18,25 +18,26 @@ class FTL(Layer):
         use_imaginary = True
         if 'use_imaginary' in kwargs.keys():
             use_imaginary = kwargs['use_imaginary']
-        assert not (inverse is True and phase_training is True), 'You cannot phase train and inverse at the same time.'
+        assert not (inverse is True and phase_training is True), 'Cannot phase train and inverse at the same time.'
         assert not (inverse is True and use_imaginary is False), 'Cannot inverse FFT without imaginary part.'
+        assert not (phase_training is True and use_imaginary is False), 'Cannot phase train without imaginary part.'
         self.kernel = None
         self.kernel_imag = None
-        self._activ = None
+        self._activationation = None
         if activation == 'relu':
-            self._activ = relu
+            self._activation = relu
         elif activation == 'softmax':
-            self._activ = softmax
+            self._activation = softmax
         elif activation == 'sigmoid':
-            self._activ = sigmoid
+            self._activation = sigmoid
         elif activation == 'tanh':
-            self._activ = tanh
+            self._activation = tanh
         elif activation == 'selu':
-            self._activ = selu
+            self._activation = selu
         self._initializer = initializer
-        self._phase_training = phase_training
-        self._inverse = inverse
-        self._use_imaginary = use_imaginary
+        self._flag_phase_training = phase_training
+        self._flag_inverse = inverse
+        self._flag_use_imaginary = use_imaginary
         super(FTL, self).__init__(**kwargs)
 
     def build(self, input_shape):
@@ -44,7 +45,7 @@ class FTL(Layer):
                                       shape=tuple(input_shape[1:]),
                                       initializer=self.initializer,
                                       trainable=True)
-        if self._use_imaginary:
+        if self._flag_use_imaginary:
             self.kernel_imag = self.add_weight(name='kernel_imag',
                                                shape=tuple(input_shape[1:]),
                                                initializer=self.initializer,
@@ -57,33 +58,39 @@ class FTL(Layer):
         # ifft for 2-tuple input
         if type(input_tensor) is tuple:
             x = tf.dtypes.complex(input_tensor[0] * self.kernel, input_tensor[1] * self.kernel_imag)
-            if self.inverse:
+            if self._flag_inverse:
                 x = tf.signal.ifft3d(tf.cast(x, tf.complex64))
             x = tf.math.abs(x)
-            if self.activ is not None:
-                return self.activ(x)
+            if self._activation is not None:
+                return self._activation(x)
             return x
 
         x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
         real = tf.math.real(x)
-        # TODO: stronger connection between arguments 'inverse' and 'use_imaginary'
-        imag = tf.math.imag(x)
-
         real = tf.multiply(real, self.kernel)
-        if self._use_imaginary:
-            imag = tf.multiply(imag, self.kernel_imag)
+
+        if not self._flag_use_imaginary:
+            if self._activation is not None:
+                return self._activation(real)
+            return real
+
+        imag = tf.math.imag(x)
+        imag = tf.multiply(imag, self.kernel_imag)
+
+        if self._flag_phase_training:
+            if self._activation is not None:
+                return self._activation(real), self._activation(imag)
+            return real, imag
 
         x = tf.cast(tf.dtypes.complex(real, imag), tf.complex64)
-        if self._phase_training:
-            if self._activ is not None:
-                return self._activ(tf.math.real(x)), tf.math.imag(x)
-            return tf.math.real(x), tf.math.imag(x)
-        if self._inverse:
+        if self._flag_inverse:
             x = tf.signal.ifft3d(x)
         x = tf.math.abs(x)
-        if self._activ is not None:
-            return self.activ(x)
+        if self._activation is not None:
+            return self._activation(x)
         return x
+
+
 
     def compute_output_shape(self, input_shape):
         if self.phase_training:
