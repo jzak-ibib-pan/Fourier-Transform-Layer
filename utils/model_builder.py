@@ -38,7 +38,7 @@ class ModelBuilder:
             return
         self.model.compile(optimizer=optimizer, loss=loss)
 
-    def save_model_info(self, filename, extension='', filepath='', summary=False):
+    def save_model_info(self, filename, notes='', filepath='', summary=False, extension=''):
         filename_expanded = self._expand_filename(filename, filepath)
         format_used = extension
         if len(format_used) < 1:
@@ -48,6 +48,7 @@ class ModelBuilder:
         with open(join(filepath, filename_expanded + format_used), 'w') as fil:
             for action in ['build', 'compile']:
                 fil.write(self._prepare_text(action))
+            fil.write(notes)
             if summary:
                 with redirect_stdout(fil):
                     self.model.summary()
