@@ -65,10 +65,10 @@ class ModelBuilder:
                 fil.write(self._prepare_text(action))
             fil.write(notes + '\n')
             if summary:
-                fil.write('Weights:')
+                fil.write('Weights summary:\n')
+                for weight in self.model.get_weights():
+                    fil.write(f'\t{weight.shape}\n')
                 with redirect_stdout(fil):
-                    for weight in self.model.get_weights():
-                        print(weight.shape)
                     self.model.summary()
         return filename_expanded
 
@@ -76,7 +76,7 @@ class ModelBuilder:
     def _prepare_text(self, what='build'):
         text_build = f'{what.capitalize()} parameters\n'
         for key, value in zip(self._PARAMS[what].keys(), self._PARAMS[what].values()):
-            text_build += f'\t{key:{self._LENGTH}}- ' \
+            text_build += f'\t{key:{self._LENGTH}} - ' \
                               f'{str(value).rjust(self._LENGTH)}\n'
         return text_build
 
