@@ -65,10 +65,11 @@ class ModelBuilder:
                 fil.write(self._prepare_text(action))
             fil.write(notes + '\n')
             if summary:
+                fil.write('Weights:')
                 with redirect_stdout(fil):
-                    self.model.summary()
                     for weight in self.model.get_weights():
                         print(weight.shape)
+                    self.model.summary()
         return filename_expanded
 
     # method for text cleanup
@@ -165,9 +166,13 @@ class FourierBuilder(ModelBuilder):
         ftl_initializer = 'ones'
         if 'ftl_initializer' in kwargs.keys():
             ftl_initializer = kwargs['ftl_initializer']
+        use_imag = True
+        if 'use_imag' in kwargs.keys():
+            use_imag = kwargs['use_imag']
         model_type_low = model_type.lower()
         inp = Input(input_shape)
-        arch = FTL(activation=ftl_activation, inverse='inverse' in model_type_low, initializer=ftl_initializer)(inp)
+        arch = FTL(activation=ftl_activation, initializer=ftl_initializer, inverse='inverse' in model_type_low,
+                   use_imaginary=use_imag)(inp)
         flat = Flatten()(arch)
         if noof_classes == 1:
             act = 'sigmoid'
@@ -178,7 +183,7 @@ class FourierBuilder(ModelBuilder):
 
 
 if __name__ == '__main__':
-    builder = FourierBuilder('fourier_inverse', ftl_activation='relu')
+    builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=False)
     builder.compile_model('adam' , 'mse')
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
     builder = CNNBuilder('mobilenet')

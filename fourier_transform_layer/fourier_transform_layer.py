@@ -4,7 +4,7 @@ from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 
 
 class FTL(Layer):
-    def __init__(self, activation = None, initializer = 'he_normal', **kwargs):
+    def __init__(self, activation=None, initializer='he_normal', **kwargs):
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
         # whether to inverse the FFT or not
@@ -23,7 +23,7 @@ class FTL(Layer):
         assert not (phase_training is True and use_imaginary is False), 'Cannot phase train without imaginary part.'
         self.kernel = None
         self.kernel_imag = None
-        self._activationation = None
+        self._activation = None
         if activation == 'relu':
             self._activation = relu
         elif activation == 'softmax':
@@ -38,17 +38,17 @@ class FTL(Layer):
         self._flag_phase_training = phase_training
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
-        super(FTL, self).__init__(**kwargs)
+        super(FTL, self).__init__()
 
     def build(self, input_shape):
         self.kernel = self.add_weight(name='kernel',
                                       shape=tuple(input_shape[1:]),
-                                      initializer=self.initializer,
+                                      initializer=self._initializer,
                                       trainable=True)
         if self._flag_use_imaginary:
             self.kernel_imag = self.add_weight(name='kernel_imag',
                                                shape=tuple(input_shape[1:]),
-                                               initializer=self.initializer,
+                                               initializer=self._initializer,
                                                trainable=True)
         # Be sure to call this at the end
         super(FTL, self).build(input_shape)
@@ -89,8 +89,6 @@ class FTL(Layer):
         if self._activation is not None:
             return self._activation(x)
         return x
-
-
 
     def compute_output_shape(self, input_shape):
         if self.phase_training:
