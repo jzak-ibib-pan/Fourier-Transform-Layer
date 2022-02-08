@@ -148,4 +148,5 @@ class FourierBuilder(ModelBuilder):
 if __name__ == '__main__':
     builder = FourierBuilder('fourier_inverse')
     builder.compile_model('adam' , 'mse')
-    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
+    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt',
+                            summary=True)
