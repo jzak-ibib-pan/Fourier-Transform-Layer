@@ -23,12 +23,15 @@ class ModelBuilder:
         self._PARAMS = {'build': self._params_build,
                         'compile': self._params_compile,
                         }
-        length_max_build = max([len(f) for f in self._params_build.keys()])
-        length_max_compile = max([len(f) for f in self._params_compile.keys()])
-        self._LENGTH = max([length_max_build, length_max_compile])
+        self._LENGTH = 0
+        self._update_length(self._calculate_lengths(self._params_build))
+        self._update_length(self._calculate_lengths(self._params_compile))
         self.model = []
 
-    def build_model(self, model_type, input_shape, noof_classes, weights=None):
+    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
+        weights = None
+        if 'weights' in kwargs.keys():
+            weights = kwargs['weights']
         self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
                                                  noof_classes=noof_classes, weights=weights)
 
@@ -65,6 +68,9 @@ class ModelBuilder:
                               f'{str(value).rjust(self._LENGTH)}\n'
         return text_build
 
+    def _update_length(self, new_candidate):
+        self._LENGTH = max([self._LENGTH, new_candidate])
+
     @staticmethod
     def _expand_filename(filename, filepath=''):
         # List OF
@@ -79,19 +85,29 @@ class ModelBuilder:
     # a method to change the values of parameter holders
     @staticmethod
     def _update_params(parameters, **kwargs):
-        for key in parameters.keys():
-            parameters[key] = kwargs[key]
+        for key in kwargs.keys():
+            if key in parameters.keys():
+                parameters[key] = kwargs[key]
+            else:
+                parameters.update({key: kwargs[key]})
         return parameters
+
+    @staticmethod
+    def _calculate_lengths(params):
+        return max([len(f) for f in params.keys()])
 
 
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
-    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 1), noof_classes=1):
+    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
         super(CNNBuilder, self).__init__()
-        self.model = self.build_model(model_type, input_shape, noof_classes)
+        self.model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
 
-    def build_model(self, model_type, input_shape, noof_classes, weights=None):
-        super(CNNBuilder, self).build_model(model_type, input_shape, noof_classes, weights)
+    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
+        super(CNNBuilder, self).build_model(model_type, input_shape, noof_classes, **kwargs)
+        weights = None
+        if 'weights' in kwargs.keys():
+            weights = kwargs['weights']
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
@@ -127,15 +143,25 @@ class CNNBuilder(ModelBuilder):
 
 # Fourier Model for classification
 class FourierBuilder(ModelBuilder):
-    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1):
+    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
         super(FourierBuilder, self).__init__()
-        self.model = self.build_model(model_type, input_shape, noof_classes)
+        self.model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
 
-    def build_model(self, model_type, input_shape, noof_classes, weights=None):
-        super(FourierBuilder, self).build_model(model_type, input_shape, noof_classes, weights)
+    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
+        super(FourierBuilder, self).build_model(model_type, input_shape, noof_classes, **kwargs)
+        ftl_activation = 'relu'
+        ftl_initializer = 'ones'
+        if any(['ftl' in f for f in kwargs.keys()]):
+            if 'ftl_activation' in kwargs.keys():
+                ftl_activation = kwargs['ftl_activation']
+            if 'ftl_initializer' in kwargs.keys():
+                ftl_initializer = kwargs['ftl_initializer']
+        self._params_build = self._update_params(self._params_build,
+                                                 ftl_activation=ftl_activation, ftl_initializer=ftl_initializer)
+        self._update_length(self._calculate_lengths(self._params_build))
         model_type_low = model_type.lower()
         inp = Input(input_shape)
-        arch = FTL(activation='relu', inverse='inverse' in model_type_low, initializer='ones')(inp)
+        arch = FTL(activation=ftl_activation, inverse='inverse' in model_type_low, initializer=ftl_initializer)(inp)
         flat = Flatten()(arch)
         if noof_classes == 1:
             act = 'sigmoid'
