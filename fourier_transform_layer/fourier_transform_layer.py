@@ -74,5 +74,6 @@ class FTL(Layer):
             return input_shape, input_shape
         return input_shape
 
+
 if __name__ == '__main__':
     print(0)

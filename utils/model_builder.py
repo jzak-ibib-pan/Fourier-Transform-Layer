@@ -26,6 +26,9 @@ class ModelBuilder:
         self._LENGTH = 0
         self._update_length(self._calculate_lengths(self._params_build))
         self._update_length(self._calculate_lengths(self._params_compile))
+        self._SUMMARIES = {'fourier': True,
+                           'default': False,
+                           }
         self.model = []
 
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
@@ -42,8 +45,14 @@ class ModelBuilder:
             return
         self.model.compile(optimizer=optimizer, loss=loss)
 
-    def save_model_info(self, filename, notes='', filepath='', summary=False, extension=''):
+    def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
+        if 'fourier' in self._params_build['model_type']:
+            summary = self._SUMMARIES['fourier']
+        else:
+            summary = self._SUMMARIES['default']
+        if 'summary' in kwargs.keys():
+            summary = kwargs['summary']
         filename_expanded = self._expand_filename(filename, filepath)
         format_used = extension
         if len(format_used) < 1:
@@ -57,6 +66,8 @@ class ModelBuilder:
             if summary:
                 with redirect_stdout(fil):
                     self.model.summary()
+                    for weight in self.model.get_weights():
+                        print(weight.shape)
         return filename_expanded
 
     # method for text cleanup
@@ -168,9 +179,7 @@ class FourierBuilder(ModelBuilder):
 if __name__ == '__main__':
     builder = FourierBuilder('fourier_inverse', ftl_activation='relu')
     builder.compile_model('adam' , 'mse')
-    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt',
-                            summary=True)
+    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
     builder = CNNBuilder('mobilenet')
     builder.compile_model('adam' , 'mse')
-    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt',
-                            summary=True)
+    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
