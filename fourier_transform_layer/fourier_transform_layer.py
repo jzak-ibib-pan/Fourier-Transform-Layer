@@ -38,7 +38,7 @@ class FTL(Layer):
         # Be sure to call this at the end
         super(FTL, self).build(input_shape)
 
-    def call(self, input_tensor):
+    def call(self, input_tensor, **kwargs):
         # ifft for 2-tuple input
         if type(input_tensor) is tuple:
             x = tf.dtypes.complex(input_tensor[0] * self.kernel, input_tensor[1] * self.kernel_imag)
