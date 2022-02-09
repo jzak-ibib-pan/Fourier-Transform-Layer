@@ -12,6 +12,7 @@ from fourier_transform_layer.fourier_transform_layer import FTL
 
 # Generic builder
 class ModelBuilder:
+    # TODO: private method for kwarg determination
     def __init__(self, **kwargs):
         self._params_build = {'model_type': '',
                              'input_shape': (8, 8, 1),
@@ -167,22 +168,27 @@ class FourierBuilder(ModelBuilder):
         ftl_activation = 'relu'
         if 'ftl_activation' in kwargs.keys():
             ftl_activation = kwargs['ftl_activation']
-        ftl_initializer = 'ones'
+        ftl_initializer = 'he_normal'
         if 'ftl_initializer' in kwargs.keys():
             ftl_initializer = kwargs['ftl_initializer']
         use_imag = True
         if 'use_imag' in kwargs.keys():
             use_imag = kwargs['use_imag']
+        head_initializer = 'he_normal'
+        if 'head_initializer' in kwargs.keys():
+            head_initializer = kwargs['head_initializer']
+        if noof_classes == 1:
+            head_activation = 'sigmoid'
+        else:
+            head_activation = 'softmax'
+        if 'head_activation' in kwargs.keys():
+            head_activation = kwargs['head_activation']
         model_type_low = model_type.lower()
         inp = Input(input_shape)
         arch = FTL(activation=ftl_activation, initializer=ftl_initializer, inverse='inverse' in model_type_low,
                    use_imaginary=use_imag)(inp)
         flat = Flatten()(arch)
-        if noof_classes == 1:
-            act = 'sigmoid'
-        else:
-            act = 'softmax'
-        out = Dense(noof_classes, activation=act, kernel_initializer='ones')(flat)
+        out = Dense(noof_classes, activation=head_activation, kernel_initializer=head_initializer)(flat)
         return Model(inp, out)
 
     def sample_model(self, **kwargs):
