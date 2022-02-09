@@ -194,9 +194,9 @@ class FourierBuilder(ModelBuilder):
                                         sign=self._DIRECTIONS[kwargs['direction']])
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
-        weights = self.model.get_weights()[:2]
+        weights = squeeze(self.model.get_weights()[:2])
         if 'weights' in kwargs.keys():
-            weights = kwargs['weights']
+            weights = squeeze(kwargs['weights'])
         replace_value = 1e-5
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
@@ -235,7 +235,7 @@ class FourierBuilder(ModelBuilder):
 
 
 if __name__ == '__main__':
-    builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=False)
+    builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=True)
     builder.compile_model('adam' , 'mse')
     builder.sample_model(shape=(64, 64))
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
