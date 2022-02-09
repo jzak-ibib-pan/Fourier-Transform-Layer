@@ -203,6 +203,7 @@ class FourierBuilder(ModelBuilder):
     def sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
         shape = self._params_build['input_shape']
+        shape_new = self._params_build['input_shape']
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], parameter=kwargs['nominator'],
                                         sign=self._DIRECTIONS[kwargs['direction']])
