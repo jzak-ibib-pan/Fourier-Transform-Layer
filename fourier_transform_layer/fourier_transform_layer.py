@@ -50,8 +50,6 @@ class FTL(Layer):
                                                shape=tuple(input_shape[1:]),
                                                initializer=self._initializer,
                                                trainable=True)
-        # Be sure to call this at the end
-        # super(FTL, self).build(input_shape)
 
     @tf.autograph.experimental.do_not_convert
     def call(self, input_tensor, **kwargs):
