@@ -5,6 +5,7 @@ from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 
 class FTL(Layer):
     def __init__(self, activation=None, initializer='he_normal', **kwargs):
+        super(FTL, self).__init__()
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
         # whether to inverse the FFT or not
@@ -38,7 +39,6 @@ class FTL(Layer):
         self._flag_phase_training = phase_training
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
-        super(FTL, self).__init__()
 
     def build(self, input_shape):
         self.kernel = self.add_weight(name='kernel',
@@ -51,7 +51,7 @@ class FTL(Layer):
                                                initializer=self._initializer,
                                                trainable=True)
         # Be sure to call this at the end
-        super(FTL, self).build(input_shape)
+        # super(FTL, self).build(input_shape)
 
     @tf.autograph.experimental.do_not_convert
     def call(self, input_tensor, **kwargs):
@@ -97,4 +97,5 @@ class FTL(Layer):
 
 
 if __name__ == '__main__':
-    print(0)
+    FTL(name='test_layer')
+    print(FTL.name)
