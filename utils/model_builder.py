@@ -200,8 +200,7 @@ class FourierBuilder(ModelBuilder):
         return Model(inp, out)
 
     def sample_model(self, **kwargs):
-        # TODO: finding FTL in the model
-        # right now assume that FTL is the first layer and imaginary is used
+        # SOLVED: finding FTL in the model
         shape = self._params_build['input_shape']
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], parameter=kwargs['nominator'],
@@ -220,10 +219,10 @@ class FourierBuilder(ModelBuilder):
             ftl_index += 1
         # inpu does not have any weights
         ftl_index -= 1
-        weights_used = self.model.get_weights()
+        weights = self.model.get_weights()
         if 'weights' in kwargs.keys():
-            weights_used = squeeze(kwargs['weights'])
-        weights_used = squeeze(weights_used[ftl_index : ftl_index + noof_weights])
+            weights = squeeze(kwargs['weights'])
+        weights_ftl = squeeze(weights[ftl_index : ftl_index + noof_weights])
         replace_value = 1e-5
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
@@ -231,13 +230,13 @@ class FourierBuilder(ModelBuilder):
         for rep in range(noof_weights):
             # działa wyciąganie nawet fragmentu fft
             if shape_new[0] < shape[0]:
-                weights_replace[rep] = expand_dims(weights_used[rep, :shape_new[0], :shape_new[1]], axis=-1)
+                weights_replace[rep] = expand_dims(weights_ftl[rep, :shape_new[0], :shape_new[1]], axis=-1)
             else:
                 pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
-                weights_replace[rep] = expand_dims(pad(weights_used[rep, :, :], pad_width=pads, mode='constant',
+                weights_replace[rep] = expand_dims(pad(weights_ftl[rep, :, :], pad_width=pads, mode='constant',
                                                        constant_values=replace_value),
                                                    axis=-1)
-        head = self.model.get_weights()[-2:]
+        head = weights[-2:]
         size_new = shape_new[0] * shape_new[1]
         if shape_new[0] < shape[0]:
             head[0] = head[0][:size_new, :]
