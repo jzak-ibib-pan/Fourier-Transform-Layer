@@ -258,8 +258,11 @@ if __name__ == '__main__':
     builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=True)
     # builder.compile_model('adam' , 'mse')
     builder_sampled = builder.sample_model(shape=(64, 64))
-    for layer in builder_sampled.model.layers:
+    # this can screw with me - FTL has two
+    for layer in builder.model.layers:
         print(layer.name)
+    for weight in builder.model.get_weights():
+        print(weight.shape)
     builder_sampled.save_model_info(filename='test', notes='Testing sampling method', filepath='../test', extension='.txt')
     builder = CNNBuilder(weights=None)
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')

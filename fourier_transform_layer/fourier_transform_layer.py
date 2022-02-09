@@ -32,15 +32,17 @@ class FTL(Layer):
         self._flag_use_imaginary = use_imaginary
 
     def build(self, input_shape):
-        self.kernel = self.add_weight(name='kernel',
-                                      shape=tuple(input_shape[1:]),
-                                      initializer=self._initializer,
-                                      trainable=True)
         if self._flag_use_imaginary:
-            self.kernel_imag = self.add_weight(name='kernel_imag',
-                                               shape=tuple(input_shape[1:]),
-                                               initializer=self._initializer,
-                                               trainable=True)
+            self.kernel = self.add_weight(name='kernel',
+                                          shape=tuple((2, *input_shape[1:])),
+                                          initializer=self._initializer,
+                                          trainable=True)
+        else:
+            self.kernel = self.add_weight(name='kernel',
+                                          shape=tuple((1, *input_shape[1:])),
+                                          initializer=self._initializer,
+                                          trainable=True)
+
 
     @tf.autograph.experimental.do_not_convert
     def call(self, input_tensor, **kwargs):
@@ -56,7 +58,7 @@ class FTL(Layer):
 
         x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
         real = tf.math.real(x)
-        real = tf.multiply(real, self.kernel)
+        real = tf.multiply(real, self.kernel[0])
 
         if not self._flag_use_imaginary:
             if self._activation is not None:
@@ -64,7 +66,7 @@ class FTL(Layer):
             return real
 
         imag = tf.math.imag(x)
-        imag = tf.multiply(imag, self.kernel_imag)
+        imag = tf.multiply(imag, self.kernel[1])
 
         if self._flag_phase_training:
             if self._activation is not None:
