@@ -68,8 +68,9 @@ class ModelBuilder:
             fil.write(notes + '\n')
             if summary:
                 fil.write('Weights summary:\n')
-                for weight in self.model.get_weights():
-                    fil.write(f'\t{weight.shape}\n')
+                # layers[1:] - Input has no weights
+                for layer_got, weight_got in zip(self.model.layers[1:], self.model.get_weights()):
+                    fil.write(f'\t{layer_got.name:{self._LENGTH}} - {str(weight_got.shape).rjust(self._LENGTH)}\n')
                 with redirect_stdout(fil):
                     self.model.summary()
         return filename_expanded
@@ -255,11 +256,6 @@ if __name__ == '__main__':
     builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=True)
     # builder.compile_model('adam' , 'mse')
     builder_sampled = builder.sample_model(shape=(64, 64))
-    # this can screw with me - FTL has two
-    for layer in builder.model.layers:
-        print(layer.name)
-    for weight in builder.model.get_weights():
-        print(weight.shape)
     builder_sampled.save_model_info(filename='test', notes='Testing sampling method', filepath='../test', extension='.txt')
     builder = CNNBuilder(weights=None)
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
