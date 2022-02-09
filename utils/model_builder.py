@@ -219,8 +219,8 @@ class FourierBuilder(ModelBuilder):
         ftl_index -= 1
         weights = self.model.get_weights()
         if 'weights' in kwargs.keys():
-            weights = squeeze(kwargs['weights'])
-        weights_ftl = squeeze(weights[ftl_index])
+            weights = kwargs['weights']
+        weights_ftl = expand_dims(squeeze(weights[ftl_index]), axis=0)
         noof_weights = weights_ftl.shape[0]
         replace_value = 1e-5
         if 'replace_value' in kwargs.keys():
@@ -254,7 +254,7 @@ class FourierBuilder(ModelBuilder):
 
 
 if __name__ == '__main__':
-    builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=True)
+    builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=False)
     # builder.compile_model('adam' , 'mse')
     builder_sampled = builder.sample_model(shape=(64, 64))
     builder_sampled.save_model_info(filename='test', notes='Testing sampling method', filepath='../test', extension='.txt')
