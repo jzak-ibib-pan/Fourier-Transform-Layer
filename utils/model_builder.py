@@ -5,6 +5,7 @@ from datetime import datetime as dt
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input
 import tensorflow.keras.applications as apps
+from numpy import squeeze, ones, expand_dims, pad
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL
 
@@ -13,8 +14,8 @@ from fourier_transform_layer.fourier_transform_layer import FTL
 class ModelBuilder:
     def __init__(self, **kwargs):
         self._params_build = {'model_type': '',
-                             'input_shape': '',
-                             'noof_classes': '',
+                             'input_shape': (8, 8, 1),
+                             'noof_classes': 1,
                              # 'weights': '',
                              }
         self._params_compile = {'optimizer': '',
@@ -157,6 +158,9 @@ class FourierBuilder(ModelBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
         super(FourierBuilder, self).__init__()
         self.model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
+        self._DIRECTIONS = {'up': '*',
+                            'down': '//',
+                            }
 
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
         super(FourierBuilder, self).build_model(model_type, input_shape, noof_classes, **kwargs)
@@ -181,14 +185,57 @@ class FourierBuilder(ModelBuilder):
         out = Dense(noof_classes, activation=act, kernel_initializer='ones')(flat)
         return Model(inp, out)
 
-    def sample(self, direction, weigths=None):
-        return self.model
+    def sample_model(self, **kwargs):
+        # TODO: finding FTL in the model
+        # right now assume that FTL is the first layer and imaginary is used
+        shape = self._params_build['input_shape'][:2]
+        if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
+            shape_new = self._operation(shape, parameter=kwargs['nominator'],
+                                        sign=self._DIRECTIONS[kwargs['direction']])
+        if 'shape' in kwargs.keys():
+            shape_new = kwargs['shape']
+        weights = self.model.get_weights()[:2]
+        if 'weights' in kwargs.keys():
+            weights = kwargs['weights']
+        replace_value = 1e-5
+        if 'replace_value' in kwargs.keys():
+            replace_value = kwargs['replace_value']
+        # bo real i imag
+        replace_weights = ones((2, shape_new[0], shape_new[1], 1)) * replace_value
+        for rep in range(2):
+            # działa wyciąganie nawet fragmentu fft
+            if shape_new[0] < shape[0]:
+                replace_weights[rep] = expand_dims(weights[rep, :shape_new[0], :shape_new[1]], axis=-1)
+            else:
+                pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
+                replace_weights[rep] = expand_dims(pad(weights[rep, :, :], pad_width=pads, mode='constant',
+                                                       constant_values=replace_value),
+                                                   axis=-1)
+        params_sampled = self._params_build
+        params_sampled['input_shape'] = (*shape_new, shape[2])
+        model_sampled = self.build_model(**self._params_build)
+        head = self.model.get_weights()[2:]
+        size_new = shape_new[0] * shape_new[1]
+        if shape_new[0] < shape[0]:
+            head[0] = head[0][:size_new, :]
+        else:
+            pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
+            head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
+        new_weights = [*replace_weights, *head]
+        model_sampled.set_weights(new_weights)
+        return model_sampled
+
+    @staticmethod
+    def _operation(value, parameter=2, sign='div'):
+        assert sign in ['divide', 'div', '//', 'multiply', 'mult', '*']
+        if sign in ['divide', 'div', '//']:
+            return value[:2] // parameter
+        elif sign in ['multiply', 'mult', '*']:
+            return value[:2] * parameter
 
 
 if __name__ == '__main__':
     builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=False)
     builder.compile_model('adam' , 'mse')
-    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
-    builder = CNNBuilder('mobilenet')
-    builder.compile_model('adam' , 'mse')
+    builder.sample_model(shape=(64, 64))
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
