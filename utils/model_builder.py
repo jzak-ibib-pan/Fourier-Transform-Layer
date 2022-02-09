@@ -78,6 +78,9 @@ class ModelBuilder:
     def _prepare_text(self, what='build'):
         text_build = f'{what.capitalize()} parameters\n'
         for key, value in zip(self._PARAMS[what].keys(), self._PARAMS[what].values()):
+            if key == 'weights' and value is not None:
+                text_build += f'\t{key:{self._LENGTH}} - \n'
+                continue
             text_build += f'\t{key:{self._LENGTH}} - ' \
                               f'{str(value).rjust(self._LENGTH)}\n'
         return text_build
@@ -108,8 +111,9 @@ class ModelBuilder:
 
     @staticmethod
     def _calculate_lengths(params):
-        length_keys = max([len(str(f)) for f in params.keys()])
-        length_vals = max([len(str(f)) for f in params.values()])
+        # protection from weights impact on length of text
+        length_keys = max([len(str(f)) for f in params.keys() if len(str(f)) < 100])
+        length_vals = max([len(str(f)) for f in params.values() if len(str(f)) < 100])
         return max([length_keys, length_vals])
 
 
@@ -245,6 +249,8 @@ class FourierBuilder(ModelBuilder):
 
 if __name__ == '__main__':
     builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=True)
-    builder.compile_model('adam' , 'mse')
+    # builder.compile_model('adam' , 'mse')
     builder_sampled = builder.sample_model(shape=(64, 64))
-    builder_sampled.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
+    builder_sampled.save_model_info(filename='test', notes='Testing sampling method', filepath='../test', extension='.txt')
+    builder = CNNBuilder(weights=None)
+    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
