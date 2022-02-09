@@ -189,6 +189,10 @@ class FourierBuilder(ModelBuilder):
                    use_imaginary=use_imag)(inp)
         flat = Flatten()(arch)
         out = Dense(noof_classes, activation=head_activation, kernel_initializer=head_initializer)(flat)
+        if 'weights' in kwargs.keys():
+            model = Model(inp, out)
+            model.set_weights(kwargs['weights'])
+            return model
         return Model(inp, out)
 
     def sample_model(self, **kwargs):
@@ -217,9 +221,7 @@ class FourierBuilder(ModelBuilder):
                 replace_weights[rep] = expand_dims(pad(weights[rep, :, :], pad_width=pads, mode='constant',
                                                        constant_values=replace_value),
                                                    axis=-1)
-        params_sampled = self._params_build
-        params_sampled['input_shape'] = (*shape_new, shape[2])
-        model_sampled = self.build_model(**self._params_build)
+        # model_sampled = self.build_model(**self._params_build)
         head = self.model.get_weights()[2:]
         size_new = shape_new[0] * shape_new[1]
         if shape_new[0] < shape[0]:
@@ -227,9 +229,10 @@ class FourierBuilder(ModelBuilder):
         else:
             pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
             head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
+        params_sampled = self._params_build
+        params_sampled['input_shape'] = (*shape_new, shape[2])
         new_weights = [*replace_weights, *head]
-        model_sampled.set_weights(new_weights)
-        return model_sampled
+        return FourierBuilder(**params_sampled, weights=new_weights)
 
     @staticmethod
     def _operation(value, parameter=2, sign='div'):
@@ -243,5 +246,5 @@ class FourierBuilder(ModelBuilder):
 if __name__ == '__main__':
     builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=True)
     builder.compile_model('adam' , 'mse')
-    builder.sample_model(shape=(64, 64))
-    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
+    builder_sampled = builder.sample_model(shape=(64, 64))
+    builder_sampled.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
