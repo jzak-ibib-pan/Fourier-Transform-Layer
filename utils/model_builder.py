@@ -208,35 +208,43 @@ class FourierBuilder(ModelBuilder):
                                         sign=self._DIRECTIONS[kwargs['direction']])
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
-        weights = squeeze(self.model.get_weights()[:2])
+        params_sampled = self._params_build
+        params_sampled['input_shape'] = (*shape_new, shape[2])
+        # because real and imag
+        noof_weights = 2
+        if 'use_imaginary' in params_sampled.keys() and not params_sampled['use_imaginary']:
+            noof_weights = 1
+        # find the ftl layer
+        ftl_index = 0
+        while 'ftl' not in self.model.layers[ftl_index].name:
+            ftl_index += 1
+        # inpu does not have any weights
+        ftl_index -= 1
+        weights_used = self.model.get_weights()
         if 'weights' in kwargs.keys():
-            weights = squeeze(kwargs['weights'])
+            weights_used = squeeze(kwargs['weights'])
+        weights_used = squeeze(weights_used[ftl_index : ftl_index + noof_weights])
         replace_value = 1e-5
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
-        # bo real i imag
-        replace_weights = ones((2, shape_new[0], shape_new[1], 1)) * replace_value
-        for rep in range(2):
+        weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
+        for rep in range(noof_weights):
             # działa wyciąganie nawet fragmentu fft
             if shape_new[0] < shape[0]:
-                replace_weights[rep] = expand_dims(weights[rep, :shape_new[0], :shape_new[1]], axis=-1)
+                weights_replace[rep] = expand_dims(weights_used[rep, :shape_new[0], :shape_new[1]], axis=-1)
             else:
                 pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
-                replace_weights[rep] = expand_dims(pad(weights[rep, :, :], pad_width=pads, mode='constant',
+                weights_replace[rep] = expand_dims(pad(weights_used[rep, :, :], pad_width=pads, mode='constant',
                                                        constant_values=replace_value),
                                                    axis=-1)
-        # model_sampled = self.build_model(**self._params_build)
-        head = self.model.get_weights()[2:]
+        head = self.model.get_weights()[-2:]
         size_new = shape_new[0] * shape_new[1]
         if shape_new[0] < shape[0]:
             head[0] = head[0][:size_new, :]
         else:
             pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
             head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
-        params_sampled = self._params_build
-        params_sampled['input_shape'] = (*shape_new, shape[2])
-        new_weights = [*replace_weights, *head]
-        return FourierBuilder(**params_sampled, weights=new_weights)
+        return FourierBuilder(**params_sampled, weights=[*weights_replace, *head])
 
     @staticmethod
     def _operation(value, parameter=2, sign='div'):
@@ -251,6 +259,8 @@ if __name__ == '__main__':
     builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=True)
     # builder.compile_model('adam' , 'mse')
     builder_sampled = builder.sample_model(shape=(64, 64))
+    for layer in builder_sampled.model.layers:
+        print(layer.name)
     builder_sampled.save_model_info(filename='test', notes='Testing sampling method', filepath='../test', extension='.txt')
     builder = CNNBuilder(weights=None)
     builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')

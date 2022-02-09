@@ -3,6 +3,7 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 
 
+# TODO: get_config implementation
 class FTL(Layer):
     def __init__(self, activation=None, initializer='he_normal', inverse=False, phase_training=False,
                  use_imaginary=True, **kwargs):
@@ -87,3 +88,4 @@ class FTL(Layer):
 if __name__ == '__main__':
     ftl = FTL(name='test_ftl')
     print(ftl.name)
+    print(ftl.get_config())
