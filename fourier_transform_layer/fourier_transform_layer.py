@@ -4,21 +4,11 @@ from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 
 
 class FTL(Layer):
-    def __init__(self, activation=None, initializer='he_normal', **kwargs):
-        super(FTL, self).__init__()
+    def __init__(self, activation=None, initializer='he_normal', inverse=False, phase_training=False,
+                 use_imaginary=True, **kwargs):
+        super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
-        # whether to inverse the FFT or not
-        inverse = False
-        if 'inverse' in kwargs.keys():
-            inverse = kwargs['inverse']
-        # whether to train next layers (i.e. Convolutional) on returned phase
-        phase_training = False
-        if 'phase_training' in kwargs.keys():
-            phase_training = kwargs['phase_training']
-        use_imaginary = True
-        if 'use_imaginary' in kwargs.keys():
-            use_imaginary = kwargs['use_imaginary']
         assert not (inverse is True and phase_training is True), 'Cannot phase train and inverse at the same time.'
         assert not (inverse is True and use_imaginary is False), 'Cannot inverse FFT without imaginary part.'
         assert not (phase_training is True and use_imaginary is False), 'Cannot phase train without imaginary part.'
@@ -95,5 +85,5 @@ class FTL(Layer):
 
 
 if __name__ == '__main__':
-    FTL(name='test_layer')
-    print(FTL.name)
+    ftl = FTL(name='test_ftl')
+    print(ftl.name)
