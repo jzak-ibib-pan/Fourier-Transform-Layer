@@ -209,10 +209,6 @@ class FourierBuilder(ModelBuilder):
             shape_new = kwargs['shape']
         params_sampled = self._params_build
         params_sampled['input_shape'] = (*shape_new, shape[2])
-        # because real and imag
-        noof_weights = 2
-        if 'use_imaginary' in params_sampled.keys() and not params_sampled['use_imaginary']:
-            noof_weights = 1
         # find the ftl layer
         ftl_index = 0
         while 'ftl' not in self.model.layers[ftl_index].name:
@@ -222,7 +218,8 @@ class FourierBuilder(ModelBuilder):
         weights = self.model.get_weights()
         if 'weights' in kwargs.keys():
             weights = squeeze(kwargs['weights'])
-        weights_ftl = squeeze(weights[ftl_index : ftl_index + noof_weights])
+        weights_ftl = squeeze(weights[ftl_index])
+        noof_weights = weights_ftl.shape[0]
         replace_value = 1e-5
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
@@ -243,7 +240,7 @@ class FourierBuilder(ModelBuilder):
         else:
             pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
             head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
-        return FourierBuilder(**params_sampled, weights=[*weights_replace, *head])
+        return FourierBuilder(**params_sampled, weights=[weights_replace, *head])
 
     @staticmethod
     def _operation(value, parameter=2, sign='div'):
