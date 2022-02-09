@@ -30,19 +30,15 @@ class FTL(Layer):
         self._flag_phase_training = phase_training
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
+        self._kernel_shape_0 = {True: 2,
+                                False: 1,
+                                }
 
     def build(self, input_shape):
-        if self._flag_use_imaginary:
-            self.kernel = self.add_weight(name='kernel',
-                                          shape=tuple((2, *input_shape[1:])),
-                                          initializer=self._initializer,
-                                          trainable=True)
-        else:
-            self.kernel = self.add_weight(name='kernel',
-                                          shape=tuple((1, *input_shape[1:])),
-                                          initializer=self._initializer,
-                                          trainable=True)
-
+        self.kernel = self.add_weight(name='kernel',
+                                      shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
+                                      initializer=self._initializer,
+                                      trainable=True)
 
     @tf.autograph.experimental.do_not_convert
     def call(self, input_tensor, **kwargs):
