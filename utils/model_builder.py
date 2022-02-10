@@ -36,29 +36,23 @@ class ModelBuilder:
         self._SUMMARIES = {'fourier': True,
                            'default': False,
                            }
-        self.model = []
-        self.history = []
-        self.evaluation = []
+        self._model = []
+        self._history = []
+        self._evaluation = []
 
-    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
+    def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
         self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
                                                  noof_classes=noof_classes, **kwargs)
         self._update_length(self._calculate_lengths(self._params_build))
 
-    def compile_model(self, optimizer, loss, **kwargs):
+    def _compile_model(self, optimizer, loss, **kwargs):
         self._params_compile = self._update_params(self._params_compile, optimizer=optimizer, loss=loss)
         if 'metrics' in kwargs.keys():
             self._update_params(self._params_compile, metrics=kwargs['metrics'])
             self._update_length(self._calculate_lengths(self._params_compile))
-            self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
+            self._model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
             return
-        self.model.compile(optimizer=optimizer, loss=loss)
-
-    def train_model(self, epochs, **kwargs):
-        self.history = self._train_model(epochs, **kwargs)
-
-    def evaluate_model(self, **kwargs):
-        self.evaluation = self._evaluate_model(**kwargs)
+        self._model.compile(optimizer=optimizer, loss=loss)
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
@@ -107,7 +101,7 @@ class ModelBuilder:
         tims = []
 
         if not flag_full_set:
-            hist.append(self.model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
+            hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
                                        validation_data=validation_data, callbacks=callbacks).history)
             if flag_time:
                 # time callback will always be before stop callback if flag time is True, thus 0
@@ -119,7 +113,7 @@ class ModelBuilder:
         epoch = 0
         while not stop:
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
-            hist.append(self.model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
+            hist.append(self._model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
                                        validation_split=split, callbacks=callbacks).history)
             epoch += 1
             stop = epoch >= epochs
@@ -134,7 +128,19 @@ class ModelBuilder:
         return hist
 
     def _evaluate_model(self, **kwargs):
-        return self.model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
+        return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
+
+    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
+        return self._build_model(model_type, input_shape, noof_classes, **kwargs)
+
+    def compile_model(self, optimizer, loss, **kwargs):
+        self._compile_model(optimizer, loss, **kwargs)
+
+    def train_model(self, epochs, **kwargs):
+        self._history = self._train_model(epochs, **kwargs)
+
+    def evaluate_model(self, **kwargs):
+        self._evaluation = self._evaluate_model(**kwargs)
 
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
@@ -155,15 +161,15 @@ class ModelBuilder:
                 fil.write(self._prepare_parameter_text(action))
             fil.write(notes + '\n')
             # the method accepts list
-            fil.write(f'Evaluation: \n{self._prepare_metrics_text([self.evaluation])}')
-            fil.write(f'Training history: \n{self._prepare_metrics_text(self.history)}')
+            fil.write(f'Evaluation: \n{self._prepare_metrics_text([self._evaluation])}')
+            fil.write(f'Training history: \n{self._prepare_metrics_text(self._history)}')
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
-                for layer_got, weight_got in zip(self.model.layers[1:], self.model.get_weights()):
+                for layer_got, weight_got in zip(self._model.layers[1:], self._model.get_weights()):
                     fil.write(f'\t{layer_got.name:{self._LENGTH}} - {str(weight_got.shape).rjust(self._LENGTH)}\n')
                 with redirect_stdout(fil):
-                    self.model.summary()
+                    self._model.summary()
         return filename_expanded
 
     # method for text cleanup
@@ -259,11 +265,23 @@ class ModelBuilder:
             text_result += '\n'
         return text_result
 
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def history(self):
+        return self._history
+
+    @property
+    def evaluation(self):
+        return self._evaluation
+
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
     def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
         super(CNNBuilder, self).__init__()
-        self.model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
+        self._model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
 
     def build_model(self, model_type, input_shape, noof_classes, weights=None, **kwargs):
         super(CNNBuilder, self).build_model(model_type, input_shape, noof_classes, weights=None, **kwargs)
@@ -304,13 +322,13 @@ class CNNBuilder(ModelBuilder):
 class FourierBuilder(ModelBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
         super(FourierBuilder, self).__init__()
-        self.model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
+        self._model = self._build_model(model_type, input_shape, noof_classes, **kwargs)
         self._DIRECTIONS = {'up': '*',
                             'down': '//',
                             }
 
-    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        super(FourierBuilder, self).build_model(model_type, input_shape, noof_classes, **kwargs)
+    def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
+        super(FourierBuilder, self)._build_model(model_type, input_shape, noof_classes, **kwargs)
         ftl_activation = 'relu'
         if 'ftl_activation' in kwargs.keys():
             ftl_activation = kwargs['ftl_activation']
@@ -341,7 +359,7 @@ class FourierBuilder(ModelBuilder):
             return model
         return Model(inp, out)
 
-    def sample_model(self, **kwargs):
+    def _sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
         shape = self._params_build['input_shape']
         shape_new = self._params_build['input_shape']
@@ -354,11 +372,11 @@ class FourierBuilder(ModelBuilder):
         params_sampled['input_shape'] = (*shape_new, shape[2])
         # find the ftl layer
         ftl_index = 0
-        while 'ftl' not in self.model.layers[ftl_index].name:
+        while 'ftl' not in self._model.layers[ftl_index].name:
             ftl_index += 1
         # inpu does not have any weights
         ftl_index -= 1
-        weights = self.model.get_weights()
+        weights = self._model.get_weights()
         if 'weights' in kwargs.keys():
             weights = kwargs['weights']
         weights_ftl = expand_dims(squeeze(weights[ftl_index]), axis=0)
@@ -384,6 +402,9 @@ class FourierBuilder(ModelBuilder):
             pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
             head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
         return FourierBuilder(**params_sampled, weights=[weights_replace, *head])
+
+    def sample_model(self, **kwargs):
+        return self._sample_model(self, **kwargs)
 
     @staticmethod
     def _operation(value, parameter=2, sign='div'):
@@ -412,8 +433,8 @@ def test_minors():
     x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    # builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
-    builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10)
+    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10)
+    # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(100, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=128,

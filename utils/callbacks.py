@@ -56,7 +56,7 @@ class EarlyStopOnBaseline(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
-        monitored_value = logs.get(self.monitor)
+        monitored_value = logs.get(self._monitor)
 
         if monitored_value is None or self._baseline is None:
             return
@@ -94,11 +94,11 @@ class EarlyStopOnBaseline(Callback):
         self._stopped_training = True
 
     def get_kwargs(self):
-        return {'monitor': self.monitor,
-                'baseline': self.baseline,
-                'min_delta': self.delta,
-                'patience': self.patience,
-                'restore_best': self.restore_weights,
+        return {'monitor': self._monitor,
+                'baseline': self._baseline,
+                'min_delta': self._delta,
+                'patience': self._patience,
+                'restore_best': self._restore_weights,
                 }
 
     @staticmethod
