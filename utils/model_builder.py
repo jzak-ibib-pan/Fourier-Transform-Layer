@@ -37,7 +37,8 @@ class ModelBuilder:
                                                          'save_freq': 'epoch',
                                                          'save_weights_only': True,
                                                          'save_best_only': True,
-                                                         }
+                                                         },
+                              'save_memory': True,
                               },
                     }
         self._params = {'build': {},
@@ -68,6 +69,9 @@ class ModelBuilder:
         'Must provide either generator or full dataset.'
         # full set or generator
         flag_full_set = False
+        flag_save_memory = False
+        if 'save_memory' in kwargs.keys():
+            flag_save_memory = kwargs['save_memory']
         split = 0
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
             x_train = kwargs['x_data']
@@ -135,7 +139,7 @@ class ModelBuilder:
         stop = False
         epoch = 0
         while not stop:
-            if flag_checkpoint:
+            if flag_checkpoint and not flag_save_memory:
                 callback_checkpoint.filepath = f'{self._filepath}/checkpoints/{self._filename}_{epoch:03d}.hdf5'
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
             hist.append(self._model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
