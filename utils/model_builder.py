@@ -47,7 +47,7 @@ class ModelBuilder:
     def compile_model(self, optimizer, loss, **kwargs):
         self._params_compile = self._update_params(self._params_compile, optimizer=optimizer, loss=loss)
         if 'metrics' in kwargs.keys():
-            self._params_compile.update({'metrics': kwargs['metrics']})
+            self._update_params(self._params_compile, metrics=kwargs['metrics'])
             self._update_length(self._calculate_lengths(self._params_compile))
             self.model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
             return
@@ -167,6 +167,25 @@ class ModelBuilder:
     def _update_length(self, new_candidate):
         self._LENGTH = max([self._LENGTH, new_candidate])
 
+    # a method to change the values of parameter holders
+    def _update_params(self, parameters, **kwargs):
+        for key in kwargs.keys():
+            # list of different params
+            if type(kwargs[key]) is list:
+                for it, key_interior in enumerate(kwargs[key]):
+                    to_update = self._check_for_name(key_interior)
+                    key_str = str(it)
+                    while len(key_str) < 2:
+                        key_str = '0' + key_str
+                    parameters.update({f'{key}_{key_str}': to_update})
+                continue
+            to_update = self._check_for_name(kwargs[key])
+            if key in parameters.keys():
+                parameters[key] = to_update
+            else:
+                parameters.update({key: to_update})
+        return parameters
+
     @staticmethod
     def _expand_filename(filename, filepath=''):
         # List OF
@@ -178,18 +197,11 @@ class ModelBuilder:
         filename_expanded = f'{filename}_{it}_{date}'
         return filename_expanded
 
-    # a method to change the values of parameter holders
     @staticmethod
-    def _update_params(parameters, **kwargs):
-        for key in kwargs.keys():
-            to_update = kwargs[key]
-            if hasattr(kwargs[key], 'name'):
-                to_update = kwargs[key].name
-            if key in parameters.keys():
-                parameters[key] = to_update
-            else:
-                parameters.update({key: to_update})
-        return parameters
+    def _check_for_name(checked_property):
+        if hasattr(checked_property, 'name'):
+            return checked_property.name
+        return checked_property
 
     @staticmethod
     def _calculate_lengths(params):
@@ -350,9 +362,9 @@ if __name__ == '__main__':
     y_train = to_categorical(y_train, 10)
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(), TopKCategoricalAccuracy()])
-    builder.train_model(2, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
-                        call_stop_kwargs={'baseline': 0.80,
-                                          'monitor': 'acc',
-                                          'patience': 2,
-                                          })
-    builder.save_model_info('test_mnist', 'Testing training pipeline', '../test')
+    # builder.train_model(2, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
+    #                     call_stop_kwargs={'baseline': 0.80,
+    #                                       'monitor': 'acc',
+    #                                       'patience': 2,
+    #                                       })
+    builder.save_model_info('test', 'Testing training pipeline', '../test')
