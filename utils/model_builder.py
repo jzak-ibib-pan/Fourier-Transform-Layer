@@ -48,6 +48,9 @@ class ModelBuilder:
             return
         self.model.compile(optimizer=optimizer, loss=loss)
 
+    def train_model(self):
+        return self.model
+
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
         if 'fourier' in self._params_build['model_type']:
