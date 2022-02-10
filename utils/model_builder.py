@@ -8,6 +8,8 @@ import tensorflow.keras.applications as apps
 from numpy import squeeze, ones, expand_dims, pad
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL
+from utils.callbacks import TimeHistory
+from
 
 
 # Generic builder
@@ -48,7 +50,17 @@ class ModelBuilder:
             return
         self.model.compile(optimizer=optimizer, loss=loss)
 
-    def train_model(self):
+    def train_model(self, epochs, **kwargs):
+        if 'call_time' in kwargs.keys() and kwargs['call_time']:
+            callback_time = TimeHistory()
+            tims = []
+        if 'call_stop' in kwargs.keys() and kwargs['call_stop']:
+            callback_stop =
+
+        for epoch in range(epochs):
+            hist.append(model.fit(x_train, y_train, epochs=1, batch_size=8, validation_split=0.1, shuffle=False, verbose=1,
+                                  callbacks=[time_callback]).history)
+            tims.append(time_callback.times[0])
         return self.model
 
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
