@@ -72,8 +72,8 @@ class ModelBuilder:
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
             x_train = kwargs['x_data']
             y_train = kwargs['y_data']
-            if 'validation' in kwargs.keys():
-                split = kwargs['validation']
+            if 'validation_split' in kwargs.keys():
+                split = kwargs['validation_split']
             self._params['train'] = self._update_parameters(self._params['train'],
                                                             dataset_size=x_train.shape[0], validation_split=split)
             self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
