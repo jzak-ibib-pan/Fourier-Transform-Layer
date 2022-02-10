@@ -106,7 +106,7 @@ class ModelBuilder:
             hist.append(self.model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
                                        validation_data=validation_data, callbacks=callbacks).history)
             if flag_time:
-                # time callback will always be before stop callback, thus 0
+                # time callback will always be before stop callback if flag time is True, thus 0
                 return self._merge_history_and_times(hist, callbacks[0].times)
             return hist
 
@@ -120,7 +120,8 @@ class ModelBuilder:
             epoch += 1
             stop = epoch >= epochs
             if flag_stop:
-                stop = stop or callbacks[1].stopped_training
+                call_index = [hasattr(call, 'stopped_training') for call in callbacks].index(True)
+                stop = stop or callbacks[call_index].stopped_training
             if not flag_time:
                 continue
             tims.append(callbacks[0].times[0])
