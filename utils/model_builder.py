@@ -54,10 +54,7 @@ class ModelBuilder:
         self.model.compile(optimizer=optimizer, loss=loss)
 
     def train_model(self, epochs, **kwargs):
-        results = self._train_model(epochs, **kwargs)
-        if len(results) == 2:
-            self.times = results[1]
-        self.history = results[0]
+        self.history = self._train_model(epochs, **kwargs)
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
