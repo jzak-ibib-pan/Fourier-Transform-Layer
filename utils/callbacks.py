@@ -30,7 +30,8 @@ class EarlyStopOnBaseline(Callback):
     def __init__(self, monitor: str = 'val_loss', baseline: float = 0.1, min_delta: float = 0.01, patience: int = 0,
                  restore_best: bool = True, verbose: int = 1):
         super(EarlyStopOnBaseline, self).__init__()
-        assert monitor in ['acc', 'loss', 'val_acc', 'val_loss'], self._inform_user_of_error('monitor')
+        assert monitor in ['acc', 'loss', 'val_acc', 'val_loss', 'categorical_accuracy', 'val_categorical_accuracy'], \
+            self._inform_user_of_error('monitor')
         assert 0 < baseline < 1, self._inform_user_of_error('baseline')
         assert min_delta >= 0, self._inform_user_of_error('min_delta')
         assert patience >= 0, self._inform_user_of_error('patience')
@@ -91,7 +92,7 @@ class EarlyStopOnBaseline(Callback):
 
     @staticmethod
     def _inform_user_of_error(variable: str):
-        RANGES = {'monitor': ['acc', 'loss', 'val_acc', 'val_loss'],
+        RANGES = {'monitor': ['acc', 'loss', 'val_acc', 'val_loss', 'categorical_accuracy', 'val_categorical_accuracy'],
                   'baseline': '(0;1)',
                   'min_delta': '[0;+inf)',
                   'patience': '[0;+inf)',
