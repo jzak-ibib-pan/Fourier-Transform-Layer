@@ -6,10 +6,10 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input
 import tensorflow.keras.applications as apps
 from numpy import squeeze, ones, expand_dims, pad
+from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL
-from utils.callbacks import TimeHistory
-from
+from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 
 
 # Generic builder
@@ -24,17 +24,21 @@ class ModelBuilder:
         self._params_compile = {'optimizer': '',
                                'loss': '',
                                }
+        self._params_train = {'epochs': 10,
+                              }
         self._PARAMS = {'build': self._params_build,
                         'compile': self._params_compile,
+                        'train': self._params_train,
                         }
         self._LENGTH = 0
-        self._update_length(self._calculate_lengths(self._params_build))
-        self._update_length(self._calculate_lengths(self._params_compile))
+        self._update_all_lengths()
         # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
                            'default': False,
                            }
         self.model = []
+        self.history = []
+        self.times = []
 
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
         self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
@@ -50,18 +54,67 @@ class ModelBuilder:
             return
         self.model.compile(optimizer=optimizer, loss=loss)
 
-    def train_model(self, epochs, **kwargs):
+    def _train_model(self, epochs, **kwargs):
+        assert 'generator' in kwargs.keys() or all([f in ['x_data', 'y_data'] for f in kwargs.keys()]), \
+        'Must provide either generator or full dataset.'
+        # callbacks
+        callbacks = []
+        flag_time = False
         if 'call_time' in kwargs.keys() and kwargs['call_time']:
             callback_time = TimeHistory()
-            tims = []
+            callbacks.append(callback_time)
+            flag_time = True
         if 'call_stop' in kwargs.keys() and kwargs['call_stop']:
-            callback_stop =
+            callback_stop = EarlyStopOnBaseline(kwargs['call_stop_args'])
+            callbacks.append(callback_stop)
+            self._update_params(self._params_train, early_stop=kwargs['call_stop_args'])
+        # full set or generator
+        flag_full_set = False
+        if all([f in ['x_data', 'y_data'] for f in kwargs.keys()]):
+            x_train = kwargs['x_data']
+            y_train = kwargs['y_data']
+            split = 0
+            if 'validation' in kwargs.keys():
+                split = kwargs['validation']
+            flag_full_set = True
+            self._update_params(self._params_train, dataset='full', validation_split=split)
+        if 'generator' in kwargs.keys():
+            data_gen = kwargs['generator']
+            self._update_params(self._params_train, dataset='generator')
+            if 'validation' in kwargs.keys():
+                validation_data = kwargs['validation']
+                self._update_params(self._params_train, validation_shape=validation_data.shape)
+        # other train params
+        batch = 8
+        if any([f in ['batch', 'batch_size'] for f in kwargs.keys()]):
+            batch = kwargs['batch']
+        self._update_params(self._params_train, batch_size=batch)
+
+        verbosity = 1
+        if 'verbose' in kwargs.keys():
+            verbosity = kwargs['verbose']
+
+        hist = []
+        tims = []
+
+        if not flag_full_set:
+            hist.append(self.model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
+                                       validation_data=validation_data, callbacks=callbacks).history)
+            if flag_time:
+                # time callback will always be before stop callback, thus 0
+                return hist, callbacks[0].times
+            return hist
 
         for epoch in range(epochs):
-            hist.append(model.fit(x_train, y_train, epochs=1, batch_size=8, validation_split=0.1, shuffle=False, verbose=1,
-                                  callbacks=[time_callback]).history)
-            tims.append(time_callback.times[0])
-        return self.model
+            x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
+            hist.append(self.model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
+                                       validation_split=split, callbacks=callbacks).history)
+            if not flag_time:
+                continue
+            tims.append(callback_time.times[0])
+        if flag_time:
+            return hist, tims
+        return hist
 
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
@@ -100,6 +153,11 @@ class ModelBuilder:
             text_build += f'\t{key:{self._LENGTH}} - ' \
                               f'{str(value).rjust(self._LENGTH)}\n'
         return text_build
+
+    def _update_all_lengths(self):
+        self._update_length(self._calculate_lengths(self._params_build))
+        self._update_length(self._calculate_lengths(self._params_compile))
+        self._update_length(self._calculate_lengths(self._params_train))
 
     def _update_length(self, new_candidate):
         self._LENGTH = max([self._LENGTH, new_candidate])
