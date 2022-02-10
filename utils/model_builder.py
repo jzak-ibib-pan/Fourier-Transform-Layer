@@ -347,7 +347,7 @@ if __name__ == '__main__':
     y_train = to_categorical(y_train, 10)
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(), TopKCategoricalAccuracy()])
-    builder.train_model(3, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
+    builder.train_model(2, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
                         call_stop_kwargs={'baseline': 0.80,
                                           'monitor': 'acc',
                                           'patience': 2,
