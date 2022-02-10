@@ -57,6 +57,7 @@ class ModelBuilder:
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
         'Must provide either generator or full dataset.'
+        self._update_params(self._params_train, epochs=epochs)
         # callbacks
         callbacks = []
         flag_time = False
@@ -433,7 +434,7 @@ def test_minors():
     x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10)
+    builder = FourierBuilder('fourier_inverse', input_shape=(32, 32, 1), noof_classes=10)
     # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
