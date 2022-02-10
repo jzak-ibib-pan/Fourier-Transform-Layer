@@ -61,7 +61,7 @@ class ModelBuilder:
         self.history = results[0]
 
     def _train_model(self, epochs, **kwargs):
-        assert 'generator' in kwargs.keys() or all([f in ['x_data', 'y_data'] for f in kwargs.keys()]), \
+        assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
         'Must provide either generator or full dataset.'
         # callbacks
         callbacks = []
@@ -71,12 +71,12 @@ class ModelBuilder:
             callbacks.append(callback_time)
             flag_time = True
         if 'call_stop' in kwargs.keys() and kwargs['call_stop']:
-            callback_stop = EarlyStopOnBaseline(kwargs['call_stop_args'])
+            callback_stop = EarlyStopOnBaseline(**kwargs['call_stop_kwargs'])
             callbacks.append(callback_stop)
-            self._update_params(self._params_train, early_stop=kwargs['call_stop_args'])
+            self._update_params(self._params_train, early_stop=kwargs['call_stop_kwargs'])
         # full set or generator
         flag_full_set = False
-        if all([f in ['x_data', 'y_data'] for f in kwargs.keys()]):
+        if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
             x_train = kwargs['x_data']
             y_train = kwargs['y_data']
             split = 0
@@ -334,9 +334,17 @@ class FourierBuilder(ModelBuilder):
 
 
 if __name__ == '__main__':
-    builder = FourierBuilder('fourier', ftl_activation='relu', use_imag=False)
-    # builder.compile_model('adam' , 'mse')
-    builder_sampled = builder.sample_model(shape=(64, 64))
-    builder_sampled.save_model_info(filename='test', notes='Testing sampling method', filepath='../test', extension='.txt')
-    builder = CNNBuilder(weights=None)
-    builder.save_model_info(filename='test', notes='Testing saving method', filepath='../test', extension='.txt')
+    from tensorflow.keras.datasets import mnist
+    from tensorflow.keras.utils import to_categorical
+    from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    x_train = expand_dims(x_train / 255, axis=-1)
+    y_train = to_categorical(y_train, 10)
+    builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
+    builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(), TopKCategoricalAccuracy()])
+    builder.train_model(3, x_data=x_train, y_data=y_train, call_stop=True,
+                        call_stop_kwargs={'baseline': 0.80,
+                                          'monitor': 'acc',
+                                          'patience': 2,
+                                          })
+    builder.save_model_info('test', 'Testing training pipeline', '../test')
