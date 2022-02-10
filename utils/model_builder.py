@@ -79,13 +79,13 @@ class ModelBuilder:
             if 'validation' in kwargs.keys():
                 split = kwargs['validation']
             flag_full_set = True
-            self._update_params(self._params_train, dataset='full', validation_split=split)
+            self._update_params(self._params_train, dataset_size=x_train.shape[0], validation_split=split)
         if 'generator' in kwargs.keys():
             data_gen = kwargs['generator']
             self._update_params(self._params_train, dataset='generator')
             if 'validation' in kwargs.keys():
                 validation_data = kwargs['validation']
-                self._update_params(self._params_train, validation_shape=validation_data.shape)
+                self._update_params(self._params_train, validation_size=validation_data.shape[0])
         # other train params
         batch = 8
         if any([f in ['batch', 'batch_size'] for f in kwargs.keys()]):
@@ -135,10 +135,10 @@ class ModelBuilder:
             format_used = '.' + format_used
         with open(join(filepath, filename_expanded + format_used), 'w') as fil:
             for action in ['build', 'compile', 'train']:
-                fil.write(self._prepare_text(action))
+                fil.write(self._prepare_parameter_text(action))
             fil.write(notes + '\n')
             fil.write('Evaluation: \n')
-            fil.write(f'Training history: {self.history}\n')
+            fil.write(self._prepare_history_text(self.history))
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
@@ -149,7 +149,7 @@ class ModelBuilder:
         return filename_expanded
 
     # method for text cleanup
-    def _prepare_text(self, what='build'):
+    def _prepare_parameter_text(self, what='build'):
         text_build = f'{what.capitalize()} parameters\n'
         for key, value in zip(self._PARAMS[what].keys(), self._PARAMS[what].values()):
             if key == 'weights' and value is not None:
@@ -223,6 +223,16 @@ class ModelBuilder:
         for it, time in enumerate(times):
             history_end[it].update({'time': time})
         return history_end
+
+    @staticmethod
+    def _prepare_history_text(history):
+        text_result = f'Training history: \n'
+        for epoch in range(len(history)):
+            epoch_str = str(epoch)
+            while len(epoch_str) < len(str(len(history))):
+                epoch_str = '0' + epoch_str
+            text_result += f'\tEpoch {epoch_str:{5}}\n'
+        return text_result
 
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
@@ -364,11 +374,11 @@ if __name__ == '__main__':
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_train = expand_dims(x_train / 255, axis=-1)
-    y_train = to_categorical(y_train, 10)
+    x_train = expand_dims(x_train / 255, axis=-1)[:3000]
+    y_train = to_categorical(y_train, 10)[:3000]
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(), TopKCategoricalAccuracy()])
-    builder.train_model(2, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
+    builder.train_model(11, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=64,
                         call_stop_kwargs={'baseline': 0.80,
                                           'monitor': 'acc',
                                           'patience': 2,
