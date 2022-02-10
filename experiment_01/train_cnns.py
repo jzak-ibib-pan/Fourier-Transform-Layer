@@ -8,8 +8,9 @@ import ipykernel
 
 
 def main():
-    for modelname in ['vgg16', 'mobilenet']:
-        builder = CNNBuilder(model_type=modelname, input_shape=(32, 32, 1), noof_classes=10)
+    for modelname in ['mobilenetv2', 'mobilenet']:
+        builder = CNNBuilder(model_type=modelname, input_shape=(32, 32, 1), noof_classes=10,
+                             filename='mnist_cnns', filepath='results')
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
         x_tr = []
         for x in x_train:
@@ -25,14 +26,18 @@ def main():
 
         builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                            TopKCategoricalAccuracy(k=5, name='top-5')])
-        builder.train_model(100, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=16,
+        builder.train_model(100, x_data=x_train, y_data=y_train, batch=16, validation_split=0.2,
+                            call_time=True, call_stop=True, call_checkpoint=True,
                             call_stop_kwargs={'baseline': 0.90,
-                                              'monitor': 'categorical_accuracy',
+                                              'monitor': 'val_categorical_accuracy',
                                               'patience': 3,
-                                              })
+                                              },
+                            call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
+                                                    }
+                            )
         builder.evaluate_model(x_data=x_test, y_data=y_test)
         # prefer comparison between different models on the same dataset
-        builder.save_model_info('mnist_cnns', 'First training pipeline', 'results')
+        builder.save_model_info('First training pipeline')
 
 
 if __name__ == '__main__':

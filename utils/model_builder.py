@@ -5,6 +5,7 @@ from datetime import datetime as dt
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input
 import tensorflow.keras.applications as apps
+from tensorflow.keras.callbacks import ModelCheckpoint
 from numpy import squeeze, ones, expand_dims, pad
 from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
@@ -14,7 +15,9 @@ from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 
 # Generic builder
 class ModelBuilder:
-    def __init__(self, **kwargs):
+    def __init__(self, filename='dummy', filepath='../test', **kwargs):
+        self._filename = self._expand_filename(filename, filepath)
+        self._filepath = filepath
         DEFAULTS = {'compile': {'optimizer': 'adam',
                                 'loss': 'mse',
                                 },
@@ -23,9 +26,17 @@ class ModelBuilder:
                               'call_time': True,
                               'call_stop': True,
                               'call_stop_kwargs': {'baseline': 0.80,
-                                                   'monitor': 'categorical_accuracy',
+                                                   'monitor': 'val_categorical_accuracy',
                                                    'patience': 2,
                                                    },
+                              'call_checkpoint': True,
+                              'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{self._filename}',
+                                                         'monitor': 'categorical_accuracy',
+                                                         'mode': 'auto',
+                                                         'save_freq': 'epoch',
+                                                         'save_weights_only': True,
+                                                         'save_best_only': True,
+                                                         }
                               },
                     }
         self._params = {'build': {},
@@ -54,10 +65,32 @@ class ModelBuilder:
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
         'Must provide either generator or full dataset.'
+        # full set or generator
+        flag_full_set = False
+        if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
+            x_train = kwargs['x_data']
+            y_train = kwargs['y_data']
+            split = 0
+            if 'validation' in kwargs.keys():
+                split = kwargs['validation']
+            self._params['train'] = self._update_parameters(self._params['train'],
+                                                            dataset_size=x_train.shape[0], validation_split=split)
+            self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
+
+            flag_full_set = True
+        if 'generator' in kwargs.keys():
+            data_gen = kwargs['generator']
+            self._params['train'] = self._update_parameters(self._params['train'],
+                                                            dataset='generator')
+            if 'validation' in kwargs.keys():
+                validation_data = kwargs['validation']
+                self._params['train'] = self._update_parameters(self._params['train'],
+                                                                validation_size=validation_data.shape[0])
         # callbacks
         callbacks = []
         flag_time = False
         flag_stop = False
+        flag_checkpoint = False
         if 'call_time' in kwargs.keys() and kwargs['call_time']:
             callback_time = TimeHistory()
             callbacks.append(callback_time)
@@ -69,25 +102,12 @@ class ModelBuilder:
             self._params['train'] = self._update_parameters(self._params['train'],
                                                             call_stop_kwargs=callback_stop.get_kwargs())
             flag_stop = True
-        # full set or generator
-        flag_full_set = False
-        if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
-            x_train = kwargs['x_data']
-            y_train = kwargs['y_data']
-            split = 0
-            if 'validation' in kwargs.keys():
-                split = kwargs['validation']
-            self._params['train'] = self._update_parameters(self._params['train'],
-                                                            dataset_size=x_train.shape[0], validation_split=split)
-            flag_full_set = True
-        if 'generator' in kwargs.keys():
-            data_gen = kwargs['generator']
-            self._params['train'] = self._update_parameters(self._params['train'],
-                                                            dataset='generator')
-            if 'validation' in kwargs.keys():
-                validation_data = kwargs['validation']
-                self._params['train'] = self._update_parameters(self._params['train'],
-                                                                validation_size=validation_data.shape[0])
+        if 'call_checkpoint' in kwargs.keys() and kwargs['call_checkpoint']:
+            callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
+            callbacks.append(callback_checkpoint)
+            self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
+            flag_checkpoint = True
+
         # other train params
         batch = 8
         if any([f in ['batch', 'batch_size'] for f in kwargs.keys()]):
@@ -112,6 +132,8 @@ class ModelBuilder:
         stop = False
         epoch = 0
         while not stop:
+            if flag_checkpoint:
+                callback_checkpoint.filepath = f'{self._filepath}/checkpoints/{self._filename}_{epoch:03d}.hdf5'
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
             hist.append(self._model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
                                        validation_split=split, callbacks=callbacks).history)
@@ -148,7 +170,7 @@ class ModelBuilder:
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
 
-    def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
+    def save_model_info(self, notes='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
         self._update_all_lengths()
         if 'fourier' in self._params['build']['model_type']:
@@ -157,13 +179,12 @@ class ModelBuilder:
             summary = self._SUMMARIES['default']
         if 'summary' in kwargs.keys():
             summary = kwargs['summary']
-        filename_expanded = self._expand_filename(filename, filepath)
         format_used = extension
         if len(format_used) < 1:
             format_used = '.txt'
         if '.' not in format_used:
             format_used = '.' + format_used
-        with open(join(filepath, filename_expanded + format_used), 'w') as fil:
+        with open(join(self._filepath, self._filename + format_used), 'w') as fil:
             for action in ['build', 'compile', 'train']:
                 fil.write(self._prepare_parameter_text(action))
             fil.write(notes + '\n')
@@ -177,7 +198,6 @@ class ModelBuilder:
                     fil.write(f'\t{layer_got.name:{self._LENGTH}} - {str(weight_got.shape).rjust(self._LENGTH)}\n')
                 with redirect_stdout(fil):
                     self._model.summary()
-        return filename_expanded
 
     def _calculate_lengths(self, params):
         # protection from weights impact on length of text
@@ -212,10 +232,7 @@ class ModelBuilder:
             if type(parameters[key]) is list:
                 for it, key_interior in enumerate(parameters[key]):
                     to_update = self._check_for_name(key_interior)
-                    key_str = str(it)
-                    while len(key_str) < 2:
-                        key_str = '0' + key_str
-                    result.update({f'{key}_{key_str}': to_update})
+                    result.update({f'{key}_{it:03d}': to_update})
                 continue
             if type(parameters[key]) is dict:
                 for key_interior in parameters[key].keys():
@@ -246,11 +263,9 @@ class ModelBuilder:
     def _expand_filename(filename, filepath=''):
         # List OF
         loof_files = [f for f in listdir(filepath) if filename in f]
-        it = str(len(loof_files))
-        while len(it) < 3:
-            it = '0' + it
+        it = len(loof_files)
         date = dt.now().strftime('%Y-%m-%d_%H_%M_%S')
-        filename_expanded = f'{filename}_{it}_{date}'
+        filename_expanded = f'{filename}_{it:03d}_{date}'
         return filename_expanded
 
     @staticmethod
@@ -277,6 +292,7 @@ class ModelBuilder:
         text_result = ''
         for epoch in range(len(history)):
             epoch_str = str(epoch)
+            # may be possible to use {epoch:0xd}
             while len(epoch_str) < len(str(len(history))):
                 epoch_str = '0' + epoch_str
             # do not expect more than 10k training epochs
@@ -303,8 +319,9 @@ class ModelBuilder:
 
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
-    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
-        super(CNNBuilder, self).__init__()
+    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1,
+                 filename='cnn_test', filepath='../test', **kwargs):
+        super(CNNBuilder, self).__init__(filename, filepath)
         DEFAULTS = {'model_type': model_type,
                     'input_shape': input_shape,
                     'noof_classes': noof_classes,
@@ -349,8 +366,9 @@ class CNNBuilder(ModelBuilder):
 
 # Fourier Model for classification
 class FourierBuilder(ModelBuilder):
-    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
-        super(FourierBuilder, self).__init__()
+    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical',
+                 filename='fourier_test', filepath='../test', **kwargs):
+        super(FourierBuilder, self).__init__(filename, filepath)
         DEFAULTS = {'classical': {'model_type': model_type,
                                   'input_shape': input_shape,
                                   'noof_classes': noof_classes,
@@ -466,17 +484,18 @@ def test_minors():
     x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10)
+    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
     # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(10, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=128,
+    builder.train_model(10, x_data=x_train, y_data=y_train, batch=128,
+                        call_stop=True, call_time=True, call_checkpoint=False,
                         call_stop_kwargs={'baseline': 0.75,
                                           'monitor': 'categorical_accuracy',
                                           'patience': 3,
                                           })
     builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('test', 'Testing training pipeline', '../test')
+    builder.save_model_info('Testing training pipeline')
 
 
 if __name__ == '__main__':
