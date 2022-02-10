@@ -239,6 +239,8 @@ class ModelBuilder:
                 continue
             if type(parameters[key]) is dict:
                 for key_interior in parameters[key].keys():
+                    if key_interior in ['filename', 'filepath']:
+                        continue
                     to_update = self._check_for_name(key_interior)
                     result.update({f'{key}-{to_update}': parameters[key][key_interior]})
                 continue
