@@ -93,6 +93,14 @@ class EarlyStopOnBaseline(Callback):
         self.model.stop_training = True
         self._stopped_training = True
 
+    def get_kwargs(self):
+        return {'monitor': self.monitor,
+                'baseline': self.baseline,
+                'min_delta': self.delta,
+                'patience': self.patience,
+                'restore_best': self.restore_weights,
+                }
+
     @staticmethod
     def _inform_user_of_error(variable: str):
         RANGES = {'monitor': ['acc', 'loss', 'val_acc', 'val_loss', 'categorical_accuracy', 'val_categorical_accuracy',
