@@ -38,6 +38,7 @@ class ModelBuilder:
                            }
         self.model = []
         self.history = []
+        self.evaluation = []
 
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
         self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
@@ -55,6 +56,9 @@ class ModelBuilder:
 
     def train_model(self, epochs, **kwargs):
         self.history = self._train_model(epochs, **kwargs)
+
+    def evaluate_model(self):
+        self.evaluation = self._evaluate_model()
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
@@ -128,6 +132,9 @@ class ModelBuilder:
         if flag_time:
             return self._merge_history_and_times(hist, tims)
         return hist
+
+    def _evaluate_model(self, **kwargs):
+        return self.model
 
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
