@@ -14,50 +14,46 @@ from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 
 # Generic builder
 class ModelBuilder:
-    # TODO: private method for kwarg determination
     def __init__(self, **kwargs):
-        self._params_build = {'model_type': '',
-                             'input_shape': (8, 8, 1),
-                             'noof_classes': 1,
-                             # 'weights': '',
-                             }
-        self._params_compile = {'optimizer': '',
-                               'loss': '',
-                               }
-        self._params_train = {'epochs': 10,
-                              }
-        self._PARAMS = {'build': self._params_build,
-                        'compile': self._params_compile,
-                        'train': self._params_train,
+        DEFAULTS = {'compile': {'optimizer': 'adam',
+                                'loss': 'mse',
+                                },
+                    'train': {'epochs': 10,
+                              'batch': 8,
+                              'call_time': True,
+                              'call_stop': True,
+                              'call_stop_kwargs': {'baseline': 0.80,
+                                                   'monitor': 'categorical_accuracy',
+                                                   'patience': 2,
+                                                   },
+                              },
+                    }
+        self._params = {'build': {},
+                        'compile': DEFAULTS['compile'].copy(),
+                        'train': DEFAULTS['train'].copy(),
                         }
         self._LENGTH = 0
-        self._update_all_lengths()
         # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
                            'default': False,
                            }
-        self._model = []
         self._history = []
         self._evaluation = []
+        self._model = []
+
+    def _init_build(self, **kwargs):
+        self._params['build'] = self._update_parameters(self._params['build'], **kwargs)
+        self._model = self._build_model(**self._params['build'])
 
     def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
-                                                 noof_classes=noof_classes, **kwargs)
-        self._update_length(self._calculate_lengths(self._params_build))
+        return Model()
 
     def _compile_model(self, optimizer, loss, **kwargs):
-        self._params_compile = self._update_params(self._params_compile, optimizer=optimizer, loss=loss)
-        if 'metrics' in kwargs.keys():
-            self._update_params(self._params_compile, metrics=kwargs['metrics'])
-            self._update_length(self._calculate_lengths(self._params_compile))
-            self._model.compile(optimizer=optimizer, loss=loss, metrics=kwargs['metrics'])
-            return
-        self._model.compile(optimizer=optimizer, loss=loss)
+        self._model.compile(**self._params['compile'])
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
         'Must provide either generator or full dataset.'
-        self._update_params(self._params_train, epochs=epochs)
         # callbacks
         callbacks = []
         flag_time = False
@@ -70,7 +66,8 @@ class ModelBuilder:
             # metric and monitor names must be the same
             callback_stop = EarlyStopOnBaseline(**kwargs['call_stop_kwargs'])
             callbacks.append(callback_stop)
-            self._update_params(self._params_train, early_stop=callback_stop.get_kwargs())
+            self._params['train'] = self._update_parameters(self._params['train'],
+                                                            call_stop_kwargs=callback_stop.get_kwargs())
             flag_stop = True
         # full set or generator
         flag_full_set = False
@@ -80,19 +77,21 @@ class ModelBuilder:
             split = 0
             if 'validation' in kwargs.keys():
                 split = kwargs['validation']
-            self._update_params(self._params_train, dataset_size=x_train.shape[0], validation_split=split)
+            self._params['train'] = self._update_parameters(self._params['train'],
+                                                            dataset_size=x_train.shape[0], validation_split=split)
             flag_full_set = True
         if 'generator' in kwargs.keys():
             data_gen = kwargs['generator']
-            self._update_params(self._params_train, dataset='generator')
+            self._params['train'] = self._update_parameters(self._params['train'],
+                                                            dataset='generator')
             if 'validation' in kwargs.keys():
                 validation_data = kwargs['validation']
-                self._update_params(self._params_train, validation_size=validation_data.shape[0])
+                self._params['train'] = self._update_parameters(self._params['train'],
+                                                                validation_size=validation_data.shape[0])
         # other train params
         batch = 8
         if any([f in ['batch', 'batch_size'] for f in kwargs.keys()]):
             batch = kwargs['batch']
-        self._update_params(self._params_train, batch_size=batch)
 
         verbosity = 1
         if 'verbose' in kwargs.keys():
@@ -103,7 +102,7 @@ class ModelBuilder:
 
         if not flag_full_set:
             hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
-                                       validation_data=validation_data, callbacks=callbacks).history)
+                                        validation_data=validation_data, callbacks=callbacks).history)
             if flag_time:
                 # time callback will always be before stop callback if flag time is True, thus 0
                 return self._merge_history_and_times(hist, callbacks[0].times)
@@ -132,20 +131,27 @@ class ModelBuilder:
         return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
 
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        return self._build_model(model_type, input_shape, noof_classes, **kwargs)
+        self._params['build'] = self._update_parameters(self._params['build'],
+                                                        model_type=model_type, input_shape=input_shape,
+                                                        noof_classes=noof_classes, **kwargs)
+        return self._build_model(**self._params['build'])
 
     def compile_model(self, optimizer, loss, **kwargs):
+        self._params['compile'] = self._update_parameters(self._params['compile'],
+                                                          optimizer=optimizer, loss=loss, **kwargs)
         self._compile_model(optimizer, loss, **kwargs)
 
     def train_model(self, epochs, **kwargs):
-        self._history = self._train_model(epochs, **kwargs)
+        self._params['train'] = self._update_parameters(self._params['train'], epochs=epochs, **kwargs)
+        self._history = self._train_model(**self._params['train'])
 
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
 
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
-        if 'fourier' in self._params_build['model_type']:
+        self._update_all_lengths()
+        if 'fourier' in self._params['build']['model_type']:
             summary = self._SUMMARIES['fourier']
         else:
             summary = self._SUMMARIES['default']
@@ -173,10 +179,24 @@ class ModelBuilder:
                     self._model.summary()
         return filename_expanded
 
+    def _calculate_lengths(self, params):
+        # protection from weights impact on length of text
+        length_keys = self._length_calculator(params.keys())
+        length_vals = self._length_calculator(params.values())
+        return max([length_keys, length_vals])
+
+    def _update_all_lengths(self):
+        for action in ['build', 'compile', 'train']:
+            self._update_length(self._calculate_lengths(self._update_params_text(self._params[action])))
+
+    def _update_length(self, new_candidate):
+        self._LENGTH = max([self._LENGTH, new_candidate])
+
     # method for text cleanup
     def _prepare_parameter_text(self, what='build'):
         text_build = f'{what.capitalize()} parameters\n'
-        for key, value in zip(self._PARAMS[what].keys(), self._PARAMS[what].values()):
+        walkover = self._update_params_text(self._params[what])
+        for key, value in zip(walkover.keys(), walkover.values()):
             if key == 'weights' and value is not None:
                 text_build += f'\t{key:{self._LENGTH}} - \n'
                 continue
@@ -184,37 +204,42 @@ class ModelBuilder:
                               f'{str(value).rjust(self._LENGTH)}\n'
         return text_build
 
-    def _update_all_lengths(self):
-        self._update_length(self._calculate_lengths(self._params_build))
-        self._update_length(self._calculate_lengths(self._params_compile))
-        self._update_length(self._calculate_lengths(self._params_train))
-
-    def _update_length(self, new_candidate):
-        self._LENGTH = max([self._LENGTH, new_candidate])
-
     # a method to change the values of parameter holders
-    def _update_params(self, parameters, **kwargs):
-        result = parameters
-        for key in kwargs.keys():
+    def _update_params_text(self, parameters):
+        result = {}
+        for key in parameters.keys():
             # list of different params
-            if type(kwargs[key]) is list:
-                for it, key_interior in enumerate(kwargs[key]):
+            if type(parameters[key]) is list:
+                for it, key_interior in enumerate(parameters[key]):
                     to_update = self._check_for_name(key_interior)
                     key_str = str(it)
                     while len(key_str) < 2:
                         key_str = '0' + key_str
                     result.update({f'{key}_{key_str}': to_update})
                 continue
-            if type(kwargs[key]) is dict:
-                for key_interior in kwargs[key].keys():
+            if type(parameters[key]) is dict:
+                for key_interior in parameters[key].keys():
                     to_update = self._check_for_name(key_interior)
-                    result.update({f'{key}-{to_update}': kwargs[key][key_interior]})
+                    result.update({f'{key}-{to_update}': parameters[key][key_interior]})
                 continue
-            to_update = self._check_for_name(kwargs[key])
-            if key in parameters.keys():
-                result[key] = to_update
-            else:
+            to_update = self._check_for_name(parameters[key])
+            if key in ['x_data', 'y_data']:
+                continue
+            if key not in result.keys():
                 result.update({key: to_update})
+                continue
+            result[key] = to_update
+        return result
+
+    @staticmethod
+    def _update_parameters(parameters, **kwargs):
+        result = parameters
+        for key in kwargs.keys():
+            # just making sure - should never occur
+            if key not in result.keys():
+                result.update({key: kwargs[key]})
+                continue
+            result[key] = kwargs[key]
         return result
 
     @staticmethod
@@ -232,14 +257,12 @@ class ModelBuilder:
     def _check_for_name(checked_property):
         if hasattr(checked_property, 'name'):
             return checked_property.name
+
         return checked_property
 
     @staticmethod
-    def _calculate_lengths(params):
-        # protection from weights impact on length of text
-        length_keys = max([len(str(f)) for f in params.keys() if len(str(f)) < 100])
-        length_vals = max([len(str(f)) for f in params.values() if len(str(f)) < 100])
-        return max([length_keys, length_vals])
+    def _length_calculator(loof_values):
+        return max([len(str(f)) for f in loof_values if len(str(f)) < 100 and type(f) is not dict])
 
     @staticmethod
     def _merge_history_and_times(history, times):
@@ -282,10 +305,15 @@ class ModelBuilder:
 class CNNBuilder(ModelBuilder):
     def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
         super(CNNBuilder, self).__init__()
-        self._model = self.build_model(model_type, input_shape, noof_classes, **kwargs)
+        DEFAULTS = {'model_type': model_type,
+                    'input_shape': input_shape,
+                    'noof_classes': noof_classes,
+                    'weights': None,
+                    }
+        self._params['build'] = DEFAULTS.copy()
+        self._init_build(**self._params['build'], **kwargs)
 
-    def build_model(self, model_type, input_shape, noof_classes, weights=None, **kwargs):
-        super(CNNBuilder, self).build_model(model_type, input_shape, noof_classes, weights=None, **kwargs)
+    def _build_model(self, model_type, input_shape, noof_classes, weights=None, **kwargs):
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
@@ -321,33 +349,37 @@ class CNNBuilder(ModelBuilder):
 
 # Fourier Model for classification
 class FourierBuilder(ModelBuilder):
-    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
+    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
         super(FourierBuilder, self).__init__()
-        self._model = self._build_model(model_type, input_shape, noof_classes, **kwargs)
+        DEFAULTS = {'classical': {'model_type': model_type,
+                                  'input_shape': input_shape,
+                                  'noof_classes': noof_classes,
+                                  'ftl_activation': 'relu',
+                                  'ftl_initializer': 'he_normal',
+                                  'use_imag': True,
+                                  'head_initializer': 'he_normal',
+                                  'head_activation': 'softmax',
+                                  },
+                    'sampling': {},
+                    }
+        for key, value in zip(DEFAULTS['classical'].keys(), DEFAULTS['classical'].values()):
+            if 'initializer' not in key:
+                DEFAULTS['sampling'].update({key: value})
+                continue
+            DEFAULTS['sampling'][key] = 'ones'
         self._DIRECTIONS = {'up': '*',
                             'down': '//',
                             }
+        self._params['build'] = DEFAULTS[approach].copy()
+        self._init_build(**self._params['build'], **kwargs)
 
     def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        super(FourierBuilder, self)._build_model(model_type, input_shape, noof_classes, **kwargs)
-        ftl_activation = 'relu'
-        if 'ftl_activation' in kwargs.keys():
-            ftl_activation = kwargs['ftl_activation']
-        ftl_initializer = 'he_normal'
-        if 'ftl_initializer' in kwargs.keys():
-            ftl_initializer = kwargs['ftl_initializer']
-        use_imag = True
-        if 'use_imag' in kwargs.keys():
-            use_imag = kwargs['use_imag']
-        head_initializer = 'he_normal'
-        if 'head_initializer' in kwargs.keys():
-            head_initializer = kwargs['head_initializer']
-        if noof_classes == 1:
-            head_activation = 'sigmoid'
-        else:
-            head_activation = 'softmax'
-        if 'head_activation' in kwargs.keys():
-            head_activation = kwargs['head_activation']
+        # kwargs extraction
+        ftl_activation = kwargs['ftl_activation']
+        ftl_initializer = kwargs['ftl_initializer']
+        use_imag = kwargs['use_imag']
+        head_initializer = kwargs['head_initializer']
+        head_activation = kwargs['head_activation']
         model_type_low = model_type.lower()
         inp = Input(input_shape)
         arch = FTL(activation=ftl_activation, initializer=ftl_initializer, inverse='inverse' in model_type_low,
@@ -362,14 +394,14 @@ class FourierBuilder(ModelBuilder):
 
     def _sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
-        shape = self._params_build['input_shape']
-        shape_new = self._params_build['input_shape']
+        shape = self._params['build']['input_shape']
+        shape_new = shape
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], parameter=kwargs['nominator'],
                                         sign=self._DIRECTIONS[kwargs['direction']])
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
-        params_sampled = self._params_build
+        params_sampled = self._params['build'].copy()
         params_sampled['input_shape'] = (*shape_new, shape[2])
         # find the ftl layer
         ftl_index = 0
@@ -402,7 +434,7 @@ class FourierBuilder(ModelBuilder):
         else:
             pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
             head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
-        return FourierBuilder(**params_sampled, weights=[weights_replace, *head])
+        return FourierBuilder(**params_sampled, weights=[weights_replace, *head], approach='sampling')
 
     def sample_model(self, **kwargs):
         return self._sample_model(self, **kwargs)
@@ -425,8 +457,8 @@ def test_minors():
     x_tr = []
     for x in x_train:
         x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_train = expand_dims(asarray(x_tr) / 255, axis=-1)
-    y_train = to_categorical(y_train, 10)
+    x_train = expand_dims(asarray(x_tr) / 255, axis=-1)[:1000]
+    y_train = to_categorical(y_train, 10)[:1000]
 
     x_tr = []
     for x in x_test:
@@ -434,14 +466,14 @@ def test_minors():
     x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    builder = FourierBuilder('fourier_inverse', input_shape=(32, 32, 1), noof_classes=10)
+    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10)
     # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(100, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=128,
-                        call_stop_kwargs={'baseline': 0.80,
+    builder.train_model(10, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=128,
+                        call_stop_kwargs={'baseline': 0.75,
                                           'monitor': 'categorical_accuracy',
-                                          'patience': 2,
+                                          'patience': 3,
                                           })
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('test', 'Testing training pipeline', '../test')
