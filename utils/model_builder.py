@@ -30,8 +30,9 @@ class ModelBuilder:
                                                    'patience': 2,
                                                    },
                               'call_checkpoint': True,
-                              'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{self._filename}',
-                                                         'monitor': 'categorical_accuracy',
+                              'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{self._filename}' +
+                                                                     '{epoch:03d}_{val_loss:.4f}.hdf5',
+                                                         'monitor': 'val_categorical_accuracy',
                                                          'mode': 'auto',
                                                          'save_freq': 'epoch',
                                                          'save_weights_only': True,
@@ -67,10 +68,10 @@ class ModelBuilder:
         'Must provide either generator or full dataset.'
         # full set or generator
         flag_full_set = False
+        split = 0
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
             x_train = kwargs['x_data']
             y_train = kwargs['y_data']
-            split = 0
             if 'validation' in kwargs.keys():
                 split = kwargs['validation']
             self._params['train'] = self._update_parameters(self._params['train'],
@@ -83,6 +84,7 @@ class ModelBuilder:
             self._params['train'] = self._update_parameters(self._params['train'],
                                                             dataset='generator')
             if 'validation' in kwargs.keys():
+                split = 1
                 validation_data = kwargs['validation']
                 self._params['train'] = self._update_parameters(self._params['train'],
                                                                 validation_size=validation_data.shape[0])
@@ -103,6 +105,7 @@ class ModelBuilder:
                                                             call_stop_kwargs=callback_stop.get_kwargs())
             flag_stop = True
         if 'call_checkpoint' in kwargs.keys() and kwargs['call_checkpoint']:
+            assert split > 0, 'Must validate the data for checkpoint saving.'
             callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
             callbacks.append(callback_checkpoint)
             self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False

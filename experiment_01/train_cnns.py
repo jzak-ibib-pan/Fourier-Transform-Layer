@@ -15,14 +15,14 @@ def main():
         x_tr = []
         for x in x_train:
             x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-        x_train = expand_dims(asarray(x_tr) / 255, axis=-1)
-        y_train = to_categorical(y_train, 10)
+        x_train = expand_dims(asarray(x_tr) / 255, axis=-1)[:1000]
+        y_train = to_categorical(y_train, 10)[:1000]
 
         x_tr = []
         for x in x_test:
             x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-        x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
-        y_test = to_categorical(y_test, 10)
+        x_test = expand_dims(asarray(x_tr) / 255, axis=-1)[:1000]
+        y_test = to_categorical(y_test, 10)[:1000]
 
         builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                            TopKCategoricalAccuracy(k=5, name='top-5')])
