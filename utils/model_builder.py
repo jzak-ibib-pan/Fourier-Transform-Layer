@@ -318,10 +318,10 @@ class CNNBuilder(ModelBuilder):
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
                 # load Mobilenet
-                backbone = apps.mobilenet.MobileNet(input_shape, weights=weights, include_top=False)
+                backbone = apps.mobilenet.MobileNet(input_shape=input_shape, weights=weights, include_top=False)
             else:
                 # load Mobilenetv2
-                backbone = apps.mobilenet_v2.MobileNetV2(input_shape, weights=weights, include_top=False)
+                backbone = apps.mobilenet_v2.MobileNetV2(input_shape=input_shape, weights=weights, include_top=False)
                 # update BatchNormalization momentum - otherwise MobilenetV2 does not work
                 for layer in backbone.layers:
                     if type(layer) != type(BatchNormalization):
@@ -329,14 +329,14 @@ class CNNBuilder(ModelBuilder):
                     layer.momentum=0.9
         elif 'vgg' in model_type_low:
             if '16' in model_type_low:
-                backbone = apps.vgg16.VGG16(input_shape, weights=weights, include_top=False)
+                backbone = apps.vgg16.VGG16(input_shape=input_shape, weights=weights, include_top=False)
             elif '19' in model_type_low:
-                backbone = apps.vgg19.VGG19(input_shape, weights=weights, include_top=False)
+                backbone = apps.vgg19.VGG19(input_shape=input_shape, weights=weights, include_top=False)
         elif 'resnet' in model_type_low:
             if '50' in model_type_low:
-                backbone = apps.resnet_v2.ResNet50V2(input_shape, weights=weights, include_top=False)
+                backbone = apps.resnet_v2.ResNet50V2(input_shape=input_shape, weights=weights, include_top=False)
             elif '101' in model_type_low:
-                backbone = apps.resnet_v2.ResNet101V2(input_shape, weights=weights, include_top=False)
+                backbone = apps.resnet_v2.ResNet101V2(input_shape=input_shape, weights=weights, include_top=False)
         architecture = backbone.output
         # Classify
         flat = Flatten()(architecture)
