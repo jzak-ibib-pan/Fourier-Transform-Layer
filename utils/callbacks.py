@@ -27,7 +27,7 @@ class EarlyStopOnBaseline(Callback):
     (bool) restore_best - whether to store and restore best weights; default: True
     (int) verbose - whether to print out the messages during training; default: 1, values: 0, 1
     """
-    def __init__(self, monitor: str = 'val_loss', baseline: float = 0.1, min_delta: float = 0.01, patience: int = 0,
+    def __init__(self, monitor: str = 'val_loss', baseline: float = 0.1, min_delta: float = 0.001, patience: int = 0,
                  restore_best: bool = True, verbose: int = 1):
         super(EarlyStopOnBaseline, self).__init__()
         assert monitor in ['acc', 'loss', 'val_acc', 'val_loss', 'categorical_accuracy', 'val_categorical_accuracy',
@@ -83,7 +83,7 @@ class EarlyStopOnBaseline(Callback):
         if self.restore_weights:
             self.model.set_weights(self._best_weights)
             if self.verbose:
-                print(f'\tRestoring weights @ {self.monitor} = {round(self._best_value, 4)}.')
+                print(f'\tRestoring weights @ {self.monitor} = {round(self._best_value, 4)} vs {round(monitored_value, 4)}.')
         self._patience += 1
         if self._patience < self.patience:
             return

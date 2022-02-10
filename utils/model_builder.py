@@ -394,13 +394,13 @@ class FourierBuilder(ModelBuilder):
             return value[:2] * parameter
 
 
-if __name__ == '__main__':
+def test_minors():
     from tensorflow.keras.datasets import mnist
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_train = expand_dims(x_train / 255, axis=-1)[:3000]
-    y_train = to_categorical(y_train, 10)[:3000]
+    x_train = expand_dims(x_train / 255, axis=-1)
+    y_train = to_categorical(y_train, 10)
 
     x_test = expand_dims(x_test / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
@@ -415,3 +415,7 @@ if __name__ == '__main__':
                                           })
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('test', 'Testing training pipeline', '../test')
+
+
+if __name__ == '__main__':
+    test_minors()
