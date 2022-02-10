@@ -120,7 +120,7 @@ class ModelBuilder:
             epoch += 1
             stop = epoch >= epochs
             if flag_stop:
-                stop = stop or callbacks[1]
+                stop = stop or callbacks[1].stopped_training
             if not flag_time:
                 continue
             tims.append(callbacks[0].times[0])
