@@ -231,7 +231,14 @@ class ModelBuilder:
             epoch_str = str(epoch)
             while len(epoch_str) < len(str(len(history))):
                 epoch_str = '0' + epoch_str
-            text_result += f'\tEpoch {epoch_str:{5}}\n'
+            # do not expect more than 10k training epochs
+            text_result += f'\tEpoch {epoch_str:{5}} -- '
+            for key, value in zip(history[epoch].keys(), history[epoch].values()):
+                value_used = value
+                if type(value) is list:
+                    value_used = value[0]
+                text_result += f'{key} {round(value_used, 6):{9}} || '
+            text_result += '\n'
         return text_result
 
 # Standard CNNs for classification
@@ -377,7 +384,9 @@ if __name__ == '__main__':
     x_train = expand_dims(x_train / 255, axis=-1)[:3000]
     y_train = to_categorical(y_train, 10)[:3000]
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
-    builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(), TopKCategoricalAccuracy()])
+    builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
+                                                                       TopKCategoricalAccuracy(k=3, name='top-3'),
+                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(11, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=64,
                         call_stop_kwargs={'baseline': 0.80,
                                           'monitor': 'acc',
