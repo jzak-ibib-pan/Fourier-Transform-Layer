@@ -138,7 +138,7 @@ class ModelBuilder:
                 fil.write(self._prepare_text(action))
             fil.write(notes + '\n')
             fil.write('Evaluation: \n')
-            fil.write(f'History: {self.history}\n')
+            fil.write(f'Training history: {self.history}\n')
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
@@ -169,6 +169,7 @@ class ModelBuilder:
 
     # a method to change the values of parameter holders
     def _update_params(self, parameters, **kwargs):
+        result = parameters
         for key in kwargs.keys():
             # list of different params
             if type(kwargs[key]) is list:
@@ -177,14 +178,19 @@ class ModelBuilder:
                     key_str = str(it)
                     while len(key_str) < 2:
                         key_str = '0' + key_str
-                    parameters.update({f'{key}_{key_str}': to_update})
+                    result.update({f'{key}_{key_str}': to_update})
+                continue
+            if type(kwargs[key]) is dict:
+                for key_interior in kwargs[key].keys():
+                    to_update = self._check_for_name(key_interior)
+                    result.update({f'{key}-{to_update}': kwargs[key][key_interior]})
                 continue
             to_update = self._check_for_name(kwargs[key])
             if key in parameters.keys():
-                parameters[key] = to_update
+                result[key] = to_update
             else:
-                parameters.update({key: to_update})
-        return parameters
+                result.update({key: to_update})
+        return result
 
     @staticmethod
     def _expand_filename(filename, filepath=''):
@@ -362,9 +368,9 @@ if __name__ == '__main__':
     y_train = to_categorical(y_train, 10)
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(), TopKCategoricalAccuracy()])
-    # builder.train_model(2, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
-    #                     call_stop_kwargs={'baseline': 0.80,
-    #                                       'monitor': 'acc',
-    #                                       'patience': 2,
-    #                                       })
+    builder.train_model(2, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
+                        call_stop_kwargs={'baseline': 0.80,
+                                          'monitor': 'acc',
+                                          'patience': 2,
+                                          })
     builder.save_model_info('test', 'Testing training pipeline', '../test')
