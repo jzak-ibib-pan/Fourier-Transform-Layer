@@ -37,14 +37,14 @@ class EarlyStopOnBaseline(Callback):
         assert min_delta >= 0, self._inform_user_of_error('min_delta')
         assert patience >= 0, self._inform_user_of_error('patience')
         assert verbose in [0, 1], self._inform_user_of_error('verbose')
-        self.monitor = monitor
-        self.baseline = baseline
-        self.delta = min_delta
-        self.patience = patience
+        self._monitor = monitor
+        self._baseline = baseline
+        self._delta = min_delta
+        self._patience = patience
         # default - best weights will be restored
-        self.restore_weights = restore_best
-        self.verbose = verbose
-        self._patience = 0
+        self._restore_weights = restore_best
+        self._verbose = verbose
+        self._patience_counter = 0
         self._flag_monitor_accuracy = any([a in monitor for a in ['acc', 'accuracy']])
         # assume loss is the monitored value
         self._best_value = 1e10
@@ -58,15 +58,15 @@ class EarlyStopOnBaseline(Callback):
         logs = logs or {}
         monitored_value = logs.get(self.monitor)
 
-        if monitored_value is None or self.baseline is None:
+        if monitored_value is None or self._baseline is None:
             return
 
         # find out if the monitored value improved
-        self._flag_reached_baseline = monitored_value <= self.baseline or self._flag_reached_baseline
-        flag_better_result = monitored_value <= self._best_value - self.delta
+        self._flag_reached_baseline = monitored_value <= self._baseline or self._flag_reached_baseline
+        flag_better_result = monitored_value <= self._best_value - self._delta
         if self._flag_monitor_accuracy:
-            self._flag_reached_baseline = monitored_value >= self.baseline or self._flag_reached_baseline
-            flag_better_result = monitored_value >= self._best_value + self.delta
+            self._flag_reached_baseline = monitored_value >= self._baseline or self._flag_reached_baseline
+            flag_better_result = monitored_value >= self._best_value + self._delta
 
         if not self._flag_reached_baseline:
             return
@@ -74,21 +74,21 @@ class EarlyStopOnBaseline(Callback):
         # update values if reached new best
         if flag_better_result:
             self._best_value = monitored_value
-            self._patience = 0
-            if self.restore_weights:
+            self._patience_counter = 0
+            if self._restore_weights:
                 self._best_weights = self.model.get_weights()
             return
 
         # restore best weights
-        if self.restore_weights:
+        if self._restore_weights:
             self.model.set_weights(self._best_weights)
-            if self.verbose:
-                print(f'\tRestoring weights @ {self.monitor} = {round(self._best_value, 4)} vs {round(monitored_value, 4)}.')
-        self._patience += 1
-        if self._patience < self.patience:
+            if self._verbose:
+                print(f'\tRestoring weights @ {self._monitor} = {round(self._best_value, 4)} vs {round(monitored_value, 4)}.')
+        self._patience_counter += 1
+        if self._patience_counter < self._patience:
             return
 
-        if self.verbose:
+        if self._verbose:
             print(f'\tEpoch {epoch}: Terminating training.')
         self.model.stop_training = True
         self._stopped_training = True
