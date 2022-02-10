@@ -61,7 +61,7 @@ class ModelBuilder:
         return Model()
 
     def _compile_model(self, optimizer, loss, **kwargs):
-        self._model.compile(**self._params['compile'])
+        self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
@@ -164,7 +164,7 @@ class ModelBuilder:
     def compile_model(self, optimizer, loss, **kwargs):
         self._params['compile'] = self._update_parameters(self._params['compile'],
                                                           optimizer=optimizer, loss=loss, **kwargs)
-        self._compile_model(optimizer, loss, **kwargs)
+        self._compile_model(**self._params['compile'])
 
     def train_model(self, epochs, **kwargs):
         self._params['train'] = self._update_parameters(self._params['train'], epochs=epochs, **kwargs)
@@ -253,8 +253,12 @@ class ModelBuilder:
 
     @staticmethod
     def _update_parameters(parameters, **kwargs):
-        result = parameters
+        result = parameters.copy()
         for key in kwargs.keys():
+            if type(kwargs[key]) is dict:
+                for key_interior in kwargs[key].keys():
+                    result[key].update({key_interior: kwargs[key][key_interior]})
+                continue
             # just making sure - should never occur
             if key not in result.keys():
                 result.update({key: kwargs[key]})
