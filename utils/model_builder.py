@@ -38,7 +38,6 @@ class ModelBuilder:
                            }
         self.model = []
         self.history = []
-        self.times = []
 
     def build_model(self, model_type, input_shape, noof_classes, **kwargs):
         self._params_build = self._update_params(self._params_build, model_type=model_type, input_shape=input_shape,
@@ -108,7 +107,7 @@ class ModelBuilder:
                                        validation_data=validation_data, callbacks=callbacks).history)
             if flag_time:
                 # time callback will always be before stop callback, thus 0
-                return hist, callbacks[0].times
+                return self._merge_history_and_times(hist, callbacks[0].times)
             return hist
 
         # this way ensures that every model will receive the same data
@@ -120,7 +119,7 @@ class ModelBuilder:
                 continue
             tims.append(callback_time.times[0])
         if flag_time:
-            return hist, tims
+            return self._merge_history_and_times(hist, tims)
         return hist
 
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
@@ -138,9 +137,11 @@ class ModelBuilder:
         if '.' not in format_used:
             format_used = '.' + format_used
         with open(join(filepath, filename_expanded + format_used), 'w') as fil:
-            for action in ['build', 'compile']:
+            for action in ['build', 'compile', 'train']:
                 fil.write(self._prepare_text(action))
             fil.write(notes + '\n')
+            fil.write('Evaluation: \n')
+            fil.write(f'History: {self.history}\n')
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
@@ -197,6 +198,13 @@ class ModelBuilder:
         length_vals = max([len(str(f)) for f in params.values() if len(str(f)) < 100])
         return max([length_keys, length_vals])
 
+    @staticmethod
+    def _merge_history_and_times(history, times):
+        assert len(history) == len(times), 'History and times are not the same length.'
+        history_end = history
+        for it, time in enumerate(times):
+            history_end[it].update({'time': time})
+        return history_end
 
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
@@ -342,9 +350,9 @@ if __name__ == '__main__':
     y_train = to_categorical(y_train, 10)
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(), TopKCategoricalAccuracy()])
-    builder.train_model(3, x_data=x_train, y_data=y_train, call_stop=True,
+    builder.train_model(3, x_data=x_train, y_data=y_train, call_stop=True, call_time=True,
                         call_stop_kwargs={'baseline': 0.80,
                                           'monitor': 'acc',
                                           'patience': 2,
                                           })
-    builder.save_model_info('test', 'Testing training pipeline', '../test')
+    builder.save_model_info('test_mnist', 'Testing training pipeline', '../test')
