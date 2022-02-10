@@ -182,10 +182,13 @@ class ModelBuilder:
     @staticmethod
     def _update_params(parameters, **kwargs):
         for key in kwargs.keys():
+            to_update = kwargs[key]
+            if hasattr(kwargs[key], 'name'):
+                to_update = kwargs[key].name
             if key in parameters.keys():
-                parameters[key] = kwargs[key]
+                parameters[key] = to_update
             else:
-                parameters.update({key: kwargs[key]})
+                parameters.update({key: to_update})
         return parameters
 
     @staticmethod
