@@ -57,8 +57,8 @@ class ModelBuilder:
     def train_model(self, epochs, **kwargs):
         self.history = self._train_model(epochs, **kwargs)
 
-    def evaluate_model(self):
-        self.evaluation = self._evaluate_model()
+    def evaluate_model(self, **kwargs):
+        self.evaluation = self._evaluate_model(**kwargs)
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
@@ -134,7 +134,7 @@ class ModelBuilder:
         return hist
 
     def _evaluate_model(self, **kwargs):
-        return self.model
+        return self.model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
 
     def save_model_info(self, filename, notes='', filepath='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
@@ -154,8 +154,9 @@ class ModelBuilder:
             for action in ['build', 'compile', 'train']:
                 fil.write(self._prepare_parameter_text(action))
             fil.write(notes + '\n')
-            fil.write('Evaluation: \n')
-            fil.write(self._prepare_history_text(self.history))
+            # the method accepts list
+            fil.write(f'Evaluation: \n{self._prepare_metrics_text([self.evaluation])}')
+            fil.write(f'Training history: \n{self._prepare_metrics_text(self.history)}')
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
@@ -242,8 +243,8 @@ class ModelBuilder:
         return history_end
 
     @staticmethod
-    def _prepare_history_text(history):
-        text_result = f'Training history: \n'
+    def _prepare_metrics_text(history):
+        text_result = ''
         for epoch in range(len(history)):
             epoch_str = str(epoch)
             while len(epoch_str) < len(str(len(history))):
@@ -400,6 +401,10 @@ if __name__ == '__main__':
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train = expand_dims(x_train / 255, axis=-1)[:3000]
     y_train = to_categorical(y_train, 10)[:3000]
+
+    x_test = expand_dims(x_test / 255, axis=-1)
+    y_test = to_categorical(y_test, 10)
+
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
@@ -408,4 +413,5 @@ if __name__ == '__main__':
                                           'monitor': 'categorical_accuracy',
                                           'patience': 2,
                                           })
+    builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('test', 'Testing training pipeline', '../test')
