@@ -322,11 +322,6 @@ class CNNBuilder(ModelBuilder):
             else:
                 # load Mobilenetv2
                 backbone = apps.mobilenet_v2.MobileNetV2(input_shape=input_shape, weights=weights, include_top=False)
-                # update BatchNormalization momentum - otherwise MobilenetV2 does not work
-                for layer in backbone.layers:
-                    if type(layer) != type(BatchNormalization):
-                        continue
-                    layer.momentum=0.9
         elif 'vgg' in model_type_low:
             if '16' in model_type_low:
                 backbone = apps.vgg16.VGG16(input_shape=input_shape, weights=weights, include_top=False)
@@ -337,6 +332,11 @@ class CNNBuilder(ModelBuilder):
                 backbone = apps.resnet_v2.ResNet50V2(input_shape=input_shape, weights=weights, include_top=False)
             elif '101' in model_type_low:
                 backbone = apps.resnet_v2.ResNet101V2(input_shape=input_shape, weights=weights, include_top=False)
+        # update BatchNormalization momentum - otherwise several models (MobilenetV2, VGG16) do not work
+        for layer in backbone.layers:
+            if type(layer) != type(BatchNormalization):
+                continue
+            layer.momentum=0.9
         architecture = backbone.output
         # Classify
         flat = Flatten()(architecture)
