@@ -62,14 +62,17 @@ class ModelBuilder:
         # callbacks
         callbacks = []
         flag_time = False
+        flag_stop = False
         if 'call_time' in kwargs.keys() and kwargs['call_time']:
             callback_time = TimeHistory()
             callbacks.append(callback_time)
             flag_time = True
         if 'call_stop' in kwargs.keys() and kwargs['call_stop']:
+            # metric and monitor names must be the same
             callback_stop = EarlyStopOnBaseline(**kwargs['call_stop_kwargs'])
             callbacks.append(callback_stop)
             self._update_params(self._params_train, early_stop=kwargs['call_stop_kwargs'])
+            flag_stop = True
         # full set or generator
         flag_full_set = False
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
@@ -78,8 +81,8 @@ class ModelBuilder:
             split = 0
             if 'validation' in kwargs.keys():
                 split = kwargs['validation']
-            flag_full_set = True
             self._update_params(self._params_train, dataset_size=x_train.shape[0], validation_split=split)
+            flag_full_set = True
         if 'generator' in kwargs.keys():
             data_gen = kwargs['generator']
             self._update_params(self._params_train, dataset='generator')
@@ -108,13 +111,19 @@ class ModelBuilder:
             return hist
 
         # this way ensures that every model will receive the same data
-        for epoch in range(epochs):
+        stop = False
+        epoch = 0
+        while not stop:
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
             hist.append(self.model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
                                        validation_split=split, callbacks=callbacks).history)
+            epoch += 1
+            stop = epoch >= epochs
+            if flag_stop:
+                stop = stop or callbacks[1]
             if not flag_time:
                 continue
-            tims.append(callback_time.times[0])
+            tims.append(callbacks[0].times[0])
         if flag_time:
             return self._merge_history_and_times(hist, tims)
         return hist
@@ -385,11 +394,10 @@ if __name__ == '__main__':
     y_train = to_categorical(y_train, 10)[:3000]
     builder = FourierBuilder('fourier', input_shape=(28, 28, 1), noof_classes=10)
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
-                                                                       TopKCategoricalAccuracy(k=3, name='top-3'),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(11, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=64,
+    builder.train_model(100, x_data=x_train, y_data=y_train, call_stop=True, call_time=True, batch=64,
                         call_stop_kwargs={'baseline': 0.80,
-                                          'monitor': 'acc',
+                                          'monitor': 'categorical_accuracy',
                                           'patience': 2,
                                           })
     builder.save_model_info('test', 'Testing training pipeline', '../test')

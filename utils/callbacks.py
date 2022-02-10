@@ -52,6 +52,7 @@ class EarlyStopOnBaseline(Callback):
             self._best_value = 1e-10
         self._flag_reached_baseline = False
         self._best_weights = None
+        self._stopped_training = False
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
@@ -90,6 +91,7 @@ class EarlyStopOnBaseline(Callback):
         if self.verbose:
             print(f'\tEpoch {epoch}: Terminating training.')
         self.model.stop_training = True
+        self._stopped_training = True
 
     @staticmethod
     def _inform_user_of_error(variable: str):
@@ -101,6 +103,10 @@ class EarlyStopOnBaseline(Callback):
                   'verbose': '0, 1',
                   }
         return f'Incorrect value. Expected value in range: {RANGES[variable]}.'
+
+    @property
+    def stopped_training(self):
+        return self._stopped_training
 
 
 if __name__ == '__main__':
