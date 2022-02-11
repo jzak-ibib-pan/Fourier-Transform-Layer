@@ -47,6 +47,7 @@ class ModelBuilder:
         self._METRICS = ['loss', 'acc', 'accuracy', 'categorical_accuracy', 'top-1', 'top-5',
                          'val_loss', 'val_acc', 'val_accuracy', 'val_categorical_accuracy', 'val_top-1', 'val_top-5']
         self._update_checkpoint_suffixes()
+        self._checkfile_epoch_position = 0
         self._params = {'build': {},
                         'compile': DEFAULTS['compile'].copy(),
                         'train': DEFAULTS['train'].copy(),
@@ -119,7 +120,8 @@ class ModelBuilder:
             if not isdir(f'{self._filepath}/checkpoints'):
                 mkdir(f'{self._filepath}/checkpoints')
             # prioritize validation metrics
-            self._manage_checkpoint_filepath(validation=any(['validation' in v for v in kwargs.keys()]))
+            _v = any(['validation' in v for v in kwargs.keys()])
+            self._params['train']['call_checkpoint_kwargs']['filepath'] = self._manage_checkpoint_filepath(validation=_v)
             callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
             callbacks.append(callback_checkpoint)
             flag_checkpoint = True
@@ -190,18 +192,25 @@ class ModelBuilder:
         self._evaluation = self._evaluate_model(**kwargs)
 
     def _manage_checkpoint_filepath(self, **kwargs):
+        _flag_save_memory = self._params['train']['save_memory']
         filepath_checkpoint = self._params['train']['call_checkpoint_kwargs']['filepath']
         if 'epoch' in kwargs.keys():
             epoch = kwargs['epoch']
             if epoch == 0:
+                # find where the epoch info is kept in the filename
+                self._checkfile_epoch_position = [f for f in filepath_checkpoint.split('_')].index('{epoch:03d}')
                 return filepath_checkpoint
-            filepath_checkpoint.replace('_{epoch:03d}_', f'_{epoch:03d}_')
+            splits = filepath_checkpoint.split('_')
+            if not _flag_save_memory:
+                splits[self._checkfile_epoch_position] = f'{epoch:03d}'
+            elif epoch % 10 == 0:
+                filepath_checkpoint = '_'.join(splits)
         if 'validation' not in kwargs.keys():
             return filepath_checkpoint
         monitor = self._params['train']['call_checkpoint_kwargs']['monitor']
-        if not kwargs['validation']:
+        if not kwargs['validation'] and not _flag_save_memory:
             if 'loss' not in filepath_checkpoint:
-                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss:4f}_'
+                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss:.3f}_'
             # ensure validation data exists
             assert 'val' not in monitor, f'Val_{monitor} will be unavailable - no validation data.'
         else:
@@ -209,9 +218,9 @@ class ModelBuilder:
                 monitor = 'val_' + monitor
                 self._params['train']['call_checkpoint_kwargs']['monitor'] = monitor
             if 'loss' not in filepath_checkpoint:
-                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss:4f}_'
+                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss:.3f}_'
         if monitor not in filepath_checkpoint:
-            filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + ':4f}.hdf5'
+            filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + ':.3f}.hdf5'
         return filepath_checkpoint
 
     @staticmethod
@@ -545,8 +554,8 @@ def test_minors():
     x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    # builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
-    builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
+    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
+    # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(10, x_data=x_train, y_data=y_train, batch=128,
@@ -556,7 +565,7 @@ def test_minors():
                                           'patience': 3,
                                           },
                         call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-                                                }
+                                                }, save_memory=False
                         )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('Testing training pipeline')
