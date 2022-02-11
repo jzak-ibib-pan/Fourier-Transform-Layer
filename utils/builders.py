@@ -408,6 +408,9 @@ class ModelBuilder:
                 value_used = value
                 if type(value) is list:
                     value_used = value[0]
+                if key == 'time':
+                    text_result += f'{key} {round(value_used, 6):{12}} || '
+                    continue
                 text_result += f'{key} {round(value_used, 6):{9}} || '
             text_result += '\n'
         return text_result
