@@ -152,7 +152,7 @@ class ModelBuilder:
         stop = False
         epoch = 0
         while not stop:
-            if flag_checkpoint and not flag_save_memory:
+            if flag_checkpoint:
                 callback_checkpoint.filepath = self._manage_checkpoint_filepath(epoch=epoch)
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
             hist.append(self._model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
