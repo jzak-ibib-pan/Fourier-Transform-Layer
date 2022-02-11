@@ -87,7 +87,7 @@ class ModelBuilder:
     def _build_model(self, **kwargs):
         return Model()
 
-    # TODO: make freeze more generic
+    # SOLVED: make freeze more generic
     @staticmethod
     def _freeze_model(model, freeze):
         result = model.copy()
