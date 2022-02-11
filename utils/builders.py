@@ -206,9 +206,15 @@ class ModelBuilder:
         self._params['build'] = self._update_parameters(self._params['build'], **kwargs)
         return self._build_model(**self._params['build'])
 
+    def build_model_from_info(self):
+        return self._build_model(**self._params['build'])
+
     def compile_model(self, optimizer, loss, **kwargs):
         self._params['compile'] = self._update_parameters(self._params['compile'],
                                                           optimizer=optimizer, loss=loss, **kwargs)
+        self._compile_model(**self._params['compile'])
+
+    def compile_model_from_info(self):
         self._compile_model(**self._params['compile'])
 
     def train_model(self, epochs, **kwargs):
@@ -217,6 +223,11 @@ class ModelBuilder:
 
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
+
+    def prepare_model_from_info(self):
+        self._model = self.build_model_from_info()
+        self.compile_model_from_info()
+        return self._model
 
     @staticmethod
     def _verify_parameters(parameters, **kwargs):
