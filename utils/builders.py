@@ -1,6 +1,6 @@
 from contextlib import redirect_stdout
-from os import listdir
-from os.path import join
+from os import listdir, mkdir
+from os.path import join, isdir
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input
@@ -16,6 +16,8 @@ from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 # Generic builder
 class ModelBuilder:
     def __init__(self, filename='dummy', filepath='../test', **kwargs):
+        if not isdir(filepath):
+            mkdir(filepath)
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
         DEFAULTS = {'compile': {'optimizer': 'adam',
@@ -31,7 +33,7 @@ class ModelBuilder:
                                                    },
                               'call_checkpoint': True,
                               'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{self._filename}' +
-                                                                     '{epoch:03d}_{val_loss:.4f}.hdf5',
+                                                                     '_{epoch:03d}_',
                                                          'monitor': 'val_categorical_accuracy',
                                                          'mode': 'auto',
                                                          'save_freq': 'epoch',
@@ -41,6 +43,10 @@ class ModelBuilder:
                               'save_memory': True,
                               },
                     }
+        self._CHECKPOINT_SUFFIXES = {}
+        self._METRICS = ['loss', 'acc', 'accuracy', 'categorical_accuracy', 'top-1', 'top-5',
+                         'val_loss', 'val_acc', 'val_accuracy', 'val_categorical_accuracy', 'val_top-1', 'val_top-5']
+        self._update_checkpoint_suffixes()
         self._params = {'build': {},
                         'compile': DEFAULTS['compile'].copy(),
                         'train': DEFAULTS['train'].copy(),
@@ -110,7 +116,10 @@ class ModelBuilder:
                                                             call_stop_kwargs=callback_stop.get_kwargs())
             flag_stop = True
         if 'call_checkpoint' in kwargs.keys() and kwargs['call_checkpoint']:
-            assert split > 0, 'Must validate the data for checkpoint saving.'
+            if not isdir(f'{self._filepath}/checkpoints'):
+                mkdir(f'{self._filepath}/checkpoints')
+            # prioritize validation metrics
+            self._manage_checkpoint_parameters(any(['validation' in v for v in kwargs.keys()]))
             callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
             callbacks.append(callback_checkpoint)
             flag_checkpoint = True
@@ -180,6 +189,34 @@ class ModelBuilder:
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
 
+    def _manage_checkpoint_parameters(self, validation):
+        monitor = 'val' not in self._params['train']['call_checkpoint_kwargs']['monitor']
+        filepath_checkpoint = self._params['train']['call_checkpoint_kwargs']['filepath']
+        if validation:
+            if 'val' not in monitor:
+                monitor = 'val_' + monitor
+                self._params['train']['call_checkpoint_kwargs']['monitor'] = monitor
+            filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss-:4f}.hdf5'
+        else:
+            filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss-:4f}.hdf5'
+        filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + '-:4f}.hdf5'
+
+    @staticmethod
+    def _update_parameters(parameters, **kwargs):
+        result = parameters.copy()
+        for key in kwargs.keys():
+            if type(kwargs[key]) is dict:
+                for key_interior in kwargs[key].keys():
+                    result[key].update({key_interior: kwargs[key][key_interior]})
+                continue
+            # just making sure - should never occur
+            if key not in result.keys():
+                result.update({key: kwargs[key]})
+                continue
+            result[key] = kwargs[key]
+        return result
+
+    # Text manipulation methods
     def save_model_info(self, notes='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
         self._update_all_lengths()
@@ -260,20 +297,14 @@ class ModelBuilder:
             result[key] = to_update
         return result
 
-    @staticmethod
-    def _update_parameters(parameters, **kwargs):
-        result = parameters.copy()
-        for key in kwargs.keys():
-            if type(kwargs[key]) is dict:
-                for key_interior in kwargs[key].keys():
-                    result[key].update({key_interior: kwargs[key][key_interior]})
+    def _update_checkpoint_suffixes(self):
+        for metric in self._METRICS:
+            suffix = metric.split('_')
+            _suffix = metric.split('-')
+            self._CHECKPOINT_SUFFIXES.update({metric: ''.join([s[0] for s in suffix])})
+            if len(_suffix) <= 1:
                 continue
-            # just making sure - should never occur
-            if key not in result.keys():
-                result.update({key: kwargs[key]})
-                continue
-            result[key] = kwargs[key]
-        return result
+            self._CHECKPOINT_SUFFIXES[metric] = ''.join([s[0] for s in suffix]) + _suffix[-1][0]
 
     @staticmethod
     def _expand_filename(filename, filepath=''):
@@ -321,6 +352,7 @@ class ModelBuilder:
             text_result += '\n'
         return text_result
 
+    # Properties
     @property
     def model(self):
         return self._model
