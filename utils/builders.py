@@ -15,6 +15,7 @@ from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 
 # Generic builder
 class ModelBuilder:
+    # TODO: allowed kwargs
     def __init__(self, **kwargs):
         filepath = '../test'
         if 'filepath' in kwargs.keys():
@@ -57,11 +58,9 @@ class ModelBuilder:
             defaults = kwargs['defaults']
             for key in defaults.keys():
                 DEFAULTS['build'].update({key: defaults[key]})
-
-        self._CHECKPOINT_SUFFIXES = {}
         self._METRICS = ['loss', 'acc', 'accuracy', 'categorical_accuracy', 'top-1', 'top-5',
                          'val_loss', 'val_acc', 'val_accuracy', 'val_categorical_accuracy', 'val_top-1', 'val_top-5']
-        self._update_checkpoint_suffixes()
+        self._CHECKPOINT_SUFFIXES = self._make_suffixes(self._METRICS, length=1)
         self._checkfile_epoch_position = 0
         self._checkfile_temp_name = ''
         self._params = {}
@@ -293,11 +292,14 @@ class ModelBuilder:
             for action in ['build', 'compile', 'train']:
                 fil.write(self._prepare_parameter_text(action))
             fil.write(notes + '\n')
-            # the method accepts list
+            suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length='default', sign='_')
+            # the prepare method accepts list
             if len(self._evaluation) > 0:
-                fil.write(f'Evaluation: \n{self._prepare_metrics_text([self._evaluation])}')
+                eva_text = self._prepare_metrics_text([self._evaluation], suffixes)
+                fil.write(f'Evaluation: \n{eva_text}')
             if len(self._history) > 0:
-                fil.write(f'Training history: \n{self._prepare_metrics_text(self._history)}')
+                hist_text = self._prepare_metrics_text(self._history, suffixes)
+                fil.write(f'Training history: \n{hist_text}')
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
@@ -357,14 +359,76 @@ class ModelBuilder:
             result[key] = to_update
         return result
 
-    def _update_checkpoint_suffixes(self, length=1):
-        for metric in self._METRICS:
+    def _make_suffixes(self, metrics, length=1, sign=''):
+        result = {}
+        _WIDTHS = {'loss': 4,
+                   'acc': 3,
+                   'top': 3,
+                   'time': 4,
+                   'default': 3,
+                   }
+        for metric in metrics:
             suffix = metric.split('_')
             _suffix = metric.split('-')
-            self._CHECKPOINT_SUFFIXES.update({metric: ''.join([s[:length] for s in suffix])})
+            if type(length) is int:
+                length_used = length
+            else:
+                length_used = self._determine_text_width(metric, _WIDTHS)
+            result.update({metric: sign.join([s[:length_used] for s in suffix])})
             if len(_suffix) <= 1:
                 continue
-            self._CHECKPOINT_SUFFIXES[metric] = ''.join([s[0] for s in suffix]) + _suffix[-1][0]
+            result[metric] = sign.join([s[:length_used] for s in suffix]) + _suffix[-1][0]
+        return result
+
+    def _prepare_metrics_text(self, history, suffixes=None):
+        _MAX_TRAILS = {'loss': 6,
+                       'acc': 4,
+                       'top': 4,
+                       'time': 6,
+                       'default': 6,
+                       }
+        _MAX_WIDTHS = {'loss': 10,
+                       'acc': 8,
+                       'top': 8,
+                       'time': 12,
+                       'default': 9,
+                       }
+        text_result = ''
+        text_result += 'epochs'.center(15) + ' -- '
+        for key in history[0].keys():
+            key_str = key
+            if suffixes:
+                key_str = suffixes[key]
+            width = self._determine_text_width(key, _MAX_WIDTHS)
+            text_result += str(key_str).center(max([len(key_str), width])) +' || '
+        text_result += '\n'
+        for epoch in range(len(history)):
+            epoch_str = str(epoch)
+            # may be possible to use {epoch:0xd}
+            while len(epoch_str) < len(str(len(history))):
+                epoch_str = '0' + epoch_str
+            # do not expect more than 10k training epochs
+            text_result += ('Epoch ' + epoch_str).center(15) +' -- '
+            for key, value in zip(history[epoch].keys(), history[epoch].values()):
+                key_str = key
+                if suffixes:
+                    key_str = suffixes[key]
+                value_used = value
+                if type(value) is list:
+                    value_used = value[0]
+                width = self._determine_text_width(key, _MAX_WIDTHS)
+                trail = self._determine_text_width(key, _MAX_TRAILS)
+                text_result += f'{value_used:{max([len(key_str), width])}.{trail}f} || '
+            text_result += '\n'
+        return text_result
+
+    @staticmethod
+    def _determine_text_width(metric, widths):
+        try:
+            index = [key in metric for key in widths.keys()].index(True)
+            return widths[list(widths.keys())[index]]
+        except ValueError:
+            return widths['default']
 
     @staticmethod
     def _expand_filename(filename, filepath=''):
@@ -393,48 +457,6 @@ class ModelBuilder:
         for it, time in enumerate(times):
             history_end[it].update({'time': time})
         return history_end
-
-    @staticmethod
-    def _prepare_metrics_text(history, suffixes=None):
-        _MAX_TRAILS = {'loss': 6,
-                       'acc': 4,
-                       'top': 4,
-                       'time': 6,
-                       'default': 6,
-                       }
-        text_result = ''
-        text_result += 'epochs'.center(15) + ' -- '
-        for key in history[0].keys():
-            key_str = key
-            if suffixes:
-                key_str = suffixes[key]
-            if key == 'time':
-                text_result += str(key_str).center(12) + ' || '
-                continue
-            text_result += str(key_str).center(max([len(key_str), 9])) +' || '
-        text_result += '\n'
-        for epoch in range(len(history)):
-            epoch_str = str(epoch)
-            # may be possible to use {epoch:0xd}
-            while len(epoch_str) < len(str(len(history))):
-                epoch_str = '0' + epoch_str
-            # do not expect more than 10k training epochs
-            text_result += ('Epoch ' + epoch_str).center(15) +' -- '
-            for key, value in zip(history[epoch].keys(), history[epoch].values()):
-                value_used = value
-                if type(value) is list:
-                    value_used = value[0]
-                try:
-                    index_t = [k in key for k in _MAX_TRAILS.keys()].index(True)
-                    trail = _MAX_TRAILS[list(_MAX_TRAILS.keys())[index_t]]
-                except ValueError:
-                    trail = _MAX_TRAILS['default']
-                width = 9
-                if key == 'time':
-                    width = 12
-                text_result += f'{value_used:{max([len(key), width])}.{trail}f} || '
-            text_result += '\n'
-        return text_result
 
     # Properties
     @property
@@ -621,7 +643,7 @@ def test_minors():
     #                      filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128,
+    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
                         call_stop=True, call_time=True, call_checkpoint=True,
                         call_stop_kwargs={'baseline': 0.5,
                                           'monitor': 'categorical_accuracy',
