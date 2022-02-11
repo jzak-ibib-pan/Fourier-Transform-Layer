@@ -194,10 +194,10 @@ class ModelBuilder:
                 tims.append(callbacks[0].times[0])
             if flag_checkpoint and flag_checkpoint_best:
                 callback_checkpoint.best = hist[-1][callback_checkpoint.monitor]
-        if flag_time:
-            return self._merge_history_and_times(hist, tims)
         self._model.save_weights(filepath=f'{self._filepath}/checkpoints/{self._filename}_finished.hdf5',
                                  overwrite=True)
+        if flag_time:
+            return self._merge_history_and_times(hist, tims)
         return hist
 
     def _evaluate_model(self, **kwargs):
@@ -391,7 +391,7 @@ class ModelBuilder:
         assert len(history) == len(times), 'History and times are not the same length.'
         history_end = history
         for it, time in enumerate(times):
-            history_end[it].update({'time': time})
+            history_end[it].update({'time [s]': time})
         return history_end
 
     @staticmethod
@@ -577,37 +577,37 @@ def test_minors():
     from tensorflow.keras.datasets import mnist
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
-    from numpy import asarray
+    from numpy import asarray, repeat
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_tr = []
     for x in x_train:
         x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_train = expand_dims(asarray(x_tr) / 255, axis=-1)[:1000]
-    y_train = to_categorical(y_train, 10)[:1000]
+    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1)[:10000], repeats=3, axis=-1)
+    y_train = to_categorical(y_train, 10)[:10000]
 
     x_tr = []
     for x in x_test:
         x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
+    x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
     y_test = to_categorical(y_test, 10)
 
     # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 1), noof_classes=10,
     #                           filename='test', filepath='../test')
-    builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet',
+    builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
                          filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    # builder.train_model(100, x_data=x_train, y_data=y_train, batch=128,
-    #                     call_stop=True, call_time=True, call_checkpoint=True,
-    #                     call_stop_kwargs={'baseline': 0.99,
-    #                                       'monitor': 'categorical_accuracy',
-    #                                       'patience': 3,
-    #                                       },
-    #                     call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-    #                                             }, save_memory=True
-    #                     )
-    # builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('Testing training pipeline', summary=True)
+    builder.train_model(100, x_data=x_train, y_data=y_train, batch=128,
+                        call_stop=True, call_time=True, call_checkpoint=True,
+                        call_stop_kwargs={'baseline': 0.99,
+                                          'monitor': 'categorical_accuracy',
+                                          'patience': 3,
+                                          },
+                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
+                                                }, save_memory=True
+                        )
+    builder.evaluate_model(x_data=x_test, y_data=y_test)
+    builder.save_model_info('Testing training pipeline')
 
 
 if __name__ == '__main__':
