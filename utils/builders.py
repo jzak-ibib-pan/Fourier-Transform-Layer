@@ -397,6 +397,13 @@ class ModelBuilder:
     @staticmethod
     def _prepare_metrics_text(history):
         text_result = ''
+        text_result += f'{"epochs":{15}} -- '
+        for key in history[0].keys():
+            if key == 'time':
+                text_result += f'{key:{12}} || '
+                continue
+            text_result += f'{key:{max([len(key), 9])}} || '
+        text_result += '\n'
         for epoch in range(len(history)):
             epoch_str = str(epoch)
             # may be possible to use {epoch:0xd}
@@ -409,9 +416,9 @@ class ModelBuilder:
                 if type(value) is list:
                     value_used = value[0]
                 if key == 'time':
-                    text_result += f'{key} {round(value_used, 6):{12}} || '
+                    text_result += f'{round(value_used, 6):{12}} || '
                     continue
-                text_result += f'{key} {round(value_used, 6):{9}} || '
+                text_result += f'{round(value_used, 6):{max([len(key), 9])}} || '
             text_result += '\n'
         return text_result
 
@@ -600,9 +607,9 @@ def test_minors():
     #                      filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(100, x_data=x_train, y_data=y_train, batch=128,
+    builder.train_model(5, x_data=x_train, y_data=y_train, batch=128,
                         call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.99,
+                        call_stop_kwargs={'baseline': 0.5,
                                           'monitor': 'categorical_accuracy',
                                           'patience': 3,
                                           },
