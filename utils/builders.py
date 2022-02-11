@@ -33,7 +33,7 @@ class ModelBuilder:
                                                    },
                               'call_checkpoint': True,
                               'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{self._filename}' +
-                                                                     '_{epoch:03d}_',
+                                                                     '_{epoch:03d}_.hdf5',
                                                          'monitor': 'val_categorical_accuracy',
                                                          'mode': 'auto',
                                                          'save_freq': 'epoch',
@@ -121,7 +121,8 @@ class ModelBuilder:
                 mkdir(f'{self._filepath}/checkpoints')
             # prioritize validation metrics
             _v = any(['validation' in v for v in kwargs.keys()])
-            self._params['train']['call_checkpoint_kwargs']['filepath'] = self._manage_checkpoint_filepath(validation=_v)
+            filepath = self._manage_checkpoint_filepath(validation=_v)
+            self._params['train']['call_checkpoint_kwargs']['filepath'] = filepath
             callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
             callbacks.append(callback_checkpoint)
             flag_checkpoint = True
@@ -193,22 +194,21 @@ class ModelBuilder:
 
     def _manage_checkpoint_filepath(self, **kwargs):
         _flag_save_memory = self._params['train']['save_memory']
-        filepath_checkpoint = self._params['train']['call_checkpoint_kwargs']['filepath']
+        filepath_checkpoint = self._params['train']['call_checkpoint_kwargs']['filepath'][:-5]
         if 'epoch' in kwargs.keys():
             epoch = kwargs['epoch']
             if epoch == 0:
                 # find where the epoch info is kept in the filename
-                self._checkfile_epoch_position = [f for f in filepath_checkpoint.split('_')].index('{epoch:03d}')
-                return filepath_checkpoint
+                self._checkfile_epoch_position = filepath_checkpoint.split('_').index('{epoch:03d}')
+                return filepath_checkpoint + '.hdf5'
             splits = filepath_checkpoint.split('_')
-            if not _flag_save_memory:
-                splits[self._checkfile_epoch_position] = f'{epoch:03d}'
-            elif epoch % 10 == 0:
+            splits[self._checkfile_epoch_position] = f'{epoch:03d}'
+            if not _flag_save_memory or epoch % 10 == 0:
                 filepath_checkpoint = '_'.join(splits)
-        if 'validation' not in kwargs.keys():
-            return filepath_checkpoint
+        if 'validation' not in kwargs.keys() or _flag_save_memory:
+            return filepath_checkpoint + '.hdf5'
         monitor = self._params['train']['call_checkpoint_kwargs']['monitor']
-        if not kwargs['validation'] and not _flag_save_memory:
+        if not kwargs['validation']:
             if 'loss' not in filepath_checkpoint:
                 filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss:.3f}_'
             # ensure validation data exists
@@ -220,8 +220,8 @@ class ModelBuilder:
             if 'loss' not in filepath_checkpoint:
                 filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss:.3f}_'
         if monitor not in filepath_checkpoint:
-            filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + ':.3f}.hdf5'
-        return filepath_checkpoint
+            filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + ':.3f}'
+        return filepath_checkpoint + '.hdf5'
 
     @staticmethod
     def _update_parameters(parameters, **kwargs):
@@ -558,14 +558,14 @@ def test_minors():
     # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(10, x_data=x_train, y_data=y_train, batch=128,
+    builder.train_model(100, x_data=x_train, y_data=y_train, batch=128,
                         call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.75,
+                        call_stop_kwargs={'baseline': 0.99,
                                           'monitor': 'categorical_accuracy',
                                           'patience': 3,
                                           },
                         call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-                                                }, save_memory=False
+                                                }, save_memory=True
                         )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('Testing training pipeline')
