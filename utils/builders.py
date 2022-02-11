@@ -119,7 +119,7 @@ class ModelBuilder:
             if not isdir(f'{self._filepath}/checkpoints'):
                 mkdir(f'{self._filepath}/checkpoints')
             # prioritize validation metrics
-            self._manage_checkpoint_parameters(any(['validation' in v for v in kwargs.keys()]))
+            self._manage_checkpoint_filepath(validation=any(['validation' in v for v in kwargs.keys()]))
             callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
             callbacks.append(callback_checkpoint)
             flag_checkpoint = True
@@ -150,7 +150,7 @@ class ModelBuilder:
         epoch = 0
         while not stop:
             if flag_checkpoint and not flag_save_memory:
-                callback_checkpoint.filepath = f'{self._filepath}/checkpoints/{self._filename}_{epoch:03d}.hdf5'
+                callback_checkpoint.filepath = self._manage_checkpoint_filepath(epoch=epoch)
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
             hist.append(self._model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
                                        validation_split=split, callbacks=callbacks).history)
@@ -189,19 +189,30 @@ class ModelBuilder:
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
 
-    def _manage_checkpoint_parameters(self, validation):
-        monitor = self._params['train']['call_checkpoint_kwargs']['monitor']
+    def _manage_checkpoint_filepath(self, **kwargs):
         filepath_checkpoint = self._params['train']['call_checkpoint_kwargs']['filepath']
-        if not validation:
-            filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss-:4f}.hdf5'
+        if 'epoch' in kwargs.keys():
+            epoch = kwargs['epoch']
+            if epoch == 0:
+                return filepath_checkpoint
+            filepath_checkpoint.replace('_{epoch:03d}_', f'_{epoch:03d}_')
+        if 'validation' not in kwargs.keys():
+            return filepath_checkpoint
+        monitor = self._params['train']['call_checkpoint_kwargs']['monitor']
+        if not kwargs['validation']:
+            if 'loss' not in filepath_checkpoint:
+                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss:4f}_'
             # ensure validation data exists
             assert 'val' not in monitor, f'Val_{monitor} will be unavailable - no validation data.'
         else:
             if 'val' not in monitor:
                 monitor = 'val_' + monitor
                 self._params['train']['call_checkpoint_kwargs']['monitor'] = monitor
-            filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss-:4f}.hdf5'
-        filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + '-:4f}.hdf5'
+            if 'loss' not in filepath_checkpoint:
+                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss:4f}_'
+        if monitor not in filepath_checkpoint:
+            filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + ':4f}.hdf5'
+        return filepath_checkpoint
 
     @staticmethod
     def _update_parameters(parameters, **kwargs):
@@ -534,8 +545,8 @@ def test_minors():
     x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
-    # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10)
+    # builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
+    builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(10, x_data=x_train, y_data=y_train, batch=128,
@@ -544,7 +555,7 @@ def test_minors():
                                           'monitor': 'categorical_accuracy',
                                           'patience': 3,
                                           },
-                        call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
+                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
                                                 }
                         )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
