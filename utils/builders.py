@@ -80,7 +80,7 @@ class ModelBuilder:
                 split = kwargs['validation_split']
             self._params['train'] = self._update_parameters(self._params['train'],
                                                             dataset_size=x_train.shape[0], validation_split=split)
-            self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
+            # self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
 
             flag_full_set = True
         if 'generator' in kwargs.keys():
@@ -97,6 +97,7 @@ class ModelBuilder:
         flag_time = False
         flag_stop = False
         flag_checkpoint = False
+        flag_checkpoint_best = True
         if 'call_time' in kwargs.keys() and kwargs['call_time']:
             callback_time = TimeHistory()
             callbacks.append(callback_time)
@@ -112,8 +113,8 @@ class ModelBuilder:
             assert split > 0, 'Must validate the data for checkpoint saving.'
             callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
             callbacks.append(callback_checkpoint)
-            self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
             flag_checkpoint = True
+            flag_checkpoint_best = self._params['train']['call_checkpoint_kwargs']['save_best_only']
 
         # other train params
         batch = 8
@@ -149,9 +150,11 @@ class ModelBuilder:
             if flag_stop:
                 call_index = [hasattr(call, 'stopped_training') for call in callbacks].index(True)
                 stop = stop or callbacks[call_index].stopped_training
-            if not flag_time:
-                continue
-            tims.append(callbacks[0].times[0])
+            # the flag makes sure times exist
+            if flag_time:
+                tims.append(callbacks[0].times[0])
+            if flag_checkpoint and flag_checkpoint_best:
+                callback_checkpoint.best = hist[-1][callback_checkpoint.monitor]
         if flag_time:
             return self._merge_history_and_times(hist, tims)
         return hist
