@@ -190,15 +190,17 @@ class ModelBuilder:
         self._evaluation = self._evaluate_model(**kwargs)
 
     def _manage_checkpoint_parameters(self, validation):
-        monitor = 'val' not in self._params['train']['call_checkpoint_kwargs']['monitor']
+        monitor = self._params['train']['call_checkpoint_kwargs']['monitor']
         filepath_checkpoint = self._params['train']['call_checkpoint_kwargs']['filepath']
-        if validation:
+        if not validation:
+            filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss-:4f}.hdf5'
+            # ensure validation data exists
+            assert 'val' not in monitor, f'Val_{monitor} will be unavailable - no validation data.'
+        else:
             if 'val' not in monitor:
                 monitor = 'val_' + monitor
                 self._params['train']['call_checkpoint_kwargs']['monitor'] = monitor
             filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss-:4f}.hdf5'
-        else:
-            filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss-:4f}.hdf5'
         filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + '-:4f}.hdf5'
 
     @staticmethod
@@ -537,11 +539,14 @@ def test_minors():
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(10, x_data=x_train, y_data=y_train, batch=128,
-                        call_stop=True, call_time=True, call_checkpoint=False,
+                        call_stop=True, call_time=True, call_checkpoint=True,
                         call_stop_kwargs={'baseline': 0.75,
                                           'monitor': 'categorical_accuracy',
                                           'patience': 3,
-                                          })
+                                          },
+                        call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
+                                                }
+                        )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('Testing training pipeline')
 
