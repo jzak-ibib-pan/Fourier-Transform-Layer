@@ -48,6 +48,7 @@ class ModelBuilder:
                          'val_loss', 'val_acc', 'val_accuracy', 'val_categorical_accuracy', 'val_top-1', 'val_top-5']
         self._update_checkpoint_suffixes()
         self._checkfile_epoch_position = 0
+        self._checkfile_temp_name = ''
         self._params = {'build': {},
                         'compile': DEFAULTS['compile'].copy(),
                         'train': DEFAULTS['train'].copy(),
