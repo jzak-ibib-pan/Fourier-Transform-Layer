@@ -391,7 +391,7 @@ class ModelBuilder:
         assert len(history) == len(times), 'History and times are not the same length.'
         history_end = history
         for it, time in enumerate(times):
-            history_end[it].update({'time [s]': time})
+            history_end[it].update({'time': time})
         return history_end
 
     @staticmethod
@@ -591,10 +591,10 @@ def test_minors():
     x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 1), noof_classes=10,
-    #                           filename='test', filepath='../test')
-    builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
-                         filename='test', filepath='../test')
+    builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
+                              filename='test', filepath='../test')
+    # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
+    #                      filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(100, x_data=x_train, y_data=y_train, batch=128,
