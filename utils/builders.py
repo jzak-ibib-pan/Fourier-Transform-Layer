@@ -294,8 +294,10 @@ class ModelBuilder:
                 fil.write(self._prepare_parameter_text(action))
             fil.write(notes + '\n')
             # the method accepts list
-            fil.write(f'Evaluation: \n{self._prepare_metrics_text([self._evaluation])}')
-            fil.write(f'Training history: \n{self._prepare_metrics_text(self._history)}')
+            if len(self._evaluation) > 0:
+                fil.write(f'Evaluation: \n{self._prepare_metrics_text([self._evaluation])}')
+            if len(self._history) > 0:
+                fil.write(f'Training history: \n{self._prepare_metrics_text(self._history)}')
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
@@ -322,11 +324,11 @@ class ModelBuilder:
         text_build = f'{what.capitalize()} parameters\n'
         walkover = self._update_params_text(self._params[what])
         for key, value in zip(walkover.keys(), walkover.values()):
-            if key == 'weights' and value is not None:
-                text_build += f'\t{key:{self._LENGTH}} - '
+            text_build += f'\t{key:{self._LENGTH}} - '
+            if key == 'weights' and type(value) is not str and value is not None:
+                text_build += '\n'
                 continue
-            text_build += f'\t{key:{self._LENGTH}} - ' \
-                              f'{str(value).rjust(self._LENGTH)}\n'
+            text_build += f'{str(value).rjust(self._LENGTH)}\n'
         return text_build
 
     # a method to change the values of parameter holders
