@@ -15,12 +15,22 @@ from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 
 # Generic builder
 class ModelBuilder:
-    def __init__(self, filename='dummy', filepath='../test', **kwargs):
+    def __init__(self, **kwargs):
+        filepath = '../test'
+        if 'filepath' in kwargs.keys():
+            filepath = kwargs['filepath']
+        filename = 'dummy'
+        if 'filename' in kwargs.keys():
+            filename = kwargs['filename']
         if not isdir(filepath):
             mkdir(filepath)
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
-        DEFAULTS = {'compile': {'optimizer': 'adam',
+        DEFAULTS = {'build' : {'model_type': 'any',
+                               'input_shape': (8, 8, 1),
+                               'noof_classes': -1,
+                               },
+                    'compile': {'optimizer': 'adam',
                                 'loss': 'mse',
                                 },
                     'train': {'epochs': 10,
@@ -43,16 +53,20 @@ class ModelBuilder:
                               'save_memory': True,
                               },
                     }
+        if 'defaults' in kwargs.keys():
+            defaults = kwargs['defaults']
+            for key in defaults.keys():
+                DEFAULTS['build'].update({key: defaults[key]})
+
         self._CHECKPOINT_SUFFIXES = {}
         self._METRICS = ['loss', 'acc', 'accuracy', 'categorical_accuracy', 'top-1', 'top-5',
                          'val_loss', 'val_acc', 'val_accuracy', 'val_categorical_accuracy', 'val_top-1', 'val_top-5']
         self._update_checkpoint_suffixes()
         self._checkfile_epoch_position = 0
         self._checkfile_temp_name = ''
-        self._params = {'build': {},
-                        'compile': DEFAULTS['compile'].copy(),
-                        'train': DEFAULTS['train'].copy(),
-                        }
+        self._params = {}
+        for action in ['build', 'compile', 'train']:
+            self._params.update({action: self._verify_parameters(DEFAULTS[action], **kwargs)})
         self._LENGTH = 0
         # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
@@ -60,14 +74,26 @@ class ModelBuilder:
                            }
         self._history = []
         self._evaluation = []
-        self._model = []
-
-    def _init_build(self, **kwargs):
-        self._params['build'] = self._update_parameters(self._params['build'], **kwargs)
+        # build the model
         self._model = self._build_model(**self._params['build'])
+        # freeze the model
+        build_params = self._params['build']
+        if all([key in ['weights', 'freeze'] for key in build_params.keys()]):
+            weigths = build_params['weights']
+            freeze = build_params['freeze']
+            if weigths is not None and freeze > 0:
+                self._model = self._freeze_model(self._model, freeze)
 
-    def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
+    def _build_model(self, **kwargs):
         return Model()
+
+    # TODO: make freeze more generic
+    @staticmethod
+    def _freeze_model(model, freeze):
+        result = model.copy()
+        for layer in result.layers[1:freeze + 1]:
+            layer.trainable = False
+        return result
 
     def _compile_model(self, optimizer, loss, **kwargs):
         self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
@@ -177,10 +203,8 @@ class ModelBuilder:
     def _evaluate_model(self, **kwargs):
         return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
 
-    def build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        self._params['build'] = self._update_parameters(self._params['build'],
-                                                        model_type=model_type, input_shape=input_shape,
-                                                        noof_classes=noof_classes, **kwargs)
+    def build_model(self, **kwargs):
+        self._params['build'] = self._update_parameters(self._params['build'], **kwargs)
         return self._build_model(**self._params['build'])
 
     def compile_model(self, optimizer, loss, **kwargs):
@@ -194,6 +218,30 @@ class ModelBuilder:
 
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
+
+    @staticmethod
+    def _verify_parameters(parameters, **kwargs):
+        result = parameters.copy()
+        for key in result.keys():
+            if key not in kwargs.keys():
+                continue
+            result[key] = kwargs[key]
+        return result
+
+    @staticmethod
+    def _update_parameters(parameters, **kwargs):
+        result = parameters.copy()
+        for key in kwargs.keys():
+            if type(kwargs[key]) is dict:
+                for key_interior in kwargs[key].keys():
+                    result[key].update({key_interior: kwargs[key][key_interior]})
+                continue
+            # just making sure - should never occur
+            if key not in result.keys():
+                result.update({key: kwargs[key]})
+                continue
+            result[key] = kwargs[key]
+        return result
 
     def _manage_checkpoint_filepath(self, **kwargs):
         _flag_save_memory = self._params['train']['save_memory']
@@ -225,21 +273,6 @@ class ModelBuilder:
         if monitor not in filepath_checkpoint:
             filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + ':.3f}'
         return filepath_checkpoint + '.hdf5'
-
-    @staticmethod
-    def _update_parameters(parameters, **kwargs):
-        result = parameters.copy()
-        for key in kwargs.keys():
-            if type(kwargs[key]) is dict:
-                for key_interior in kwargs[key].keys():
-                    result[key].update({key_interior: kwargs[key][key_interior]})
-                continue
-            # just making sure - should never occur
-            if key not in result.keys():
-                result.update({key: kwargs[key]})
-                continue
-            result[key] = kwargs[key]
-        return result
 
     # Text manipulation methods
     def save_model_info(self, notes='', extension='', **kwargs):
@@ -290,7 +323,7 @@ class ModelBuilder:
         walkover = self._update_params_text(self._params[what])
         for key, value in zip(walkover.keys(), walkover.values()):
             if key == 'weights' and value is not None:
-                text_build += f'\t{key:{self._LENGTH}} - \n'
+                text_build += f'\t{key:{self._LENGTH}} - '
                 continue
             text_build += f'\t{key:{self._LENGTH}} - ' \
                               f'{str(value).rjust(self._LENGTH)}\n'
@@ -392,18 +425,16 @@ class ModelBuilder:
 
 # Standard CNNs for classification
 class CNNBuilder(ModelBuilder):
-    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1,
-                 filename='cnn_test', filepath='../test', **kwargs):
-        super(CNNBuilder, self).__init__(filename, filepath)
-        DEFAULTS = {'model_type': model_type,
-                    'input_shape': input_shape,
-                    'noof_classes': noof_classes,
-                    'weights': None,
+    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
+        DEFAULTS = {'weights': None,
+                    'freeze': 0
                     }
-        self._params['build'] = DEFAULTS.copy()
-        self._init_build(**self._params['build'], **kwargs)
+        super(CNNBuilder, self).__init__(model_type=model_type,
+                                         input_shape=input_shape,
+                                         noof_classes=noof_classes,
+                                         defaults=DEFAULTS, **kwargs)
 
-    def _build_model(self, model_type, input_shape, noof_classes, weights=None, **kwargs):
+    def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
@@ -439,13 +470,8 @@ class CNNBuilder(ModelBuilder):
 
 # Fourier Model for classification
 class FourierBuilder(ModelBuilder):
-    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical',
-                 filename='fourier_test', filepath='../test', **kwargs):
-        super(FourierBuilder, self).__init__(filename, filepath)
-        DEFAULTS = {'classical': {'model_type': model_type,
-                                  'input_shape': input_shape,
-                                  'noof_classes': noof_classes,
-                                  'ftl_activation': 'relu',
+    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
+        DEFAULTS = {'classical': {'ftl_activation': 'relu',
                                   'ftl_initializer': 'he_normal',
                                   'use_imag': True,
                                   'head_initializer': 'he_normal',
@@ -461,8 +487,10 @@ class FourierBuilder(ModelBuilder):
         self._DIRECTIONS = {'up': '*',
                             'down': '//',
                             }
-        self._params['build'] = DEFAULTS[approach].copy()
-        self._init_build(**self._params['build'], **kwargs)
+        super(FourierBuilder, self).__init__(model_type=model_type,
+                                         input_shape=input_shape,
+                                         noof_classes=noof_classes,
+                                         defaults=DEFAULTS[approach], **kwargs)
 
     def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
         # kwargs extraction
@@ -477,11 +505,15 @@ class FourierBuilder(ModelBuilder):
                    use_imaginary=use_imag)(inp)
         flat = Flatten()(arch)
         out = Dense(noof_classes, activation=head_activation, kernel_initializer=head_initializer)(flat)
-        if 'weights' in kwargs.keys():
-            model = Model(inp, out)
-            model.set_weights(kwargs['weights'])
+        model = Model(inp, out)
+        if 'weights' not in kwargs.keys():
             return model
-        return Model(inp, out)
+        model.set_weights(kwargs['weights'])
+        if 'freeze' not in kwargs.keys():
+            return model
+        if kwargs['weights'] is None or kwargs['freeze'] <= 0:
+            return model
+        return self._freeze_model(model, kwargs['freeze'])
 
     def _sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
@@ -557,21 +589,23 @@ def test_minors():
     x_test = expand_dims(asarray(x_tr) / 255, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    builder = FourierBuilder('fourier', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
-    # builder = CNNBuilder('mobilenet', input_shape=(32, 32, 1), noof_classes=10, filename='test', filepath='../test')
+    # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 1), noof_classes=10,
+    #                           filename='test', filepath='../test')
+    builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet',
+                         filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(100, x_data=x_train, y_data=y_train, batch=128,
-                        call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.99,
-                                          'monitor': 'categorical_accuracy',
-                                          'patience': 3,
-                                          },
-                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-                                                }, save_memory=True
-                        )
-    builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('Testing training pipeline')
+    # builder.train_model(100, x_data=x_train, y_data=y_train, batch=128,
+    #                     call_stop=True, call_time=True, call_checkpoint=True,
+    #                     call_stop_kwargs={'baseline': 0.99,
+    #                                       'monitor': 'categorical_accuracy',
+    #                                       'patience': 3,
+    #                                       },
+    #                     call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
+    #                                             }, save_memory=True
+    #                     )
+    # builder.evaluate_model(x_data=x_test, y_data=y_test)
+    builder.save_model_info('Testing training pipeline', summary=True)
 
 
 if __name__ == '__main__':
