@@ -357,11 +357,11 @@ class ModelBuilder:
             result[key] = to_update
         return result
 
-    def _update_checkpoint_suffixes(self):
+    def _update_checkpoint_suffixes(self, length=1):
         for metric in self._METRICS:
             suffix = metric.split('_')
             _suffix = metric.split('-')
-            self._CHECKPOINT_SUFFIXES.update({metric: ''.join([s[0] for s in suffix])})
+            self._CHECKPOINT_SUFFIXES.update({metric: ''.join([s[:length] for s in suffix])})
             if len(_suffix) <= 1:
                 continue
             self._CHECKPOINT_SUFFIXES[metric] = ''.join([s[0] for s in suffix]) + _suffix[-1][0]
@@ -395,14 +395,23 @@ class ModelBuilder:
         return history_end
 
     @staticmethod
-    def _prepare_metrics_text(history):
+    def _prepare_metrics_text(history, suffixes=None):
+        _MAX_TRAILS = {'loss': 6,
+                       'acc': 4,
+                       'top': 4,
+                       'time': 6,
+                       'default': 6,
+                       }
         text_result = ''
-        text_result += f'{"epochs":{15}} -- '
+        text_result += 'epochs'.center(15) + ' -- '
         for key in history[0].keys():
+            key_str = key
+            if suffixes:
+                key_str = suffixes[key]
             if key == 'time':
-                text_result += f'{key:{12}} || '
+                text_result += str(key_str).center(12) + ' || '
                 continue
-            text_result += f'{key:{max([len(key), 9])}} || '
+            text_result += str(key_str).center(max([len(key_str), 9])) +' || '
         text_result += '\n'
         for epoch in range(len(history)):
             epoch_str = str(epoch)
@@ -410,15 +419,20 @@ class ModelBuilder:
             while len(epoch_str) < len(str(len(history))):
                 epoch_str = '0' + epoch_str
             # do not expect more than 10k training epochs
-            text_result += f'\tEpoch {epoch_str:{5}} -- '
+            text_result += ('Epoch ' + epoch_str).center(15) +' -- '
             for key, value in zip(history[epoch].keys(), history[epoch].values()):
                 value_used = value
                 if type(value) is list:
                     value_used = value[0]
+                try:
+                    index_t = [k in key for k in _MAX_TRAILS.keys()].index(True)
+                    trail = _MAX_TRAILS[list(_MAX_TRAILS.keys())[index_t]]
+                except ValueError:
+                    trail = _MAX_TRAILS['default']
+                width = 9
                 if key == 'time':
-                    text_result += f'{round(value_used, 6):{12}} || '
-                    continue
-                text_result += f'{round(value_used, 6):{max([len(key), 9])}} || '
+                    width = 12
+                text_result += f'{value_used:{max([len(key), width])}.{trail}f} || '
             text_result += '\n'
         return text_result
 
@@ -607,7 +621,7 @@ def test_minors():
     #                      filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(5, x_data=x_train, y_data=y_train, batch=128,
+    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128,
                         call_stop=True, call_time=True, call_checkpoint=True,
                         call_stop_kwargs={'baseline': 0.5,
                                           'monitor': 'categorical_accuracy',
