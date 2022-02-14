@@ -308,9 +308,9 @@ class ModelBuilder:
             format_used = '.' + format_used
         with open(join(self._filepath, self._filename + format_used), 'w') as fil:
             for action in ['build', 'compile', 'train']:
-                fil.write(self._prepare_parameter_text(action))
+                fil.write(self._prepare_argument_text(action))
             fil.write(notes + '\n')
-            suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length='default', sign='_')
+            suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length=-1, sign='_')
             # the prepare method accepts list
             if len(self._evaluation) > 0:
                 eva_text = self._prepare_metrics_text([self._evaluation], suffixes)
@@ -341,7 +341,7 @@ class ModelBuilder:
         self._length = max([self._length, new_candidate])
 
     # method for text cleanup
-    def _prepare_parameter_text(self, what='build'):
+    def _prepare_argument_text(self, what='build'):
         text_build = f'{what.capitalize()} arguments\n'
         walkover = self._update_params_text(self._params[what])
         for key, value in zip(walkover.keys(), walkover.values()):
@@ -352,7 +352,7 @@ class ModelBuilder:
             text_build += f'{str(value).rjust(self._length)}\n'
         return text_build
 
-    # a method to change the values of parameter holders
+    # a method to change the values of argument holders
     def _update_params_text(self, arguments):
         result = {}
         for key in arguments.keys():
@@ -389,7 +389,7 @@ class ModelBuilder:
         for metric in metrics:
             suffix = metric.split('_')
             _suffix = metric.split('-')
-            if type(length) is int:
+            if length > 0:
                 length_used = length
             else:
                 length_used = self._determine_text_width(metric, _WIDTHS)
@@ -629,8 +629,8 @@ class FourierBuilder(ModelBuilder):
                                   'head_activation': 'softmax',
                                   'head_initializer': 'he_normal',
                                   },
-                            'sampling': {},
-                            }
+                    'sampling': {},
+                    }
         for key, value in zip(defaults['classical'].keys(), defaults['classical'].values()):
             if 'initializer' not in key:
                 defaults['sampling'].update({key: value})
@@ -661,7 +661,7 @@ class FourierBuilder(ModelBuilder):
         shape = self._params['build']['input_shape']
         shape_new = shape
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
-            shape_new = self._operation(shape[:2], parameter=kwargs['nominator'],
+            shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
@@ -704,12 +704,12 @@ class FourierBuilder(ModelBuilder):
         return self._sample_model(self, **kwargs)
 
     @staticmethod
-    def _operation(value, parameter=2, sign='div'):
+    def _operation(value, nominator=2, sign='div'):
         assert sign in ['divide', 'div', '//', 'multiply', 'mult', '*']
         if sign in ['divide', 'div', '//']:
-            return value[:2] // parameter
+            return value[:2] // nominator
         elif sign in ['multiply', 'mult', '*']:
-            return value[:2] * parameter
+            return value[:2] * nominator
 
 
 def test_minors():
@@ -734,7 +734,7 @@ def test_minors():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'conv2d': {}}, {'ftl': {}}, {'dense': {}}]
+    layers = [{'ftl': {}}, {'dense': {}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
