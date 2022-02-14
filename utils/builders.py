@@ -315,12 +315,13 @@ class ModelBuilder:
                 fil.write(f'{action.capitalize()} arguments\n')
                 fil.write(self._prepare_argument_text(self._arguments[action]))
             fil.write(notes + '\n')
-            suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length=-1, sign='_')
             # the prepare method accepts list
             if len(self._evaluation) > 0:
+                suffixes = self._make_suffixes(metrics=[key for key in self._evaluation.keys()], length=-1, sign='_')
                 eva_text = self._prepare_metrics_text([self._evaluation], suffixes)
                 fil.write(f'Evaluation: \n{eva_text}')
             if len(self._history) > 0:
+                suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length=-1, sign='_')
                 hist_text = self._prepare_metrics_text(self._history, suffixes)
                 fil.write(f'Training history: \n{hist_text}')
             # TODO: move summary to different file
@@ -634,11 +635,11 @@ class CustomBuilder(ModelBuilder):
         if 'weights' in kwargs.keys():
             model_weights = kwargs['weights']
         # SOLVED: other layers
-        # input does not have any weights
         # gather layers and weights
         gathered_weights = {}
         reduce = 0
         for it, weights in enumerate(model_weights):
+            # input does not have any weights
             layer = model_layers[it + 1]
             if not layer.weights:
                 reduce += 1
@@ -819,17 +820,17 @@ def test_sampling():
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
-                        call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.5,
-                                          'monitor': 'categorical_accuracy',
-                                          'patience': 3,
-                                          },
-                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-                                                }, save_memory=True
-                        )
-    builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('Testing sampling pipeline', summary=True)
+    # builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
+    #                     call_stop=True, call_time=True, call_checkpoint=True,
+    #                     call_stop_kwargs={'baseline': 0.5,
+    #                                       'monitor': 'categorical_accuracy',
+    #                                       'patience': 3,
+    #                                       },
+    #                     call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
+    #                                             }, save_memory=True
+    #                     )
+    # builder.evaluate_model(x_data=x_test, y_data=y_test)
+    # builder.save_model_info('Testing sampling pipeline', summary=True)
 
     sampled = builder.sample_model(direction='up', nominator=2)
     sampled.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
@@ -838,8 +839,7 @@ def test_sampling():
     x_tr = []
     for x in x_test:
         x_tr.append(resize(x, (64, 64)))
-    x_test = x_tr
-    sampled.evaluate_model(x_data=x_test, y_data=y_test)
+    sampled.evaluate_model(x_data=asarray(x_tr), y_data=y_test)
     sampled.save_model_info('Testing upsampling pipeline', summary=True)
 
 
