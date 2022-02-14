@@ -373,7 +373,7 @@ class ModelBuilder:
         walkover = self._update_arguments_text(arguments, summary)
         for key, value in zip(walkover.keys(), walkover.values()):
             text_build += f'\t{key:{self._length}} - '
-            if 'weights' in key and type(value) is not str and value is not None:
+            if 'weights' in key and 'only' not in key and type(value) is not str and value is not None:
                 text_build += '\n'
                 continue
             text_build += f'{str(value).rjust(self._length)}\n'
@@ -390,7 +390,6 @@ class ModelBuilder:
             if type(arguments[key]) is list:
                 if 'weights' in key:
                     result.update({f'{key}': ''})
-                    continue
                 for it, key_interior in enumerate(arguments[key]):
                     to_update = self._check_for_name(key_interior)
                     result.update({f'{key}_{it:03d}': to_update})
@@ -559,7 +558,7 @@ class CustomBuilder(ModelBuilder):
                               'bias_constraint': None,
                               },
                     'flatten': {},
-                    'ftl': {'activation': 'relu',
+                    'ftl': {'activation': None,
                             'kernel_initializer': 'he_normal',
                             'use_imaginary': True,
                             },
@@ -632,7 +631,7 @@ class CustomBuilder(ModelBuilder):
         shape_new = arguments_sampled['input_shape']
         model_weights = self._model.get_weights()
         model_layers = self._model.layers
-        replace_value = 1e-5
+        replace_value = 1e-6
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
         weights_result = []
@@ -765,8 +764,8 @@ def test_minors():
     x_tr = []
     for x in x_train:
         x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1)[:10000], repeats=3, axis=-1)
-    y_train = to_categorical(y_train, 10)[:10000]
+    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
+    y_train = to_categorical(y_train, 10)
 
     x_tr = []
     for x in x_test:
@@ -797,56 +796,47 @@ def test_minors():
 
 
 def test_sampling():
-    from tensorflow.keras.datasets import mnist
-    from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
-    from numpy import asarray, repeat
+    from utils.data_loader import prepare_data_for_sampling
     data_channels = 1
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_tr = []
-    for x in x_train:
-        x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=data_channels, axis=-1)
-    y_train = to_categorical(y_train, 10)
-
-    x_tr = []
-    for x in x_test:
-        x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=data_channels, axis=-1)
-    y_test = to_categorical(y_test, 10)
+    classes = [1, 3, 6]
+    noof_classes = len(classes)
+    (x_train, y_train), (x_test, y_test), x_test_resized =  prepare_data_for_sampling(classes, data_channels, 64)
 
     # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {'initializer': 'ones'}},
+    layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu'}},
+              # {'conv2d': {'filters': 256, 'activation': 'relu', 'padding': 'valid'}},
               {'flatten': {}},
-              {'dense': {'units': 10, 'kernel_initializer': 'ones'}}]
-    builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=10,
+              {'dense': {'units': noof_classes, 'kernel_initializer': 'ones'}}]
+    builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=noof_classes,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(2, x_data=x_train, y_data=y_train, batch=16, validation_split=0.1,
+    builder.train_model(100, x_data=x_train, y_data=y_train, batch=16, validation_split=0.1,
                         call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.85,
+                        call_stop_kwargs={'baseline': 0.98,
                                           'monitor': 'val_categorical_accuracy',
-                                          'patience': 3,
+                                          'patience': 2,
                                           },
                         call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
                                                 }, save_memory=True
                         )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('Testing sampling pipeline', summary=True)
+    builder.save_model_info(f'Trained model. Classes {classes}', summary=True)
+
+    builder_comparison = CustomBuilder(layers, input_shape=(64, 64, data_channels), noof_classes=noof_classes,
+                                       filename='test', filepath='../test')
+    builder_comparison.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
+                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
+    builder_comparison.evaluate_model(x_data=x_test_resized, y_data=y_test)
+    builder_comparison.save_model_info(f'Non-trained upsampled model. Classes {classes}', summary=True)
 
     sampled = builder.sample_model(shape=(64, 64), compile=True)
-    from cv2 import resize
-    x_tr = []
-    for x in x_test:
-        x_tr.append(resize(x, (64, 64)))
-    if len(asarray(x_tr).shape) < 3:
-        x_tr = asarray(expand_dims(x_tr, axis=-1))
-    sampled.evaluate_model(x_data=asarray(x_tr), y_data=y_test)
-    sampled.save_model_info('Testing upsampling pipeline', summary=True)
+    sampled.evaluate_model(x_data=x_test_resized, y_data=y_test)
+    sampled.save_model_info(f'Trained upsampled model. Classes {classes}', summary=True)
 
 
 if __name__ == '__main__':
