@@ -65,7 +65,7 @@ class ModelBuilder:
         self._checkfile_temp_name = ''
         self._params = {}
         for action in ['build', 'compile', 'train']:
-            self._params.update({action: self._verify_parameters(defaults[action], **kwargs)})
+            self._params.update({action: self._verify_arguments(defaults[action], **kwargs)})
         self._length = 0
         # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
@@ -111,19 +111,19 @@ class ModelBuilder:
             y_train = kwargs['y_data']
             if 'validation_split' in kwargs.keys():
                 split = kwargs['validation_split']
-            self._params['train'] = self._update_parameters(self._params['train'],
+            self._params['train'] = self._update_arguments(self._params['train'],
                                                             dataset_size=x_train.shape[0], validation_split=split)
             # self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
 
             flag_full_set = True
         if 'generator' in kwargs.keys():
             data_gen = kwargs['generator']
-            self._params['train'] = self._update_parameters(self._params['train'],
+            self._params['train'] = self._update_arguments(self._params['train'],
                                                             dataset='generator')
             if 'validation' in kwargs.keys():
                 split = 1
                 validation_data = kwargs['validation']
-                self._params['train'] = self._update_parameters(self._params['train'],
+                self._params['train'] = self._update_arguments(self._params['train'],
                                                                 validation_size=validation_data.shape[0])
         # callbacks
         callbacks = []
@@ -139,7 +139,7 @@ class ModelBuilder:
             # metric and monitor names must be the same
             callback_stop = EarlyStopOnBaseline(**kwargs['call_stop_kwargs'])
             callbacks.append(callback_stop)
-            self._params['train'] = self._update_parameters(self._params['train'],
+            self._params['train'] = self._update_arguments(self._params['train'],
                                                             call_stop_kwargs=callback_stop.get_kwargs())
             flag_stop = True
         if 'call_checkpoint' in kwargs.keys() and kwargs['call_checkpoint']:
@@ -203,14 +203,14 @@ class ModelBuilder:
         return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
 
     def build_model(self, **kwargs):
-        self._params['build'] = self._update_parameters(self._params['build'], **kwargs)
+        self._params['build'] = self._update_arguments(self._params['build'], **kwargs)
         return self._build_model(**self._params['build'])
 
     def build_model_from_info(self):
         return self._build_model(**self._params['build'])
 
     def compile_model(self, optimizer, loss, **kwargs):
-        self._params['compile'] = self._update_parameters(self._params['compile'],
+        self._params['compile'] = self._update_arguments(self._params['compile'],
                                                           optimizer=optimizer, loss=loss, **kwargs)
         self._compile_model(**self._params['compile'])
 
@@ -218,7 +218,7 @@ class ModelBuilder:
         self._compile_model(**self._params['compile'])
 
     def train_model(self, epochs, **kwargs):
-        self._params['train'] = self._update_parameters(self._params['train'], epochs=epochs, **kwargs)
+        self._params['train'] = self._update_arguments(self._params['train'], epochs=epochs, **kwargs)
         self._history = self._train_model(**self._params['train'])
 
     def evaluate_model(self, **kwargs):
@@ -230,8 +230,8 @@ class ModelBuilder:
         return self._model
 
     @staticmethod
-    def _verify_parameters(parameters, **kwargs):
-        result = parameters.copy()
+    def _verify_arguments(arguments, **kwargs):
+        result = arguments.copy()
         for key in result.keys():
             if key not in kwargs.keys():
                 continue
@@ -239,8 +239,8 @@ class ModelBuilder:
         return result
 
     @staticmethod
-    def _update_parameters(parameters, **kwargs):
-        result = parameters.copy()
+    def _update_arguments(arguments, **kwargs):
+        result = arguments.copy()
         for key in kwargs.keys():
             if type(kwargs[key]) is dict:
                 for key_interior in kwargs[key].keys():
@@ -254,8 +254,8 @@ class ModelBuilder:
         return result
 
     @staticmethod
-    def _update_build_defaults(parameters, defaults):
-        result = parameters.copy()
+    def _update_build_defaults(arguments, defaults):
+        result = arguments.copy()
         for key in defaults.keys():
             result['build'].update({key: defaults[key]})
         return result
@@ -341,7 +341,7 @@ class ModelBuilder:
 
     # method for text cleanup
     def _prepare_parameter_text(self, what='build'):
-        text_build = f'{what.capitalize()} parameters\n'
+        text_build = f'{what.capitalize()} arguments\n'
         walkover = self._update_params_text(self._params[what])
         for key, value in zip(walkover.keys(), walkover.values()):
             text_build += f'\t{key:{self._length}} - '
@@ -352,23 +352,23 @@ class ModelBuilder:
         return text_build
 
     # a method to change the values of parameter holders
-    def _update_params_text(self, parameters):
+    def _update_params_text(self, arguments):
         result = {}
-        for key in parameters.keys():
+        for key in arguments.keys():
             # list of different params
-            if type(parameters[key]) is list:
-                for it, key_interior in enumerate(parameters[key]):
+            if type(arguments[key]) is list:
+                for it, key_interior in enumerate(arguments[key]):
                     to_update = self._check_for_name(key_interior)
                     result.update({f'{key}_{it:03d}': to_update})
                 continue
-            if type(parameters[key]) is dict:
-                for key_interior in parameters[key].keys():
+            if type(arguments[key]) is dict:
+                for key_interior in arguments[key].keys():
                     if key_interior in ['filename', 'filepath']:
                         continue
                     to_update = self._check_for_name(key_interior)
-                    result.update({f'{key}-{to_update}': parameters[key][key_interior]})
+                    result.update({f'{key}-{to_update}': arguments[key][key_interior]})
                 continue
-            to_update = self._check_for_name(parameters[key])
+            to_update = self._check_for_name(arguments[key])
             if key in ['x_data', 'y_data']:
                 continue
             if key not in result.keys():
@@ -533,7 +533,7 @@ class CustomBuilder(ModelBuilder):
         # layers - a list of dicts
         _NAMES = list(defaults.keys())
         assert all('name' in layer.keys() for layer in layers), 'Each layer must have a name.'
-        assert all(name in _NAMES for name in [n for n in layers.keys() if 'name' in n]), \
+        assert all(name in _NAMES for name in [n for n in layers if 'name' in n.keys()]), \
             f'Unsupported name. Supported names: {_NAMES}.'
         self._SAMPLING_DIRECTIONS = {'up': '*',
                                      'down': '//',
@@ -546,7 +546,7 @@ class CustomBuilder(ModelBuilder):
             defaults['ftl']['sampling'][key] = 'ones'
         _layers = []
         for layer in layers:
-            _layer = self._verify_parameters(defaults[layer['name']], **layer['parameters'])
+            _layer = self._verify_arguments(defaults[layer['name']], **layer['arguments'])
             _layers.append(_layer)
         defaults.update({'build': {'layers' : layers}})
         super(CustomBuilder, self).__init__(input_shape=input_shape,
@@ -564,12 +564,12 @@ class CustomBuilder(ModelBuilder):
     @staticmethod
     def _return_layer(layer, previous, flattened=False):
         if layer['name'] == 'conv2d':
-            return Conv2D(**layer['parameters'])(previous), False
+            return Conv2D(**layer['arguments'])(previous), False
         if layer['name'] == 'ftl':
-            return FTL(**layer['parameters'])(previous), False
+            return FTL(**layer['arguments'])(previous), False
         if flattened:
-            return Dense(**layer['parameters'])(previous), True
-        return Dense(**layer['parameters'])(Flatten()(previous)), True
+            return Dense(**layer['arguments'])(previous), True
+        return Dense(**layer['arguments'])(Flatten()(previous)), True
 
 
 # Standard CNNs for classification
@@ -731,10 +731,13 @@ def test_minors():
     x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
-                              filename='test', filepath='../test')
+    # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
+    #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
+    layers = [{'name': 'conv2d', 'arguments': ''}, {'name': 'dense', 'arguments': ''}]
+    builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
+                              filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
