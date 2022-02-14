@@ -57,6 +57,7 @@ class ModelBuilder:
                               },
                     }
         if 'defaults' in kwargs.keys():
+            assert type(kwargs['defaults']) is list, 'Must provide a list.'
             defaults_build = kwargs['defaults']
             for key in defaults_build.keys():
                 defaults['build'].update({key: defaults_build[key]})
@@ -494,8 +495,8 @@ class CustomBuilder(ModelBuilder):
         defaults = {'ftl': {'classical': {'ftl_activation': 'relu',
                                           'ftl_initializer': 'he_normal',
                                           'use_imag': True,
-                                          'head_initializer': 'he_normal',
                                           'head_activation': 'softmax',
+                                          'head_initializer': 'he_normal',
                                           },
                             'sampling': {},
                             }
@@ -505,19 +506,19 @@ class CustomBuilder(ModelBuilder):
                 defaults['sampling'].update({key: value})
                 continue
             defaults['sampling'][key] = 'ones'
-        self._model = []
+        if model_type == 'custom':
+            assert 'layers' in kwargs.keys(), 'Custom model requires a list of layers.'
+        super(CustomBuilder, self).__init__(model_type=model_type,
+                                         input_shape=input_shape,
+                                         noof_classes=noof_classes, **kwargs)
 
 
 # Standard CNNs for classification
 class CNNBuilder(CustomBuilder):
     def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
-        defaults = {'weights': None,
-                    'freeze': 0
-                    }
         super(CNNBuilder, self).__init__(model_type=model_type,
                                          input_shape=input_shape,
-                                         noof_classes=noof_classes,
-                                         defaults=defaults, **kwargs)
+                                         noof_classes=noof_classes, **kwargs)
 
     def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
         model_type_low = model_type.lower()
