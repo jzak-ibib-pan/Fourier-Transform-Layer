@@ -318,6 +318,7 @@ class ModelBuilder:
             if len(self._history) > 0:
                 hist_text = self._prepare_metrics_text(self._history, suffixes)
                 fil.write(f'Training history: \n{hist_text}')
+            # TODO: move summary to different file
             if summary:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
@@ -532,13 +533,13 @@ class CustomBuilder(ModelBuilder):
                     }
         # layers - a list of dicts
         _NAMES = list(defaults.keys())
-        assert all('name' in layer.keys() for layer in layers), 'Each layer must have a name.'
-        assert all(name in _NAMES for name in [n['name'] for n in layers if 'name' in n.keys()]), \
-            f'Unsupported name. Supported names: {_NAMES}.'
+        # TODO: name checking
+        # l = _NAMES[0] in layers[0].keys()
+        # assert all(_NAMES in layer.keys() for layer in layers), \
+        #     f'Unsupported name. Supported names: {_NAMES}.'
         self._SAMPLING_DIRECTIONS = {'up': '*',
                                      'down': '//',
                                      }
-
         for key, value in zip(defaults['ftl']['classical'].keys(), defaults['ftl']['classical'].values()):
             if 'initializer' not in key:
                 defaults['ftl']['sampling'].update({key: value})
@@ -546,30 +547,46 @@ class CustomBuilder(ModelBuilder):
             defaults['ftl']['sampling'][key] = 'ones'
         _layers = []
         for layer in layers:
-            _layer = self._verify_arguments(defaults[layer['name']], **layer['arguments'])
-            _layers.append(_layer)
-        defaults.update({'build': {'layers' : layers}})
+            for key, value in zip(layer.keys(), layer.values()):
+                _layer = self._verify_arguments(defaults[key], **value)
+                _layers.append({key : _layer})
         super(CustomBuilder, self).__init__(input_shape=input_shape,
                                             noof_classes=noof_classes,
-                                            defaults=layers,
+                                            defaults={'layers' : _layers},
                                             **kwargs)
 
     def _build_model(self, layers, input_shape, noof_classes, **kwargs):
         inp = Input(input_shape)
         arch, flat = self._return_layer(layers[0], inp)
-        for layer in layers[1:]:
+        for layer in layers[1:-1]:
             arch, flat = self._return_layer(layer, arch, flat)
-        return Model(inp, arch.output)
+        layer = layers[-1]
+        # make as many units as no of classes
+        if 'dense' not in layer.keys():
+            arch, flat = self._return_layer(layer, arch, flat)
+            return Model(inp, arch)
+        _layer = layer
+        for key, values in zip(layer.keys(), layer.values()):
+            values['units'] = self._params['build']['noof_classes']
+            _layer.update({key: values})
+        arch, flat = self._return_layer(_layer, arch, flat)
+        return Model(inp, arch)
+
 
     @staticmethod
     def _return_layer(layer, previous, flattened=False):
-        if layer['name'] == 'conv2d':
-            return Conv2D(**layer['arguments'])(previous), False
-        if layer['name'] == 'ftl':
-            return FTL(**layer['arguments'])(previous), False
+        # strangely, extracts required values
+        for value in layer.values():
+            arguments = value
+        if 'conv2d' in layer.keys():
+            return Conv2D(**arguments)(previous), False
+        if 'ftl'  in layer.keys():
+            return FTL(**arguments)(previous), False
+        if 'dense' not in layer.keys():
+            return None
         if flattened:
-            return Dense(**layer['arguments'])(previous), True
-        return Dense(**layer['arguments'])(Flatten()(previous)), True
+            return Dense(**arguments)(previous), True
+        return Dense(**arguments)(Flatten()(previous)), True
 
 
 # Standard CNNs for classification
@@ -735,7 +752,7 @@ def test_minors():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'name': 'conv2d', 'arguments': {}}, {'name': 'dense', 'arguments': {}}]
+    layers = [{'conv2d': {}}, {'dense': {}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
@@ -750,7 +767,7 @@ def test_minors():
                                                 }, save_memory=True
                         )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('Testing training pipeline')
+    builder.save_model_info('Testing training pipeline', summary=True)
 
 
 if __name__ == '__main__':
