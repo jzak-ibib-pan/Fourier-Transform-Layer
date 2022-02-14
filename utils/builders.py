@@ -577,10 +577,8 @@ class CustomBuilder(ModelBuilder):
 
 
     @staticmethod
-    def _return_layer(layer, previous, flattened=False):
-        # strangely, extracts required values
-        for value in layer.values():
-            arguments = value
+    def _return_layer(layer, previous):
+        arguments = list(layer.values())[0]
         if 'conv2d' in layer.keys():
             return Conv2D(**arguments)(previous), False
         if 'ftl'  in layer.keys():
