@@ -308,7 +308,8 @@ class ModelBuilder:
             format_used = '.' + format_used
         with open(join(self._filepath, self._filename + format_used), 'w') as fil:
             for action in ['build', 'compile', 'train']:
-                fil.write(self._prepare_argument_text(action))
+                fil.write(f'{action.capitalize()} arguments\n')
+                fil.write(self._prepare_argument_text(self._arguments[action]))
             fil.write(notes + '\n')
             suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length=-1, sign='_')
             # the prepare method accepts list
@@ -320,6 +321,11 @@ class ModelBuilder:
                 fil.write(f'Training history: \n{hist_text}')
             # TODO: move summary to different file
             if summary:
+                if 'layers' in self._arguments['build']:
+                    fil.write('Layers list:\n')
+                    for layer in self._arguments['build']['layers']:
+                        fil.write(f'\t{str(list(layer.keys())[0]).upper()}\n')
+                        fil.write(self._prepare_argument_text(layer, summary) + '\n')
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
                 for layer_got, weight_got in zip(self._model.layers[1:], self._model.get_weights()):
@@ -341,9 +347,9 @@ class ModelBuilder:
         self._length = max([self._length, new_candidate])
 
     # method for text cleanup
-    def _prepare_argument_text(self, what='build'):
-        text_build = f'{what.capitalize()} arguments\n'
-        walkover = self._update_arguments_text(self._arguments[what])
+    def _prepare_argument_text(self, arguments=None, summary=False):
+        text_build = ''
+        walkover = self._update_arguments_text(arguments, summary)
         for key, value in zip(walkover.keys(), walkover.values()):
             text_build += f'\t{key:{self._length}} - '
             if key == 'weights' and type(value) is not str and value is not None:
@@ -353,10 +359,13 @@ class ModelBuilder:
         return text_build
 
     # a method to change the values of argument holders
-    def _update_arguments_text(self, arguments):
+    def _update_arguments_text(self, arguments, summary=False):
         result = {}
         for key in arguments.keys():
             # list of different arguments
+            if key == 'layers' and not summary:
+                result.update({key: [list(layer)[0] for layer in arguments[key]]})
+                continue
             if type(arguments[key]) is list:
                 for it, key_interior in enumerate(arguments[key]):
                     to_update = self._check_for_name(key_interior)
@@ -540,7 +549,8 @@ class CustomBuilder(ModelBuilder):
             for key, value in zip(layer.keys(), layer.values()):
                 _layer = self._verify_arguments(defaults[key], **value)
                 _layers.append({key : _layer})
-        super(CustomBuilder, self).__init__(input_shape=input_shape,
+        super(CustomBuilder, self).__init__(model_type='custom',
+                                            input_shape=input_shape,
                                             noof_classes=noof_classes,
                                             defaults={'layers' : _layers},
                                             **kwargs)
@@ -734,7 +744,7 @@ def test_minors():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {}}, {'dense': {}}]
+    layers = [{'ftl': {}}, {'dense': {'units': 128}}, {'dense': {}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
