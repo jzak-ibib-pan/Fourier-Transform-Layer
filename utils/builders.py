@@ -6,7 +6,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
-from numpy import squeeze, ones, expand_dims, pad
+from numpy import squeeze, ones, expand_dims, pad, array
 from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL
@@ -638,17 +638,22 @@ class CustomBuilder(ModelBuilder):
         # SOLVED: other layers
         # gather layers and weights
         gathered_weights = {}
-        for it, layer in enumerate(model_layers[1:]):
-            if layer.name in gathered_weights.keys():
-                continue
-            shift_forward = len(layer.weights)
-            gathered_weights.update({layer.name: model_weights[it : it + shift_forward]})
+        names = []
+        for layer in model_layers:
+            for rep in range(len(layer.weights)):
+                names.append(layer.name)
+        for it, name in enumerate(names):
+            if name not in gathered_weights.keys():
+                gathered_weights.update({name: [model_weights[it]]})
+            else:
+                gathered_weights[name].append(model_weights[it])
+        passed_ftl = False
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             # other layers which should not be sampled
             if any(name in layer_name for name in self._UNSAMPLED):
                 weights_result.append(weights)
                 continue
-            if 'dense' in layer_name:
+            if 'dense' in layer_name and passed_ftl:
                 # 0 - kernel, 1 - bias
                 if shape_new[0] < shape[0]:
                     weights_result.append(weights[0][:size_new, :])
@@ -657,21 +662,24 @@ class CustomBuilder(ModelBuilder):
                     pd = pad(weights[0], pad_width=pads, mode='constant', constant_values=replace_value)
                     weights_result.append(pd)
                 weights_result.append(weights[1])
+                passed_ftl = False
                 continue
-            # now its known that weights are FTL (1u2, X, X, C)
-            # additional extraction from list (thus [0])
-            weights_ftl = weights[0]
-            noof_weights = weights_ftl.shape[0]
-            weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
-            for rep in range(noof_weights):
-                for ch in range(shape[2]):
-                    if shape_new[0] < shape[0]:
-                        weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
-                    else:
-                        pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
-                        weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
-                                                             mode='constant', constant_values=replace_value)
-            weights_result.append(weights_replace)
+            if 'ftl' in layer_name:
+                # now its known that weights are FTL (1u2, X, X, C)
+                # additional extraction from list (thus [0])
+                weights_ftl = weights[0]
+                noof_weights = weights_ftl.shape[0]
+                weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
+                for rep in range(noof_weights):
+                    for ch in range(shape[2]):
+                        if shape_new[0] < shape[0]:
+                            weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
+                        else:
+                            pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
+                            weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
+                                                                 mode='constant', constant_values=replace_value)
+                weights_result.append(weights_replace)
+                passed_ftl = True
         arguments_sampled['weights'] = weights_result
         builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
         if 'compile' in kwargs.keys() and kwargs['compile']:
@@ -807,22 +815,22 @@ def test_sampling():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {'initializer': 'ones'}}, {'conv2d': {}}, {'flatten': {}}, {'dense': {'initializer': 'ones'}}]
+    layers = [{'ftl': {'initializer': 'ones'}}, {'flatten': {}}, {'dense': {'units': 10, 'initializer': 'ones'}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
-                        call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.5,
-                                          'monitor': 'categorical_accuracy',
-                                          'patience': 3,
-                                          },
-                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-                                                }, save_memory=True
-                        )
-    builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('Testing sampling pipeline', summary=True)
+    # builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
+    #                     call_stop=True, call_time=True, call_checkpoint=True,
+    #                     call_stop_kwargs={'baseline': 0.5,
+    #                                       'monitor': 'val_categorical_accuracy',
+    #                                       'patience': 3,
+    #                                       },
+    #                     call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
+    #                                             }, save_memory=True
+    #                     )
+    # builder.evaluate_model(x_data=x_test, y_data=y_test)
+    # builder.save_model_info('Testing sampling pipeline', summary=True)
 
     sampled = builder.sample_model(shape=(40, 40), compile=True)
     # sampled.compile_model()
