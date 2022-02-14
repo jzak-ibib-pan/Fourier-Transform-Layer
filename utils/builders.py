@@ -533,6 +533,7 @@ class CustomBuilder(ModelBuilder):
                               'kernel_constraint': None,
                               'bias_constraint': None,
                               },
+                    'flatten': {},
                     'ftl': {'activation': 'relu',
                             'initializer': 'he_normal',
                             'use_imaginary': True,
@@ -582,11 +583,11 @@ class CustomBuilder(ModelBuilder):
             return Conv2D(**arguments)(previous), False
         if 'ftl'  in layer.keys():
             return FTL(**arguments)(previous), False
+        if 'flatten' in layer.keys():
+            return Flatten()(previous), True
         if 'dense' not in layer.keys():
             return None
-        if flattened:
-            return Dense(**arguments)(previous), True
-        return Dense(**arguments)(Flatten()(previous)), True
+        return Dense(**arguments)(previous), True
 
 
 # Standard CNNs for classification
