@@ -64,6 +64,10 @@ class ModelBuilder:
         self._checkfile_epoch_position = 0
         self._checkfile_temp_name = ''
         self._arguments = {}
+        # noof_classes > 1
+        self._ACTIVATIONS = {False: 'sigmoid',
+                             True: 'softmax',
+                             }
         for action in ['build', 'compile', 'train']:
             self._arguments.update({action: self._verify_arguments(defaults[action], **kwargs)})
         self._length = 0
@@ -327,7 +331,7 @@ class ModelBuilder:
                     for layer_got, weight_got, layer_args in zip(self._model.layers[1:], self._model.get_weights(), self._arguments['build']['layers']):
                         fil.write(f'\t{layer_got.name:{self._length}} - {str(weight_got.shape).rjust(self._length)}\n')
                         layer_args = {layer_got.name: list(layer_args.values())[0]}
-                        fil.write(self._prepare_argument_text(layer_args, summary))
+                        fil.write(self._prepare_argument_text(layer_args, summary) + '\n###\n')
                 else:
                     fil.write('Weights summary:\n')
                     for layer_got, weight_got, layer_args in zip(self._model.layers[1:], self._model.get_weights()):
@@ -505,7 +509,7 @@ class ModelBuilder:
 # Custom model builder - can build any model (including hybrid), based on layer information
 class CustomBuilder(ModelBuilder):
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
-                            # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
+                    # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
         defaults = {'conv2d': {'filters': 128,
                                'kernel_size': 3,
                                'strides': (1, 1),
@@ -552,8 +556,9 @@ class CustomBuilder(ModelBuilder):
             for key, value in zip(layer.keys(), layer.values()):
                 _layer = self._verify_arguments(defaults[key], **value)
                 _layers.append({key : _layer})
-        super(CustomBuilder, self).__init__(model_type='custom',
-                                            input_shape=input_shape,
+        if 'model_type' not in kwargs.keys():
+            kwargs.update({'model_type' : 'custom'})
+        super(CustomBuilder, self).__init__(input_shape=input_shape,
                                             noof_classes=noof_classes,
                                             defaults={'layers' : _layers},
                                             **kwargs)
@@ -562,19 +567,19 @@ class CustomBuilder(ModelBuilder):
         inp = Input(input_shape)
         arch, flat = self._return_layer(layers[0], inp)
         for layer in layers[1:-1]:
-            arch, flat = self._return_layer(layer, arch, flat)
+            arch, flat = self._return_layer(layer, arch)
         layer = layers[-1]
         # make as many units as no of classes
         if 'dense' not in layer.keys():
-            arch, flat = self._return_layer(layer, arch, flat)
+            arch, flat = self._return_layer(layer, arch)
             return Model(inp, arch)
         _layer = layer
         for key, values in zip(layer.keys(), layer.values()):
             values['units'] = self._arguments['build']['noof_classes']
+            values['activation'] = self._ACTIVATIONS[noof_classes > 1]
             _layer.update({key: values})
-        arch, flat = self._return_layer(_layer, arch, flat)
+        arch, flat = self._return_layer(_layer, arch)
         return Model(inp, arch)
-
 
     @staticmethod
     def _return_layer(layer, previous):
@@ -588,6 +593,63 @@ class CustomBuilder(ModelBuilder):
         if 'dense' not in layer.keys():
             return None
         return Dense(**arguments)(previous), True
+
+    def _sample_model(self, **kwargs):
+        # SOLVED: finding FTL in the model
+        shape = self._arguments['build']['input_shape']
+        shape_new = shape
+        if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
+            shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
+                                        sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
+        if 'shape' in kwargs.keys():
+            shape_new = kwargs['shape']
+        arguments_sampled = self._arguments['build'].copy()
+        arguments_sampled['input_shape'] = (*shape_new, shape[2])
+        # find the ftl layer
+        ftl_index = 0
+        while 'ftl' not in self._model.layers[ftl_index].name:
+            ftl_index += 1
+        # inpu does not have any weights
+        ftl_index -= 1
+        weights = self._model.get_weights()
+        if 'weights' in kwargs.keys():
+            weights = kwargs['weights']
+        weights_ftl = expand_dims(squeeze(weights[ftl_index]), axis=0)
+        noof_weights = weights_ftl.shape[0]
+        replace_value = 1e-5
+        if 'replace_value' in kwargs.keys():
+            replace_value = kwargs['replace_value']
+        weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
+        for rep in range(noof_weights):
+            # działa wyciąganie nawet fragmentu fft
+            if shape_new[0] < shape[0]:
+                weights_replace[rep] = expand_dims(weights_ftl[rep, :shape_new[0], :shape_new[1]], axis=-1)
+            else:
+                pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
+                weights_replace[rep] = expand_dims(pad(weights_ftl[rep, :, :], pad_width=pads, mode='constant',
+                                                       constant_values=replace_value),
+                                                   axis=-1)
+        # TODO: other layers
+        #
+        head = weights[-2:]
+        size_new = shape_new[0] * shape_new[1]
+        if shape_new[0] < shape[0]:
+            head[0] = head[0][:size_new, :]
+        else:
+            pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
+            head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
+        return CustomBuilder(**arguments_sampled, weights=[weights_replace, *head])
+
+    def sample_model(self, **kwargs):
+        return self._sample_model(self, **kwargs)
+
+    @staticmethod
+    def _operation(value, nominator=2, sign='div'):
+        assert sign in ['divide', 'div', '//', 'multiply', 'mult', '*']
+        if sign in ['divide', 'div', '//']:
+            return value[:2] // nominator
+        elif sign in ['multiply', 'mult', '*']:
+            return value[:2] * nominator
 
 
 # Standard CNNs for classification
@@ -632,95 +694,17 @@ class CNNBuilder(ModelBuilder):
 
 
 # Fourier Model for classification
-class FourierBuilder(ModelBuilder):
-    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
-        defaults = {'classical': {'ftl_activation': 'relu',
-                                  'ftl_initializer': 'he_normal',
-                                  'use_imaginary': True,
-                                  'head_activation': 'softmax',
-                                  'head_initializer': 'he_normal',
-                                  },
-                    'sampling': {},
-                    }
-        for key, value in zip(defaults['classical'].keys(), defaults['classical'].values()):
-            if 'initializer' not in key:
-                defaults['sampling'].update({key: value})
-                continue
-            defaults['sampling'][key] = 'ones'
+class FourierBuilder(CustomBuilder):
+    def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
+        layers = [{'ftl': {}},
+                  {'flatten': {}},
+                  {'dense': {}},
+                  ]
         super(FourierBuilder, self).__init__(model_type=model_type,
                                              input_shape=input_shape,
                                              noof_classes=noof_classes,
-                                             defaults=[defaults[approach]], **kwargs)
-
-    def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
-        # kwargs extraction
-        ftl_activation = kwargs['ftl_activation']
-        ftl_initializer = kwargs['ftl_initializer']
-        use_imag = kwargs['use_imaginary']
-        head_initializer = kwargs['head_initializer']
-        head_activation = kwargs['head_activation']
-        model_type_low = model_type.lower()
-        inp = Input(input_shape)
-        arch = FTL(activation=ftl_activation, initializer=ftl_initializer, inverse='inverse' in model_type_low,
-                   use_imaginary=use_imag)(inp)
-        flat = Flatten()(arch)
-        out = Dense(noof_classes, activation=head_activation, kernel_initializer=head_initializer)(flat)
-        return Model(inp, out)
-
-    def _sample_model(self, **kwargs):
-        # SOLVED: finding FTL in the model
-        shape = self._arguments['build']['input_shape']
-        shape_new = shape
-        if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
-            shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
-                                        sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
-        if 'shape' in kwargs.keys():
-            shape_new = kwargs['shape']
-        arguments_sampled = self._arguments['build'].copy()
-        arguments_sampled['input_shape'] = (*shape_new, shape[2])
-        # find the ftl layer
-        ftl_index = 0
-        while 'ftl' not in self._model.layers[ftl_index].name:
-            ftl_index += 1
-        # inpu does not have any weights
-        ftl_index -= 1
-        weights = self._model.get_weights()
-        if 'weights' in kwargs.keys():
-            weights = kwargs['weights']
-        weights_ftl = expand_dims(squeeze(weights[ftl_index]), axis=0)
-        noof_weights = weights_ftl.shape[0]
-        replace_value = 1e-5
-        if 'replace_value' in kwargs.keys():
-            replace_value = kwargs['replace_value']
-        weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
-        for rep in range(noof_weights):
-            # działa wyciąganie nawet fragmentu fft
-            if shape_new[0] < shape[0]:
-                weights_replace[rep] = expand_dims(weights_ftl[rep, :shape_new[0], :shape_new[1]], axis=-1)
-            else:
-                pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
-                weights_replace[rep] = expand_dims(pad(weights_ftl[rep, :, :], pad_width=pads, mode='constant',
-                                                       constant_values=replace_value),
-                                                   axis=-1)
-        head = weights[-2:]
-        size_new = shape_new[0] * shape_new[1]
-        if shape_new[0] < shape[0]:
-            head[0] = head[0][:size_new, :]
-        else:
-            pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
-            head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
-        return FourierBuilder(**arguments_sampled, weights=[weights_replace, *head], approach='sampling')
-
-    def sample_model(self, **kwargs):
-        return self._sample_model(self, **kwargs)
-
-    @staticmethod
-    def _operation(value, nominator=2, sign='div'):
-        assert sign in ['divide', 'div', '//', 'multiply', 'mult', '*']
-        if sign in ['divide', 'div', '//']:
-            return value[:2] // nominator
-        elif sign in ['multiply', 'mult', '*']:
-            return value[:2] * nominator
+                                             layers=layers,
+                                             **kwargs)
 
 
 def test_minors():
@@ -741,13 +725,13 @@ def test_minors():
     x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
     y_test = to_categorical(y_test, 10)
 
-    # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
-    #                           filename='test', filepath='../test')
+    builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
+                              filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {}}, {'flatten': {}}, {'dense': {'units': 128}}, {'dense': {}}]
-    builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
-                              filename='test', filepath='../test')
+    # layers = [{'ftl': {}}, {'flatten': {}}, {'dense': {'units': 128}}, {'dense': {}}]
+    # builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
+    #                           filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
