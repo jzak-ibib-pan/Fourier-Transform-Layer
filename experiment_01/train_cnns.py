@@ -8,7 +8,7 @@ import ipykernel
 
 
 def main():
-    for modelname in ['mobilenetv2', 'mobilenet']:
+    for modelname in ['resnet50', 'resnet101', 'vgg16', 'vgg19', 'mobilenetv2', 'mobilenet']:
         builder = CNNBuilder(model_type=modelname, input_shape=(32, 32, 1), noof_classes=10,
                              filename='mnist_cnns', filepath='results')
         (x_train, y_train), (x_test, y_test) = mnist.load_data()

@@ -27,9 +27,11 @@ class ModelBuilder:
             mkdir(filepath)
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
-        DEFAULTS = {'build' : {'model_type': 'any',
+        defaults = {'build' : {'model_type': 'any',
                                'input_shape': (8, 8, 1),
                                'noof_classes': -1,
+                               'weights': None,
+                               'freeze': 0,
                                },
                     'compile': {'optimizer': 'adam',
                                 'loss': 'mse',
@@ -55,18 +57,18 @@ class ModelBuilder:
                               },
                     }
         if 'defaults' in kwargs.keys():
-            defaults = kwargs['defaults']
-            for key in defaults.keys():
-                DEFAULTS['build'].update({key: defaults[key]})
+            defaults_build = kwargs['defaults']
+            for key in defaults_build.keys():
+                defaults['build'].update({key: defaults_build[key]})
         self._METRICS = ['loss', 'acc', 'accuracy', 'categorical_accuracy', 'top-1', 'top-5',
                          'val_loss', 'val_acc', 'val_accuracy', 'val_categorical_accuracy', 'val_top-1', 'val_top-5']
-        self._CHECKPOINT_SUFFIXES = self._make_suffixes(self._METRICS, length=1)
+        self._checkpoint_suffixes = self._make_suffixes(self._METRICS, length=1)
         self._checkfile_epoch_position = 0
         self._checkfile_temp_name = ''
         self._params = {}
         for action in ['build', 'compile', 'train']:
-            self._params.update({action: self._verify_parameters(DEFAULTS[action], **kwargs)})
-        self._LENGTH = 0
+            self._params.update({action: self._verify_parameters(defaults[action], **kwargs)})
+        self._length = 0
         # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
                            'default': False,
@@ -271,7 +273,7 @@ class ModelBuilder:
         monitor = self._params['train']['call_checkpoint_kwargs']['monitor']
         if not kwargs['validation']:
             if 'loss' not in filepath_checkpoint:
-                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['loss'] + '{loss:.3f}_'
+                filepath_checkpoint += self._checkpoint_suffixes['loss'] + '{loss:.3f}_'
             # ensure validation data exists
             assert 'val' not in monitor, f'Val_{monitor} will be unavailable - no validation data.'
         else:
@@ -279,9 +281,9 @@ class ModelBuilder:
                 monitor = 'val_' + monitor
                 self._params['train']['call_checkpoint_kwargs']['monitor'] = monitor
             if 'loss' not in filepath_checkpoint:
-                filepath_checkpoint += self._CHECKPOINT_SUFFIXES['val_loss'] + '{val_loss:.3f}_'
+                filepath_checkpoint += self._checkpoint_suffixes['val_loss'] + '{val_loss:.3f}_'
         if monitor not in filepath_checkpoint:
-            filepath_checkpoint += self._CHECKPOINT_SUFFIXES[monitor] + '{' + monitor + ':.3f}'
+            filepath_checkpoint += self._checkpoint_suffixes[monitor] + '{' + monitor + ':.3f}'
         return filepath_checkpoint + '.hdf5'
 
     # Text manipulation methods
@@ -315,7 +317,7 @@ class ModelBuilder:
                 fil.write('Weights summary:\n')
                 # layers[1:] - Input has no weights
                 for layer_got, weight_got in zip(self._model.layers[1:], self._model.get_weights()):
-                    fil.write(f'\t{layer_got.name:{self._LENGTH}} - {str(weight_got.shape).rjust(self._LENGTH)}\n')
+                    fil.write(f'\t{layer_got.name:{self._length}} - {str(weight_got.shape).rjust(self._length)}\n')
                 with redirect_stdout(fil):
                     self._model.summary()
 
@@ -330,18 +332,18 @@ class ModelBuilder:
             self._update_length(self._calculate_lengths(self._update_params_text(self._params[action])))
 
     def _update_length(self, new_candidate):
-        self._LENGTH = max([self._LENGTH, new_candidate])
+        self._length = max([self._length, new_candidate])
 
     # method for text cleanup
     def _prepare_parameter_text(self, what='build'):
         text_build = f'{what.capitalize()} parameters\n'
         walkover = self._update_params_text(self._params[what])
         for key, value in zip(walkover.keys(), walkover.values()):
-            text_build += f'\t{key:{self._LENGTH}} - '
+            text_build += f'\t{key:{self._length}} - '
             if key == 'weights' and type(value) is not str and value is not None:
                 text_build += '\n'
                 continue
-            text_build += f'{str(value).rjust(self._LENGTH)}\n'
+            text_build += f'{str(value).rjust(self._length)}\n'
         return text_build
 
     # a method to change the values of parameter holders
@@ -482,16 +484,40 @@ class ModelBuilder:
     def evaluation(self):
         return self._evaluation
 
+
+# Custom model builder - can build any model (including hybrid), based on layer information
+class CustomBuilder(ModelBuilder):
+    def __init__(self, model_type='custom', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
+        self._SAMPLING_DIRECTIONS = {'up': '*',
+                                     'down': '//',
+                                     }
+        defaults = {'ftl': {'classical': {'ftl_activation': 'relu',
+                                          'ftl_initializer': 'he_normal',
+                                          'use_imag': True,
+                                          'head_initializer': 'he_normal',
+                                          'head_activation': 'softmax',
+                                          },
+                            'sampling': {},
+                            }
+                    }
+        for key, value in zip(defaults['classical'].keys(), defaults['classical'].values()):
+            if 'initializer' not in key:
+                defaults['sampling'].update({key: value})
+                continue
+            defaults['sampling'][key] = 'ones'
+        self._model = []
+
+
 # Standard CNNs for classification
-class CNNBuilder(ModelBuilder):
+class CNNBuilder(CustomBuilder):
     def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
-        DEFAULTS = {'weights': None,
+        defaults = {'weights': None,
                     'freeze': 0
                     }
         super(CNNBuilder, self).__init__(model_type=model_type,
                                          input_shape=input_shape,
                                          noof_classes=noof_classes,
-                                         defaults=DEFAULTS, **kwargs)
+                                         defaults=defaults, **kwargs)
 
     def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
         model_type_low = model_type.lower()
@@ -528,28 +554,15 @@ class CNNBuilder(ModelBuilder):
 
 
 # Fourier Model for classification
-class FourierBuilder(ModelBuilder):
+class FourierBuilder(CustomBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
-        DEFAULTS = {'classical': {'ftl_activation': 'relu',
-                                  'ftl_initializer': 'he_normal',
-                                  'use_imag': True,
-                                  'head_initializer': 'he_normal',
-                                  'head_activation': 'softmax',
-                                  },
-                    'sampling': {},
+        defaults = {'weights': None,
+                    'freeze': 0
                     }
-        for key, value in zip(DEFAULTS['classical'].keys(), DEFAULTS['classical'].values()):
-            if 'initializer' not in key:
-                DEFAULTS['sampling'].update({key: value})
-                continue
-            DEFAULTS['sampling'][key] = 'ones'
-        self._DIRECTIONS = {'up': '*',
-                            'down': '//',
-                            }
         super(FourierBuilder, self).__init__(model_type=model_type,
                                          input_shape=input_shape,
                                          noof_classes=noof_classes,
-                                         defaults=DEFAULTS[approach], **kwargs)
+                                         defaults=defaults[approach], **kwargs)
 
     def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
         # kwargs extraction
@@ -580,7 +593,7 @@ class FourierBuilder(ModelBuilder):
         shape_new = shape
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], parameter=kwargs['nominator'],
-                                        sign=self._DIRECTIONS[kwargs['direction']])
+                                        sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
         params_sampled = self._params['build'].copy()
