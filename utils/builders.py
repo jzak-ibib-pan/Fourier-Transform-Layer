@@ -57,10 +57,7 @@ class ModelBuilder:
                               },
                     }
         if 'defaults' in kwargs.keys():
-            assert type(kwargs['defaults']) is list, 'Must provide a list.'
-            defaults_build = kwargs['defaults']
-            for key in defaults_build.keys():
-                defaults['build'].update({key: defaults_build[key]})
+            defaults = self._update_build_defaults(defaults, kwargs['defaults'])
         self._METRICS = ['loss', 'acc', 'accuracy', 'categorical_accuracy', 'top-1', 'top-5',
                          'val_loss', 'val_acc', 'val_accuracy', 'val_categorical_accuracy', 'val_top-1', 'val_top-5']
         self._checkpoint_suffixes = self._make_suffixes(self._METRICS, length=1)
@@ -254,6 +251,13 @@ class ModelBuilder:
                 result.update({key: kwargs[key]})
                 continue
             result[key] = kwargs[key]
+        return result
+
+    @staticmethod
+    def _update_build_defaults(parameters, defaults):
+        result = parameters.copy()
+        for key in defaults.keys():
+            result['build'].update({key: defaults[key]})
         return result
 
     def _manage_checkpoint_filepath(self, **kwargs):
@@ -488,29 +492,36 @@ class ModelBuilder:
 
 # Custom model builder - can build any model (including hybrid), based on layer information
 class CustomBuilder(ModelBuilder):
-    def __init__(self, model_type='custom', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
+    def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
+        # layers - a list of dicts
         self._SAMPLING_DIRECTIONS = {'up': '*',
                                      'down': '//',
                                      }
-        defaults = {'ftl': {'classical': {'ftl_activation': 'relu',
-                                          'ftl_initializer': 'he_normal',
+        defaults = {'conv': {'filters': 128,
+                             'kernel_size': 3,
+
+                             },
+                    'ftl': {'classical': {'activation': 'relu',
+                                          'initializer': 'he_normal',
                                           'use_imag': True,
-                                          'head_activation': 'softmax',
-                                          'head_initializer': 'he_normal',
                                           },
                             'sampling': {},
-                            }
+                            },
+                    'head': {'task': 'classification',
+                             'activation': 'softmax',
+                             'initializer': 'he_normal',},
                     }
-        for key, value in zip(defaults['classical'].keys(), defaults['classical'].values()):
+        for key, value in zip(defaults['ftl']['classical'].keys(), defaults['ftl']['classical'].values()):
             if 'initializer' not in key:
-                defaults['sampling'].update({key: value})
+                defaults['ftl']['sampling'].update({key: value})
                 continue
-            defaults['sampling'][key] = 'ones'
-        if model_type == 'custom':
-            assert 'layers' in kwargs.keys(), 'Custom model requires a list of layers.'
-        super(CustomBuilder, self).__init__(model_type=model_type,
-                                         input_shape=input_shape,
-                                         noof_classes=noof_classes, **kwargs)
+            defaults['ftl']['sampling'][key] = 'ones'
+        assert 'layers' in kwargs.keys(), 'Custom model requires a list of layers.'
+        defaults.update({'build': {'layers' : layers}})
+        super(CustomBuilder, self).__init__(input_shape=input_shape,
+                                            noof_classes=noof_classes,
+                                            defaults=[defaults],
+                                            **kwargs)
 
 
 # Standard CNNs for classification
@@ -557,13 +568,23 @@ class CNNBuilder(CustomBuilder):
 # Fourier Model for classification
 class FourierBuilder(CustomBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
-        defaults = {'weights': None,
-                    'freeze': 0
-                    }
+        defaults = {'classical': {'ftl_activation': 'relu',
+                                          'ftl_initializer': 'he_normal',
+                                          'use_imag': True,
+                                          'head_activation': 'softmax',
+                                          'head_initializer': 'he_normal',
+                                          },
+                            'sampling': {},
+                            }
+        for key, value in zip(defaults['classical'].keys(), defaults['classical'].values()):
+            if 'initializer' not in key:
+                defaults['sampling'].update({key: value})
+                continue
+            defaults['sampling'][key] = 'ones'
         super(FourierBuilder, self).__init__(model_type=model_type,
-                                         input_shape=input_shape,
-                                         noof_classes=noof_classes,
-                                         defaults=defaults[approach], **kwargs)
+                                             input_shape=input_shape,
+                                             noof_classes=noof_classes,
+                                             defaults=[defaults[approach]], **kwargs)
 
     def _build_model(self, model_type, input_shape, noof_classes, **kwargs):
         # kwargs extraction
