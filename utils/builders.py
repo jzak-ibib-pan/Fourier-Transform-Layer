@@ -684,6 +684,8 @@ class CustomBuilder(ModelBuilder):
             weights_result.append(weights)
         arguments_sampled['weights'] = weights_result
         builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
+        for action in ['compile', 'train']:
+            builder._arguments[action] = self._arguments[action]
         if 'compile' in kwargs.keys() and kwargs['compile']:
             builder.compile_model(**self._arguments['compile'])
         return builder
