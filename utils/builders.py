@@ -649,18 +649,17 @@ class CustomBuilder(ModelBuilder):
                 weights_result.append(weights)
                 continue
             if 'dense' in layer_name:
-                # additional [0], because is working on lists
                 # 0 - kernel, 1 - bias
                 if shape_new[0] < shape[0]:
-                    weights_result.append(weights[0][0][:size_new, :])
+                    weights_result.append(weights[0][:size_new, :])
                 else:
                     pads = [[0, size_new - shape[0] * shape[1] * shape[2]], [0, 0]]
-                    pd = pad(weights[0][0], pad_width=pads, mode='constant', constant_values=replace_value)
+                    pd = pad(weights[0], pad_width=pads, mode='constant', constant_values=replace_value)
                     weights_result.append(pd)
-                weights_result.append(weights[0][1])
+                weights_result.append(weights[1])
                 continue
             # now its known that weights are FTL (1u2, X, X, C)
-            # additional [0], because is working on lists
+            # additional extraction from list (thus [0])
             weights_ftl = weights[0]
             noof_weights = weights_ftl.shape[0]
             weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
@@ -813,15 +812,15 @@ def test_sampling():
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    # builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
-    #                     call_stop=True, call_time=True, call_checkpoint=True,
-    #                     call_stop_kwargs={'baseline': 0.5,
-    #                                       'monitor': 'categorical_accuracy',
-    #                                       'patience': 3,
-    #                                       },
-    #                     call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-    #                                             }, save_memory=True
-    #                     )
+    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
+                        call_stop=True, call_time=True, call_checkpoint=True,
+                        call_stop_kwargs={'baseline': 0.5,
+                                          'monitor': 'categorical_accuracy',
+                                          'patience': 3,
+                                          },
+                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
+                                                }, save_memory=True
+                        )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('Testing sampling pipeline', summary=True)
 
