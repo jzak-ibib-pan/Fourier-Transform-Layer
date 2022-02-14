@@ -3,7 +3,7 @@ from os import listdir, mkdir
 from os.path import join, isdir
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input
+from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from numpy import squeeze, ones, expand_dims, pad
@@ -493,39 +493,87 @@ class ModelBuilder:
 # Custom model builder - can build any model (including hybrid), based on layer information
 class CustomBuilder(ModelBuilder):
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
-        # layers - a list of dicts
-        self._SAMPLING_DIRECTIONS = {'up': '*',
-                                     'down': '//',
-                                     }
-        defaults = {'conv': {'filters': 128,
-                             'kernel_size': 3,
-
-                             },
+                            # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
+        defaults = {'conv2d': {'filters': 128,
+                               'kernel_size': 3,
+                               'strides': (1, 1),
+                               'padding': "valid",
+                               'data_format': None,
+                               'dilation_rate': (1, 1),
+                               'groups': 1,
+                               'activation': None,
+                               'use_bias': True,
+                               'kernel_initializer': "glorot_uniform",
+                               'bias_initializer': "zeros",
+                               'kernel_regularizer': None,
+                               'bias_regularizer': None,
+                               'activity_regularizer': None,
+                               'kernel_constraint': None,
+                               'bias_constraint': None,
+                               },
+                    # copied from keras: https://keras.io/api/layers/core_layers/dense/
+                    'dense': {'units': 1,
+                              'activation': None,
+                              'use_bias': True,
+                              'kernel_initializer': "glorot_uniform",
+                              'bias_initializer': "zeros",
+                              'kernel_regularizer': None,
+                              'bias_regularizer': None,
+                              'activity_regularizer': None,
+                              'kernel_constraint': None,
+                              'bias_constraint': None,
+                              },
                     'ftl': {'classical': {'activation': 'relu',
                                           'initializer': 'he_normal',
                                           'use_imag': True,
                                           },
                             'sampling': {},
                             },
-                    'head': {'task': 'classification',
-                             'activation': 'softmax',
-                             'initializer': 'he_normal',},
                     }
+        # layers - a list of dicts
+        _NAMES = list(defaults.keys())
+        assert all('name' in layer.keys() for layer in layers), 'Each layer must have a name.'
+        assert all(name in _NAMES for name in [n for n in layers.keys() if 'name' in n]), \
+            f'Unsupported name. Supported names: {_NAMES}.'
+        self._SAMPLING_DIRECTIONS = {'up': '*',
+                                     'down': '//',
+                                     }
+
         for key, value in zip(defaults['ftl']['classical'].keys(), defaults['ftl']['classical'].values()):
             if 'initializer' not in key:
                 defaults['ftl']['sampling'].update({key: value})
                 continue
             defaults['ftl']['sampling'][key] = 'ones'
-        assert 'layers' in kwargs.keys(), 'Custom model requires a list of layers.'
+        _layers = []
+        for layer in layers:
+            _layer = self._verify_parameters(defaults[layer['name']], **layer['parameters'])
+            _layers.append(_layer)
         defaults.update({'build': {'layers' : layers}})
         super(CustomBuilder, self).__init__(input_shape=input_shape,
                                             noof_classes=noof_classes,
-                                            defaults=[defaults],
+                                            defaults=layers,
                                             **kwargs)
+
+    def _build_model(self, layers, input_shape, noof_classes, **kwargs):
+        inp = Input(input_shape)
+        arch, flat = self._return_layer(layers[0], inp)
+        for layer in layers[1:]:
+            arch, flat = self._return_layer(layer, arch, flat)
+        return Model(inp, arch.output)
+
+    @staticmethod
+    def _return_layer(layer, previous, flattened=False):
+        if layer['name'] == 'conv2d':
+            return Conv2D(**layer['parameters'])(previous), False
+        if layer['name'] == 'ftl':
+            return FTL(**layer['parameters'])(previous), False
+        if flattened:
+            return Dense(**layer['parameters'])(previous), True
+        return Dense(**layer['parameters'])(Flatten()(previous)), True
 
 
 # Standard CNNs for classification
-class CNNBuilder(CustomBuilder):
+class CNNBuilder(ModelBuilder):
     def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
         super(CNNBuilder, self).__init__(model_type=model_type,
                                          input_shape=input_shape,
@@ -566,14 +614,14 @@ class CNNBuilder(CustomBuilder):
 
 
 # Fourier Model for classification
-class FourierBuilder(CustomBuilder):
+class FourierBuilder(ModelBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
         defaults = {'classical': {'ftl_activation': 'relu',
-                                          'ftl_initializer': 'he_normal',
-                                          'use_imag': True,
-                                          'head_activation': 'softmax',
-                                          'head_initializer': 'he_normal',
-                                          },
+                                  'ftl_initializer': 'he_normal',
+                                  'use_imag': True,
+                                  'head_activation': 'softmax',
+                                  'head_initializer': 'he_normal',
+                                  },
                             'sampling': {},
                             }
         for key, value in zip(defaults['classical'].keys(), defaults['classical'].values()):
