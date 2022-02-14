@@ -638,44 +638,11 @@ class CustomBuilder(ModelBuilder):
         # SOLVED: other layers
         # gather layers and weights
         gathered_weights = {}
-        reduce = 0
-        if len(model_weights) < len(model_layers):
-            for it, weights in enumerate(model_weights):
-                # input does not have any weights
-                layer = model_layers[it + 1]
-                if not layer.weights:
-                    reduce += 1
-                    weights_to_gather = []
-                    gathered_weights.update({layer.name: weights_to_gather})
-                    continue
-                if len(layer.weights) == 1:
-                    weights_to_gather = model_weights[it - reduce]
-                    gathered_weights.update({layer.name: weights_to_gather})
-                    continue
-                for step in range(len(layer.weights)):
-                    weights_to_gather = model_weights[it + step - reduce]
-                    if layer.name in gathered_weights.keys():
-                        gathered_weights[layer.name].append(weights_to_gather)
-                    else:
-                        gathered_weights.update({layer.name: [weights_to_gather]})
-        else:
-            for it, layer in enumerate(model_layers[1:]):
-                # input does not have any weights
-                if not layer.weights:
-                    reduce += 1
-                    weights_to_gather = []
-                    gathered_weights.update({layer.name: weights_to_gather})
-                    continue
-                if len(layer.weights) == 1:
-                    weights_to_gather = model_weights[it - reduce]
-                    gathered_weights.update({layer.name: weights_to_gather})
-                    continue
-                for step in range(len(layer.weights)):
-                    weights_to_gather = model_weights[it + step - reduce]
-                    if layer.name in gathered_weights.keys():
-                        gathered_weights[layer.name].append(weights_to_gather)
-                    else:
-                        gathered_weights.update({layer.name: [weights_to_gather]})
+        for it, layer in enumerate(model_layers[1:]):
+            if layer.name in gathered_weights.keys():
+                continue
+            shift_forward = len(layer.weights)
+            gathered_weights.update({layer.name: model_weights[it : it + shift_forward]})
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             # other layers which should not be sampled
             if any(name in layer_name for name in self._UNSAMPLED):
