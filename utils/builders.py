@@ -372,7 +372,7 @@ class ModelBuilder:
         walkover = self._update_arguments_text(arguments, summary)
         for key, value in zip(walkover.keys(), walkover.values()):
             text_build += f'\t{key:{self._length}} - '
-            if key == 'weights' and type(value) is not str and value is not None:
+            if 'weights' in key and type(value) is not str and value is not None:
                 text_build += '\n'
                 continue
             text_build += f'{str(value).rjust(self._length)}\n'
