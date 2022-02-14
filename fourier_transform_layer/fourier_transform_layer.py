@@ -5,7 +5,7 @@ from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 
 # TODO: get_config implementation
 class FTL(Layer):
-    def __init__(self, activation=None, initializer='he_normal', inverse=False, phase_training=False,
+    def __init__(self, activation=None, kernel_initializer='he_normal', inverse=False, phase_training=False,
                  use_imaginary=True, **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
@@ -26,7 +26,7 @@ class FTL(Layer):
             self._activation = tanh
         elif activation == 'selu':
             self._activation = selu
-        self._initializer = initializer
+        self._kernel_initializer = kernel_initializer
         self._flag_phase_training = phase_training
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
@@ -37,7 +37,7 @@ class FTL(Layer):
     def build(self, input_shape):
         self.kernel = self.add_weight(name='kernel',
                                       shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
-                                      initializer=self._initializer,
+                                      initializer=self._kernel_initializer,
                                       trainable=True)
 
     @tf.autograph.experimental.do_not_convert

@@ -526,6 +526,7 @@ class ModelBuilder:
 
 # Custom model builder - can build any model (including hybrid), based on layer information
 class CustomBuilder(ModelBuilder):
+    # TODO: default sampling initializations
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
                     # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
         defaults = {'conv2d': {'filters': 128,
@@ -559,7 +560,7 @@ class CustomBuilder(ModelBuilder):
                               },
                     'flatten': {},
                     'ftl': {'activation': 'relu',
-                            'initializer': 'he_normal',
+                            'kernel_initializer': 'he_normal',
                             'use_imaginary': True,
                             },
                     }
@@ -800,17 +801,18 @@ def test_sampling():
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
     from numpy import asarray, repeat
+    data_channels = 1
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_tr = []
     for x in x_train:
         x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
+    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=data_channels, axis=-1)
     y_train = to_categorical(y_train, 10)
 
     x_tr = []
     for x in x_test:
         x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
+    x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=data_channels, axis=-1)
     y_test = to_categorical(y_test, 10)
 
     # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
@@ -819,30 +821,30 @@ def test_sampling():
     #                      filename='test', filepath='../test')
     layers = [{'ftl': {'initializer': 'ones'}},
               {'flatten': {}},
-              {'dense': {'units': 64, 'initializer': 'ones'}},
-              {'dense': {'units': 10, 'initializer': 'ones'}}]
-    builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
+              {'dense': {'units': 10, 'kernel_initializer': 'ones'}}]
+    builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
-    # builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
-    #                     call_stop=True, call_time=True, call_checkpoint=True,
-    #                     call_stop_kwargs={'baseline': 0.5,
-    #                                       'monitor': 'val_categorical_accuracy',
-    #                                       'patience': 3,
-    #                                       },
-    #                     call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
-    #                                             }, save_memory=True
-    #                     )
-    # builder.evaluate_model(x_data=x_test, y_data=y_test)
+    builder.train_model(2, x_data=x_train, y_data=y_train, batch=16, validation_split=0.1,
+                        call_stop=True, call_time=True, call_checkpoint=True,
+                        call_stop_kwargs={'baseline': 0.85,
+                                          'monitor': 'val_categorical_accuracy',
+                                          'patience': 3,
+                                          },
+                        call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
+                                                }, save_memory=True
+                        )
+    builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('Testing sampling pipeline', summary=True)
 
-    sampled = builder.sample_model(shape=(40, 40), compile=True)
-    # sampled.compile_model()
+    sampled = builder.sample_model(shape=(64, 64), compile=True)
     from cv2 import resize
     x_tr = []
     for x in x_test:
-        x_tr.append(resize(x, (40, 40)))
+        x_tr.append(resize(x, (64, 64)))
+    if len(asarray(x_tr).shape) < 3:
+        x_tr = asarray(expand_dims(x_tr, axis=-1))
     sampled.evaluate_model(x_data=asarray(x_tr), y_data=y_test)
     sampled.save_model_info('Testing upsampling pipeline', summary=True)
 
