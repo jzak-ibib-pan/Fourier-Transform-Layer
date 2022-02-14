@@ -620,7 +620,8 @@ class CustomBuilder(ModelBuilder):
         # SOLVED: other layers
         # input does not have any weights
         for layer, weight in zip(layers[1:], weights):
-            if 'conv' in layer.name:
+            # other layers which should not be sampled
+            if any(name in layer.name for name in ['conv', 'flat']):
                 weights_result.append(weight)
                 continue
             if 'dense' in layer.name:
