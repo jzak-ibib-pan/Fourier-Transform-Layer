@@ -25,6 +25,7 @@ class ModelBuilder:
             filename = kwargs['filename']
         if not isdir(filepath):
             mkdir(filepath)
+        self._filename_original = filename
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
         defaults = {'build' : {'model_type': 'any',
@@ -684,7 +685,10 @@ class CustomBuilder(ModelBuilder):
                                                              mode='constant', constant_values=replace_value)
             weights_result.append(weights_replace)
         arguments_sampled['weights'] = weights_result
-        return CustomBuilder(**arguments_sampled)
+        builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
+        if 'compile' in kwargs.keys() and kwargs['compile']:
+            builder.compile_model(**self._arguments['compile'])
+        return builder
 
     def sample_model(self, **kwargs):
         return self._sample_model(**kwargs)
@@ -802,8 +806,8 @@ def test_sampling():
     x_tr = []
     for x in x_train:
         x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1)[:10000], repeats=3, axis=-1)
-    y_train = to_categorical(y_train, 10)[:10000]
+    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
+    y_train = to_categorical(y_train, 10)
 
     x_tr = []
     for x in x_test:
@@ -829,16 +833,15 @@ def test_sampling():
     #                     call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
     #                                             }, save_memory=True
     #                     )
-    # builder.evaluate_model(x_data=x_test, y_data=y_test)
-    # builder.save_model_info('Testing sampling pipeline', summary=True)
+    builder.evaluate_model(x_data=x_test, y_data=y_test)
+    builder.save_model_info('Testing sampling pipeline', summary=True)
 
-    sampled = builder.sample_model(direction='up', nominator=2)
-    sampled.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
-                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
+    sampled = builder.sample_model(shape=(40, 40), compile=True)
+    # sampled.compile_model()
     from cv2 import resize
     x_tr = []
     for x in x_test:
-        x_tr.append(resize(x, (64, 64)))
+        x_tr.append(resize(x, (40, 40)))
     sampled.evaluate_model(x_data=asarray(x_tr), y_data=y_test)
     sampled.save_model_info('Testing upsampling pipeline', summary=True)
 
