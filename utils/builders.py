@@ -545,6 +545,9 @@ class CustomBuilder(ModelBuilder):
                             'use_imaginary': True,
                             },
                     }
+        self._SAMPLING_DIRECTIONS = {'up': '*',
+                                     'down': '//',
+                                     }
         # layers - a list of dicts
         _NAMES = list(defaults.keys())
         # TODO: name checking
@@ -560,7 +563,7 @@ class CustomBuilder(ModelBuilder):
             kwargs.update({'model_type' : 'custom'})
         super(CustomBuilder, self).__init__(input_shape=input_shape,
                                             noof_classes=noof_classes,
-                                            defaults={'layers' : _layers},
+                                            defaults={'layers': _layers},
                                             **kwargs)
 
     def _build_model(self, layers, input_shape, noof_classes, **kwargs):
@@ -596,52 +599,55 @@ class CustomBuilder(ModelBuilder):
 
     def _sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
-        shape = self._arguments['build']['input_shape']
+        arguments_sampled = self._arguments['build'].copy()
+        shape = arguments_sampled['input_shape']
         shape_new = shape
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
-        arguments_sampled = self._arguments['build'].copy()
         arguments_sampled['input_shape'] = (*shape_new, shape[2])
-        # find the ftl layer
-        ftl_index = 0
-        while 'ftl' not in self._model.layers[ftl_index].name:
-            ftl_index += 1
-        # inpu does not have any weights
-        ftl_index -= 1
         weights = self._model.get_weights()
-        if 'weights' in kwargs.keys():
-            weights = kwargs['weights']
-        weights_ftl = expand_dims(squeeze(weights[ftl_index]), axis=0)
-        noof_weights = weights_ftl.shape[0]
+        layers = self._model.layers
         replace_value = 1e-5
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
-        weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
-        for rep in range(noof_weights):
-            # działa wyciąganie nawet fragmentu fft
-            if shape_new[0] < shape[0]:
-                weights_replace[rep] = expand_dims(weights_ftl[rep, :shape_new[0], :shape_new[1]], axis=-1)
-            else:
-                pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
-                weights_replace[rep] = expand_dims(pad(weights_ftl[rep, :, :], pad_width=pads, mode='constant',
-                                                       constant_values=replace_value),
-                                                   axis=-1)
-        # TODO: other layers
-        #
-        head = weights[-2:]
+        weights_result = []
         size_new = shape_new[0] * shape_new[1]
-        if shape_new[0] < shape[0]:
-            head[0] = head[0][:size_new, :]
-        else:
-            pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
-            head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
-        return CustomBuilder(**arguments_sampled, weights=[weights_replace, *head])
+        if 'weights' in kwargs.keys():
+            weights = kwargs['weights']
+        # SOLVED: other layers
+        # input does not have any weights
+        for layer, weight in zip(layers[1:], weights):
+            if 'conv' in layer.name:
+                weights_result.append(weight)
+                continue
+            if 'dense' in layer.name:
+                # 0 - kernel, 1 - bias
+                if shape_new[0] < shape[0]:
+                    weights_result.append(weight[0][:size_new, :])
+                else:
+                    pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
+                    weights_result.append(pad(weight[0], pad_width=pads, mode='constant', constant_values=replace_value))
+                weights_result.append(weight[1])
+                continue
+            weights_ftl = expand_dims(squeeze(weight), axis=0)
+            noof_weights = weights_ftl.shape[0]
+            weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
+            for rep in range(noof_weights):
+                if shape_new[0] < shape[0]:
+                    weights_replace[rep] = expand_dims(weights_ftl[rep, :shape_new[0], :shape_new[1]], axis=-1)
+                else:
+                    pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
+                    weights_replace[rep] = expand_dims(pad(weights_ftl[rep, :, :], pad_width=pads, mode='constant',
+                                                           constant_values=replace_value),
+                                                       axis=-1)
+            weights_result.append(weights_replace)
+        return CustomBuilder(**arguments_sampled, weights=weights_result)
 
     def sample_model(self, **kwargs):
-        return self._sample_model(self, **kwargs)
+        return self._sample_model(**kwargs)
 
     @staticmethod
     def _operation(value, nominator=2, sign='div'):
@@ -747,5 +753,51 @@ def test_minors():
     builder.save_model_info('Testing training pipeline', summary=True)
 
 
+def test_sampling():
+    from tensorflow.keras.datasets import mnist
+    from tensorflow.keras.utils import to_categorical
+    from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
+    from numpy import asarray, repeat
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    x_tr = []
+    for x in x_train:
+        x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
+    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1)[:10000], repeats=3, axis=-1)
+    y_train = to_categorical(y_train, 10)[:10000]
+
+    x_tr = []
+    for x in x_test:
+        x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
+    x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
+    y_test = to_categorical(y_test, 10)
+
+    # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
+    #                           filename='test', filepath='../test')
+    # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
+    #                      filename='test', filepath='../test')
+    layers = [{'ftl': {'initializer': 'ones'}}, {'flatten': {}}, {'dense': {'initializer': 'ones'}}]
+    builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
+                              filename='test', filepath='../test')
+    builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
+                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
+    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
+                        call_stop=True, call_time=True, call_checkpoint=True,
+                        call_stop_kwargs={'baseline': 0.5,
+                                          'monitor': 'categorical_accuracy',
+                                          'patience': 3,
+                                          },
+                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
+                                                }, save_memory=True
+                        )
+    builder.evaluate_model(x_data=x_test, y_data=y_test)
+    builder.save_model_info('Testing sampling pipeline', summary=True)
+    sampled = builder.sample_model(direction='up', nominator=2)
+    sampled.evaluate_model(x_data=x_test, y_data=y_test)
+    sampled.save_model_info('Testing upsampling pipeline', summary=True)
+
+
 if __name__ == '__main__':
-    test_minors()
+    # test_minors()
+    from utils.reset_session import session_reset
+    session_reset()
+    test_sampling()
