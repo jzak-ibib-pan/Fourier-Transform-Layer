@@ -325,17 +325,30 @@ class ModelBuilder:
                 fil.write(f'Training history: \n{hist_text}')
             # TODO: move summary to different file
             if summary:
+                # TODO: layer, weights saving to method
                 # layers[1:] - Input has no weights
                 if 'layers' in self._arguments['build']:
                     fil.write('Layers list:\n')
-                    for layer_got, weight_got, layer_args in zip(self._model.layers[1:], self._model.get_weights(), self._arguments['build']['layers']):
-                        fil.write(f'\t{layer_got.name:{self._length}} - {str(weight_got.shape).rjust(self._length)}\n')
+                    for layer_got, layer_args in zip(self._model.layers[1:], self._arguments['build']['layers']):
+                        weight = layer_got.weights
+                        weight_text = ''
+                        if type(weight) is list:
+                            weight_text += '|'.join([str(w.shape) for w in weight])
+                        else:
+                            weight_text = str(layer_got.weights.shape)
                         layer_args = {layer_got.name: list(layer_args.values())[0]}
+                        fil.write(f'\t{layer_got.name:{self._length}} - {weight_text.rjust(self._length)}\n')
                         fil.write(self._prepare_argument_text(layer_args, summary) + '\n###\n')
                 else:
                     fil.write('Weights summary:\n')
-                    for layer_got, weight_got, layer_args in zip(self._model.layers[1:], self._model.get_weights()):
-                            fil.write(f'\t{layer_got.name:{self._length}} - {str(weight_got.shape).rjust(self._length)}\n')
+                    for layer_got in self._model.layers[1:]:
+                        weight = layer_got.weights
+                        weight_text = ''
+                        if type(weight) is list:
+                            weight_text += '|'.join([str(w.shape) for w in weight])
+                        else:
+                            weight_text = str(layer_got.weights.shape)
+                        fil.write(f'\t{layer_got.name:{self._length}} - {weight_text.rjust(self._length)}\n')
                 with redirect_stdout(fil):
                     self._model.summary()
 
@@ -617,37 +630,43 @@ class CustomBuilder(ModelBuilder):
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
         weights_result = []
-        size_new = shape_new[0] * shape_new[1]
+        size_new = shape_new[0] * shape_new[1] * shape_new[2]
         if 'weights' in kwargs.keys():
             weights = kwargs['weights']
         # SOLVED: other layers
         # input does not have any weights
-        for layer, weight in zip(layers[1:], weights):
+        for layer in layers[1:]:
+            padded_weights = layer.weights
             # other layers which should not be sampled
             if any(name in layer.name for name in self._UNSAMPLED):
-                weights_result.append(weight)
+                weights_result.append(padded_weights)
                 continue
             if 'dense' in layer.name:
                 # 0 - kernel, 1 - bias
                 if shape_new[0] < shape[0]:
-                    weights_result.append(weight[0][:size_new, :])
+                    weights_result.append(padded_weights[0][:size_new, :])
                 else:
-                    pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
-                    weights_result.append(pad(weight[0], pad_width=pads,
+                    pads = [[0, size_new - shape[0] * shape[1] * shape[2]], [0, 0]]
+                    w0 = padded_weights[0]
+                    pd = pad(padded_weights[0], pad_width=pads,
+                                              mode='constant', constant_values=replace_value)
+                    weights_result.append(pad(padded_weights[0], pad_width=pads,
                                               mode='constant', constant_values=replace_value))
-                weights_result.append(weight[1])
+                weights_result.append(padded_weights[1])
                 continue
-            noof_weights = weight.shape[0]
+            # now its known that weights are FTL (1/2, X, X, C)
+            weights_ftl = padded_weights[0]
+            noof_weights = weights_ftl.shape[0]
             weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
             for rep in range(noof_weights):
                 for ch in range(shape[2]):
                     if shape_new[0] < shape[0]:
-                        weights_replace[rep, :, :, ch] = weights[rep, :shape_new[0], :shape_new[1], ch]
+                        weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
                     else:
                         pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
-                        weights_replace[rep, :, :, ch] = pad(squeeze(weight[rep, :, :, ch]), pad_width=pads,
+                        weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
                                                              mode='constant', constant_values=replace_value)
-            weights_result.append(weights_replace)
+                        weights_result.append(weights_replace)
         return CustomBuilder(**arguments_sampled, weights=weights_result)
 
     def sample_model(self, **kwargs):
