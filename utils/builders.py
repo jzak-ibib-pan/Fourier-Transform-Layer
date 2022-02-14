@@ -388,6 +388,9 @@ class ModelBuilder:
                 result.update({key: [list(layer)[0] for layer in arguments[key]]})
                 continue
             if type(arguments[key]) is list:
+                if 'weights' in key:
+                    result.update({f'{key}': ''})
+                    continue
                 for it, key_interior in enumerate(arguments[key]):
                     to_update = self._check_for_name(key_interior)
                     result.update({f'{key}_{it:03d}': to_update})
@@ -814,8 +817,8 @@ def test_sampling():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {'initializer': 'ones'}}, {'flatten': {}},
-              {'dense': {'units': 128, 'initializer': 'ones'}},
+    layers = [{'ftl': {'initializer': 'ones'}},
+              {'flatten': {}},
               {'dense': {'units': 64, 'initializer': 'ones'}},
               {'dense': {'units': 10, 'initializer': 'ones'}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
