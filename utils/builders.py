@@ -524,11 +524,9 @@ class CustomBuilder(ModelBuilder):
                               'kernel_constraint': None,
                               'bias_constraint': None,
                               },
-                    'ftl': {'classical': {'activation': 'relu',
-                                          'initializer': 'he_normal',
-                                          'use_imag': True,
-                                          },
-                            'sampling': {},
+                    'ftl': {'activation': 'relu',
+                            'initializer': 'he_normal',
+                            'use_imaginary': True,
                             },
                     }
         # layers - a list of dicts
@@ -537,14 +535,6 @@ class CustomBuilder(ModelBuilder):
         # l = _NAMES[0] in layers[0].keys()
         # assert all(_NAMES in layer.keys() for layer in layers), \
         #     f'Unsupported name. Supported names: {_NAMES}.'
-        self._SAMPLING_DIRECTIONS = {'up': '*',
-                                     'down': '//',
-                                     }
-        for key, value in zip(defaults['ftl']['classical'].keys(), defaults['ftl']['classical'].values()):
-            if 'initializer' not in key:
-                defaults['ftl']['sampling'].update({key: value})
-                continue
-            defaults['ftl']['sampling'][key] = 'ones'
         _layers = []
         for layer in layers:
             for key, value in zip(layer.keys(), layer.values()):
@@ -635,7 +625,7 @@ class FourierBuilder(ModelBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, approach='classical', **kwargs):
         defaults = {'classical': {'ftl_activation': 'relu',
                                   'ftl_initializer': 'he_normal',
-                                  'use_imag': True,
+                                  'use_imaginary': True,
                                   'head_activation': 'softmax',
                                   'head_initializer': 'he_normal',
                                   },
@@ -655,7 +645,7 @@ class FourierBuilder(ModelBuilder):
         # kwargs extraction
         ftl_activation = kwargs['ftl_activation']
         ftl_initializer = kwargs['ftl_initializer']
-        use_imag = kwargs['use_imag']
+        use_imag = kwargs['use_imaginary']
         head_initializer = kwargs['head_initializer']
         head_activation = kwargs['head_activation']
         model_type_low = model_type.lower()
@@ -664,15 +654,7 @@ class FourierBuilder(ModelBuilder):
                    use_imaginary=use_imag)(inp)
         flat = Flatten()(arch)
         out = Dense(noof_classes, activation=head_activation, kernel_initializer=head_initializer)(flat)
-        model = Model(inp, out)
-        if 'weights' not in kwargs.keys():
-            return model
-        model.set_weights(kwargs['weights'])
-        if 'freeze' not in kwargs.keys():
-            return model
-        if kwargs['weights'] is None or kwargs['freeze'] <= 0:
-            return model
-        return self._freeze_model(model, kwargs['freeze'])
+        return Model(inp, out)
 
     def _sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
@@ -752,7 +734,7 @@ def test_minors():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'conv2d': {}}, {'dense': {}}]
+    layers = [{'conv2d': {}}, {'ftl': {}}, {'dense': {}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
