@@ -550,6 +550,7 @@ class CustomBuilder(ModelBuilder):
                                      }
         # layers - a list of dicts
         _NAMES = list(defaults.keys())
+        self._UNSAMPLED = [name for name in _NAMES if name not in ['ftl', 'dense']]
         # TODO: name checking
         # l = _NAMES[0] in layers[0].keys()
         # assert all(_NAMES in layer.keys() for layer in layers), \
@@ -621,7 +622,7 @@ class CustomBuilder(ModelBuilder):
         # input does not have any weights
         for layer, weight in zip(layers[1:], weights):
             # other layers which should not be sampled
-            if any(name in layer.name for name in ['conv', 'flat']):
+            if any(name in layer.name for name in self._UNSAMPLED):
                 weights_result.append(weight)
                 continue
             if 'dense' in layer.name:
@@ -633,7 +634,7 @@ class CustomBuilder(ModelBuilder):
                     weights_result.append(pad(weight[0], pad_width=pads, mode='constant', constant_values=replace_value))
                 weights_result.append(weight[1])
                 continue
-            weights_ftl = expand_dims(squeeze(weight), axis=0)
+            weights_ftl = squeeze(weight)
             noof_weights = weights_ftl.shape[0]
             weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
             for rep in range(noof_weights):
