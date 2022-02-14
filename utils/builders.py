@@ -624,50 +624,66 @@ class CustomBuilder(ModelBuilder):
         arguments_sampled['input_shape'] = (*shape_new, shape[2])
         # final shape
         shape_new = arguments_sampled['input_shape']
-        weights = self._model.get_weights()
-        layers = self._model.layers
+        model_weights = self._model.get_weights()
+        model_layers = self._model.layers
         replace_value = 1e-5
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
         weights_result = []
         size_new = shape_new[0] * shape_new[1] * shape_new[2]
         if 'weights' in kwargs.keys():
-            weights = kwargs['weights']
+            model_weights = kwargs['weights']
         # SOLVED: other layers
         # input does not have any weights
-        for layer in layers[1:]:
-            padded_weights = layer.weights
-            # other layers which should not be sampled
-            if any(name in layer.name for name in self._UNSAMPLED):
-                weights_result.append(padded_weights)
+        # gather layers and weights
+        gathered_weights = {}
+        reduce = 0
+        for it, weights in enumerate(model_weights):
+            layer = model_layers[it + 1]
+            if not layer.weights:
+                reduce += 1
+                weights_to_gather = []
+                gathered_weights.update({layer.name: weights_to_gather})
                 continue
-            if 'dense' in layer.name:
+            if len(layer.weights) == 1:
+                weights_to_gather = model_weights[it - reduce]
+                gathered_weights.update({layer.name: weights_to_gather})
+                continue
+            for step in range(len(layer.weights)):
+                weights_to_gather = model_weights[it + step - reduce]
+                if layer.name in gathered_weights.keys():
+                    gathered_weights[layer.name].append(weights_to_gather)
+                else:
+                    gathered_weights.update({layer.name: [weights_to_gather]})
+        for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
+            # other layers which should not be sampled
+            if any(name in layer_name for name in self._UNSAMPLED):
+                weights_result.append(weights)
+                continue
+            if 'dense' in layer_name:
                 # 0 - kernel, 1 - bias
                 if shape_new[0] < shape[0]:
-                    weights_result.append(padded_weights[0][:size_new, :])
+                    weights_result.append(weights[0][:size_new, :])
                 else:
                     pads = [[0, size_new - shape[0] * shape[1] * shape[2]], [0, 0]]
-                    w0 = padded_weights[0]
-                    pd = pad(padded_weights[0], pad_width=pads,
-                                              mode='constant', constant_values=replace_value)
-                    weights_result.append(pad(padded_weights[0], pad_width=pads,
-                                              mode='constant', constant_values=replace_value))
-                weights_result.append(padded_weights[1])
+                    pd = pad(weights[0], pad_width=pads, mode='constant', constant_values=replace_value)
+                    weights_result.append(pd)
+                weights_result.append(weights[1])
                 continue
-            # now its known that weights are FTL (1/2, X, X, C)
-            weights_ftl = padded_weights[0]
-            noof_weights = weights_ftl.shape[0]
+            # now its known that weights are FTL (1u2, X, X, C)
+            noof_weights = weights.shape[0]
             weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
             for rep in range(noof_weights):
                 for ch in range(shape[2]):
                     if shape_new[0] < shape[0]:
-                        weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
+                        weights_replace[rep, :, :, ch] = weights[rep, :shape_new[0], :shape_new[1], ch]
                     else:
                         pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
-                        weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
+                        weights_replace[rep, :, :, ch] = pad(squeeze(weights[rep, :, :, ch]), pad_width=pads,
                                                              mode='constant', constant_values=replace_value)
-                        weights_result.append(weights_replace)
-        return CustomBuilder(**arguments_sampled, weights=weights_result)
+            weights_result.append(weights_replace)
+        arguments_sampled['weights'] = weights_result
+        return CustomBuilder(**arguments_sampled)
 
     def sample_model(self, **kwargs):
         return self._sample_model(**kwargs)
@@ -816,6 +832,8 @@ def test_sampling():
     builder.save_model_info('Testing sampling pipeline', summary=True)
 
     sampled = builder.sample_model(direction='up', nominator=2)
+    sampled.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
+                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
     from cv2 import resize
     x_tr = []
     for x in x_test:
