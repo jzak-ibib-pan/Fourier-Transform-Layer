@@ -639,24 +639,43 @@ class CustomBuilder(ModelBuilder):
         # gather layers and weights
         gathered_weights = {}
         reduce = 0
-        for it, weights in enumerate(model_weights):
-            # input does not have any weights
-            layer = model_layers[it + 1]
-            if not layer.weights:
-                reduce += 1
-                weights_to_gather = []
-                gathered_weights.update({layer.name: weights_to_gather})
-                continue
-            if len(layer.weights) == 1:
-                weights_to_gather = model_weights[it - reduce]
-                gathered_weights.update({layer.name: weights_to_gather})
-                continue
-            for step in range(len(layer.weights)):
-                weights_to_gather = model_weights[it + step - reduce]
-                if layer.name in gathered_weights.keys():
-                    gathered_weights[layer.name].append(weights_to_gather)
-                else:
-                    gathered_weights.update({layer.name: [weights_to_gather]})
+        if len(model_weights) < len(model_layers):
+            for it, weights in enumerate(model_weights):
+                # input does not have any weights
+                layer = model_layers[it + 1]
+                if not layer.weights:
+                    reduce += 1
+                    weights_to_gather = []
+                    gathered_weights.update({layer.name: weights_to_gather})
+                    continue
+                if len(layer.weights) == 1:
+                    weights_to_gather = model_weights[it - reduce]
+                    gathered_weights.update({layer.name: weights_to_gather})
+                    continue
+                for step in range(len(layer.weights)):
+                    weights_to_gather = model_weights[it + step - reduce]
+                    if layer.name in gathered_weights.keys():
+                        gathered_weights[layer.name].append(weights_to_gather)
+                    else:
+                        gathered_weights.update({layer.name: [weights_to_gather]})
+        else:
+            for it, layer in enumerate(model_layers[1:]):
+                # input does not have any weights
+                if not layer.weights:
+                    reduce += 1
+                    weights_to_gather = []
+                    gathered_weights.update({layer.name: weights_to_gather})
+                    continue
+                if len(layer.weights) == 1:
+                    weights_to_gather = model_weights[it - reduce]
+                    gathered_weights.update({layer.name: weights_to_gather})
+                    continue
+                for step in range(len(layer.weights)):
+                    weights_to_gather = model_weights[it + step - reduce]
+                    if layer.name in gathered_weights.keys():
+                        gathered_weights[layer.name].append(weights_to_gather)
+                    else:
+                        gathered_weights.update({layer.name: [weights_to_gather]})
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             # other layers which should not be sampled
             if any(name in layer_name for name in self._UNSAMPLED):
@@ -819,7 +838,7 @@ def test_sampling():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {'initializer': 'ones'}}, {'flatten': {}}, {'dense': {'initializer': 'ones'}}]
+    layers = [{'ftl': {'initializer': 'ones'}}, {'conv2d': {}}, {'flatten': {}}, {'dense': {'initializer': 'ones'}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
