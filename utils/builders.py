@@ -63,9 +63,9 @@ class ModelBuilder:
         self._checkpoint_suffixes = self._make_suffixes(self._METRICS, length=1)
         self._checkfile_epoch_position = 0
         self._checkfile_temp_name = ''
-        self._params = {}
+        self._arguments = {}
         for action in ['build', 'compile', 'train']:
-            self._params.update({action: self._verify_arguments(defaults[action], **kwargs)})
+            self._arguments.update({action: self._verify_arguments(defaults[action], **kwargs)})
         self._length = 0
         # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
@@ -74,12 +74,12 @@ class ModelBuilder:
         self._history = []
         self._evaluation = []
         # build the model
-        self._model = self._build_model(**self._params['build'])
+        self._model = self._build_model(**self._arguments['build'])
         # freeze the model
-        build_params = self._params['build']
-        if all([key in ['weights', 'freeze'] for key in build_params.keys()]):
-            weigths = build_params['weights']
-            freeze = build_params['freeze']
+        build_arguments = self._arguments['build']
+        if all([key in ['weights', 'freeze'] for key in build_arguments.keys()]):
+            weigths = build_arguments['weights']
+            freeze = build_arguments['freeze']
             if weigths is not None and freeze > 0:
                 self._model = self._freeze_model(self._model, freeze)
 
@@ -111,19 +111,19 @@ class ModelBuilder:
             y_train = kwargs['y_data']
             if 'validation_split' in kwargs.keys():
                 split = kwargs['validation_split']
-            self._params['train'] = self._update_arguments(self._params['train'],
+            self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                             dataset_size=x_train.shape[0], validation_split=split)
-            # self._params['train']['call_checkpoint_kwargs']['save_best_only'] = False
+            # self._arguments['train']['call_checkpoint_kwargs']['save_best_only'] = False
 
             flag_full_set = True
         if 'generator' in kwargs.keys():
             data_gen = kwargs['generator']
-            self._params['train'] = self._update_arguments(self._params['train'],
+            self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                             dataset='generator')
             if 'validation' in kwargs.keys():
                 split = 1
                 validation_data = kwargs['validation']
-                self._params['train'] = self._update_arguments(self._params['train'],
+                self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                                 validation_size=validation_data.shape[0])
         # callbacks
         callbacks = []
@@ -139,7 +139,7 @@ class ModelBuilder:
             # metric and monitor names must be the same
             callback_stop = EarlyStopOnBaseline(**kwargs['call_stop_kwargs'])
             callbacks.append(callback_stop)
-            self._params['train'] = self._update_arguments(self._params['train'],
+            self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                             call_stop_kwargs=callback_stop.get_kwargs())
             flag_stop = True
         if 'call_checkpoint' in kwargs.keys() and kwargs['call_checkpoint']:
@@ -148,13 +148,13 @@ class ModelBuilder:
             # prioritize validation metrics
             _v = any(['validation' in v for v in kwargs.keys()])
             filepath = self._manage_checkpoint_filepath(validation=_v)
-            self._params['train']['call_checkpoint_kwargs']['filepath'] = filepath
+            self._arguments['train']['call_checkpoint_kwargs']['filepath'] = filepath
             callback_checkpoint = ModelCheckpoint(**kwargs['call_checkpoint_kwargs'])
             callbacks.append(callback_checkpoint)
             flag_checkpoint = True
-            flag_checkpoint_best = self._params['train']['call_checkpoint_kwargs']['save_best_only']
+            flag_checkpoint_best = self._arguments['train']['call_checkpoint_kwargs']['save_best_only']
 
-        # other train params
+        # other train arguments
         batch = 8
         if any([f in ['batch', 'batch_size'] for f in kwargs.keys()]):
             batch = kwargs['batch']
@@ -203,23 +203,23 @@ class ModelBuilder:
         return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
 
     def build_model(self, **kwargs):
-        self._params['build'] = self._update_arguments(self._params['build'], **kwargs)
-        return self._build_model(**self._params['build'])
+        self._arguments['build'] = self._update_arguments(self._arguments['build'], **kwargs)
+        return self._build_model(**self._arguments['build'])
 
     def build_model_from_info(self):
-        return self._build_model(**self._params['build'])
+        return self._build_model(**self._arguments['build'])
 
     def compile_model(self, optimizer, loss, **kwargs):
-        self._params['compile'] = self._update_arguments(self._params['compile'],
+        self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
                                                           optimizer=optimizer, loss=loss, **kwargs)
-        self._compile_model(**self._params['compile'])
+        self._compile_model(**self._arguments['compile'])
 
     def compile_model_from_info(self):
-        self._compile_model(**self._params['compile'])
+        self._compile_model(**self._arguments['compile'])
 
     def train_model(self, epochs, **kwargs):
-        self._params['train'] = self._update_arguments(self._params['train'], epochs=epochs, **kwargs)
-        self._history = self._train_model(**self._params['train'])
+        self._arguments['train'] = self._update_arguments(self._arguments['train'], epochs=epochs, **kwargs)
+        self._history = self._train_model(**self._arguments['train'])
 
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
@@ -261,8 +261,8 @@ class ModelBuilder:
         return result
 
     def _manage_checkpoint_filepath(self, **kwargs):
-        _flag_save_memory = self._params['train']['save_memory']
-        filepath_checkpoint = self._params['train']['call_checkpoint_kwargs']['filepath'][:-5]
+        _flag_save_memory = self._arguments['train']['save_memory']
+        filepath_checkpoint = self._arguments['train']['call_checkpoint_kwargs']['filepath'][:-5]
         if 'epoch' in kwargs.keys():
             epoch = kwargs['epoch']
             if epoch == 0:
@@ -275,7 +275,7 @@ class ModelBuilder:
                 filepath_checkpoint = '_'.join(splits)
         if 'validation' not in kwargs.keys() or _flag_save_memory:
             return filepath_checkpoint + '.hdf5'
-        monitor = self._params['train']['call_checkpoint_kwargs']['monitor']
+        monitor = self._arguments['train']['call_checkpoint_kwargs']['monitor']
         if not kwargs['validation']:
             if 'loss' not in filepath_checkpoint:
                 filepath_checkpoint += self._checkpoint_suffixes['loss'] + '{loss:.3f}_'
@@ -284,7 +284,7 @@ class ModelBuilder:
         else:
             if 'val' not in monitor:
                 monitor = 'val_' + monitor
-                self._params['train']['call_checkpoint_kwargs']['monitor'] = monitor
+                self._arguments['train']['call_checkpoint_kwargs']['monitor'] = monitor
             if 'loss' not in filepath_checkpoint:
                 filepath_checkpoint += self._checkpoint_suffixes['val_loss'] + '{val_loss:.3f}_'
         if monitor not in filepath_checkpoint:
@@ -295,7 +295,7 @@ class ModelBuilder:
     def save_model_info(self, notes='', extension='', **kwargs):
         assert type(notes) == str, 'Notes must be a string.'
         self._update_all_lengths()
-        if 'fourier' in self._params['build']['model_type']:
+        if 'fourier' in self._arguments['build']['model_type']:
             summary = self._SUMMARIES['fourier']
         else:
             summary = self._SUMMARIES['default']
@@ -327,15 +327,15 @@ class ModelBuilder:
                 with redirect_stdout(fil):
                     self._model.summary()
 
-    def _calculate_lengths(self, params):
+    def _calculate_lengths(self, arguments):
         # protection from weights impact on length of text
-        length_keys = self._length_calculator(params.keys())
-        length_vals = self._length_calculator(params.values())
+        length_keys = self._length_calculator(arguments.keys())
+        length_vals = self._length_calculator(arguments.values())
         return max([length_keys, length_vals])
 
     def _update_all_lengths(self):
         for action in ['build', 'compile', 'train']:
-            self._update_length(self._calculate_lengths(self._update_params_text(self._params[action])))
+            self._update_length(self._calculate_lengths(self._update_arguments_text(self._arguments[action])))
 
     def _update_length(self, new_candidate):
         self._length = max([self._length, new_candidate])
@@ -343,7 +343,7 @@ class ModelBuilder:
     # method for text cleanup
     def _prepare_argument_text(self, what='build'):
         text_build = f'{what.capitalize()} arguments\n'
-        walkover = self._update_params_text(self._params[what])
+        walkover = self._update_arguments_text(self._arguments[what])
         for key, value in zip(walkover.keys(), walkover.values()):
             text_build += f'\t{key:{self._length}} - '
             if key == 'weights' and type(value) is not str and value is not None:
@@ -353,10 +353,10 @@ class ModelBuilder:
         return text_build
 
     # a method to change the values of argument holders
-    def _update_params_text(self, arguments):
+    def _update_arguments_text(self, arguments):
         result = {}
         for key in arguments.keys():
-            # list of different params
+            # list of different arguments
             if type(arguments[key]) is list:
                 for it, key_interior in enumerate(arguments[key]):
                     to_update = self._check_for_name(key_interior)
@@ -557,7 +557,7 @@ class CustomBuilder(ModelBuilder):
             return Model(inp, arch)
         _layer = layer
         for key, values in zip(layer.keys(), layer.values()):
-            values['units'] = self._params['build']['noof_classes']
+            values['units'] = self._arguments['build']['noof_classes']
             _layer.update({key: values})
         arch, flat = self._return_layer(_layer, arch, flat)
         return Model(inp, arch)
@@ -658,15 +658,15 @@ class FourierBuilder(ModelBuilder):
 
     def _sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
-        shape = self._params['build']['input_shape']
+        shape = self._arguments['build']['input_shape']
         shape_new = shape
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
-        params_sampled = self._params['build'].copy()
-        params_sampled['input_shape'] = (*shape_new, shape[2])
+        arguments_sampled = self._arguments['build'].copy()
+        arguments_sampled['input_shape'] = (*shape_new, shape[2])
         # find the ftl layer
         ftl_index = 0
         while 'ftl' not in self._model.layers[ftl_index].name:
@@ -698,7 +698,7 @@ class FourierBuilder(ModelBuilder):
         else:
             pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
             head[0] = pad(head[0], pad_width=pads, mode='constant', constant_values=replace_value)
-        return FourierBuilder(**params_sampled, weights=[weights_replace, *head], approach='sampling')
+        return FourierBuilder(**arguments_sampled, weights=[weights_replace, *head], approach='sampling')
 
     def sample_model(self, **kwargs):
         return self._sample_model(self, **kwargs)
