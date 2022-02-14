@@ -533,7 +533,7 @@ class CustomBuilder(ModelBuilder):
         # layers - a list of dicts
         _NAMES = list(defaults.keys())
         assert all('name' in layer.keys() for layer in layers), 'Each layer must have a name.'
-        assert all(name in _NAMES for name in [n for n in layers if 'name' in n.keys()]), \
+        assert all(name in _NAMES for name in [n['name'] for n in layers if 'name' in n.keys()]), \
             f'Unsupported name. Supported names: {_NAMES}.'
         self._SAMPLING_DIRECTIONS = {'up': '*',
                                      'down': '//',
@@ -735,7 +735,7 @@ def test_minors():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'name': 'conv2d', 'arguments': ''}, {'name': 'dense', 'arguments': ''}]
+    layers = [{'name': 'conv2d', 'arguments': {}}, {'name': 'dense', 'arguments': {}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
