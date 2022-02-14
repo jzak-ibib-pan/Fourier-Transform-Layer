@@ -635,13 +635,15 @@ class CustomBuilder(ModelBuilder):
                 weights_result.append(weight[1])
                 continue
             weights_ftl = squeeze(weight)
+            if len(weights_ftl.shape) < 3:
+                weights_ftl = expand_dims(weights_ftl, axis=0)
             noof_weights = weights_ftl.shape[0]
             weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
             for rep in range(noof_weights):
                 if shape_new[0] < shape[0]:
                     weights_replace[rep] = expand_dims(weights_ftl[rep, :shape_new[0], :shape_new[1]], axis=-1)
                 else:
-                    pads = [[0, shape_new[0]//2], [0, shape_new[1]//2]]
+                    pads = [[0, shn - sh] for shn, sh in zip(shape_new, shape)]
                     weights_replace[rep] = expand_dims(pad(weights_ftl[rep, :, :], pad_width=pads, mode='constant',
                                                            constant_values=replace_value),
                                                        axis=-1)
