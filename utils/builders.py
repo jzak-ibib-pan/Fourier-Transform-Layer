@@ -321,15 +321,17 @@ class ModelBuilder:
                 fil.write(f'Training history: \n{hist_text}')
             # TODO: move summary to different file
             if summary:
+                # layers[1:] - Input has no weights
                 if 'layers' in self._arguments['build']:
                     fil.write('Layers list:\n')
-                    for layer in self._arguments['build']['layers']:
-                        fil.write(f'\t{str(list(layer.keys())[0]).upper()}\n')
-                        fil.write(self._prepare_argument_text(layer, summary) + '\n')
-                fil.write('Weights summary:\n')
-                # layers[1:] - Input has no weights
-                for layer_got, weight_got in zip(self._model.layers[1:], self._model.get_weights()):
-                    fil.write(f'\t{layer_got.name:{self._length}} - {str(weight_got.shape).rjust(self._length)}\n')
+                    for layer_got, weight_got, layer_args in zip(self._model.layers[1:], self._model.get_weights(), self._arguments['build']['layers']):
+                        fil.write(f'\t{layer_got.name:{self._length}} - {str(weight_got.shape).rjust(self._length)}\n')
+                        layer_args = {layer_got.name: list(layer_args.values())[0]}
+                        fil.write(self._prepare_argument_text(layer_args, summary))
+                else:
+                    fil.write('Weights summary:\n')
+                    for layer_got, weight_got, layer_args in zip(self._model.layers[1:], self._model.get_weights()):
+                            fil.write(f'\t{layer_got.name:{self._length}} - {str(weight_got.shape).rjust(self._length)}\n')
                 with redirect_stdout(fil):
                     self._model.summary()
 
@@ -745,7 +747,7 @@ def test_minors():
     #                           filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {}}, {'dense': {'units': 128}}, {'dense': {}}]
+    layers = [{'ftl': {}}, {'flatten': {}}, {'dense': {'units': 128}}, {'dense': {}}]
     builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
                               filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
