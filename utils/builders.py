@@ -609,6 +609,8 @@ class CustomBuilder(ModelBuilder):
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
         arguments_sampled['input_shape'] = (*shape_new, shape[2])
+        # final shape
+        shape_new = arguments_sampled['input_shape']
         weights = self._model.get_weights()
         layers = self._model.layers
         replace_value = 1e-5
@@ -631,22 +633,20 @@ class CustomBuilder(ModelBuilder):
                     weights_result.append(weight[0][:size_new, :])
                 else:
                     pads = [[0, size_new - shape[0] * shape[1]], [0, 0]]
-                    weights_result.append(pad(weight[0], pad_width=pads, mode='constant', constant_values=replace_value))
+                    weights_result.append(pad(weight[0], pad_width=pads,
+                                              mode='constant', constant_values=replace_value))
                 weights_result.append(weight[1])
                 continue
-            weights_ftl = squeeze(weight)
-            if len(weights_ftl.shape) < 3:
-                weights_ftl = expand_dims(weights_ftl, axis=0)
-            noof_weights = weights_ftl.shape[0]
-            weights_replace = ones((noof_weights, shape_new[0], shape_new[1], 1)) * replace_value
+            noof_weights = weight.shape[0]
+            weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
             for rep in range(noof_weights):
-                if shape_new[0] < shape[0]:
-                    weights_replace[rep] = expand_dims(weights_ftl[rep, :shape_new[0], :shape_new[1]], axis=-1)
-                else:
-                    pads = [[0, shn - sh] for shn, sh in zip(shape_new, shape)]
-                    weights_replace[rep] = expand_dims(pad(weights_ftl[rep, :, :], pad_width=pads, mode='constant',
-                                                           constant_values=replace_value),
-                                                       axis=-1)
+                for ch in range(shape[2]):
+                    if shape_new[0] < shape[0]:
+                        weights_replace[rep, :, :, ch] = weights[rep, :shape_new[0], :shape_new[1], ch]
+                    else:
+                        pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
+                        weights_replace[rep, :, :, ch] = pad(squeeze(weight[rep, :, :, ch]), pad_width=pads,
+                                                             mode='constant', constant_values=replace_value)
             weights_result.append(weights_replace)
         return CustomBuilder(**arguments_sampled, weights=weights_result)
 
@@ -657,9 +657,9 @@ class CustomBuilder(ModelBuilder):
     def _operation(value, nominator=2, sign='div'):
         assert sign in ['divide', 'div', '//', 'multiply', 'mult', '*']
         if sign in ['divide', 'div', '//']:
-            return value[:2] // nominator
+            return [v // nominator for v in value]
         elif sign in ['multiply', 'mult', '*']:
-            return value[:2] * nominator
+            return [v * nominator for v in value]
 
 
 # Standard CNNs for classification
@@ -795,7 +795,13 @@ def test_sampling():
                         )
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info('Testing sampling pipeline', summary=True)
+
     sampled = builder.sample_model(direction='up', nominator=2)
+    from cv2 import resize
+    x_tr = []
+    for x in x_test:
+        x_tr.append(resize(x, (64, 64)))
+    x_test = x_tr
     sampled.evaluate_model(x_data=x_test, y_data=y_test)
     sampled.save_model_info('Testing upsampling pipeline', summary=True)
 
