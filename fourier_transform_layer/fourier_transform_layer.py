@@ -13,8 +13,11 @@ class FTL(Layer):
         assert not (inverse is True and phase_training is True), 'Cannot phase train and inverse at the same time.'
         assert not (inverse is True and use_imaginary is False), 'Cannot inverse FFT without imaginary part.'
         assert not (phase_training is True and use_imaginary is False), 'Cannot phase train without imaginary part.'
+        self._kernel_shape_0 = {True: 2,
+                                False: 1,
+                                }
         self.kernel = None
-        self.kernel_imag = None
+        self.bias = None
         self._activation = None
         if activation == 'relu':
             self._activation = relu
@@ -31,15 +34,23 @@ class FTL(Layer):
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
         self._flag_normalize = normalize_to_image_shape
-        self._kernel_shape_0 = {True: 2,
-                                False: 1,
-                                }
+        self._flag_use_bias = False
+        self._bias_initializer = 'zeros'
+        if 'use_bias' in kwargs.keys() and kwargs['use_bias']:
+            self._flag_use_bias = True
+            if 'bias_initializer' in kwargs.keys():
+                self._bias_initializer = kwargs['bias_initializer']
 
     def build(self, input_shape):
         self.kernel = self.add_weight(name='kernel',
                                       shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
                                       initializer=self._kernel_initializer,
                                       trainable=True)
+        if self._flag_use_bias:
+            self.bias = self.add_weight(name='bias',
+                                        shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
+                                        initializer=self._bias_initializer,
+                                        trainable=True)
 
     @tf.autograph.experimental.do_not_convert
     def call(self, input_tensor, **kwargs):
@@ -60,6 +71,8 @@ class FTL(Layer):
 
         real = tf.math.real(x)
         real = tf.multiply(real, self.kernel[0])
+        if self._flag_use_bias:
+            real = tf.add(real, self.bias[0])
 
         if not self._flag_use_imaginary:
             if self._activation is not None:
@@ -68,6 +81,8 @@ class FTL(Layer):
 
         imag = tf.math.imag(x)
         imag = tf.multiply(imag, self.kernel[1])
+        if self._flag_use_bias:
+            imag = tf.add(imag, self.bias[1])
 
         if self._flag_phase_training:
             if self._activation is not None:
