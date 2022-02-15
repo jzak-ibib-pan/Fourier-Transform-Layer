@@ -79,14 +79,7 @@ class ModelBuilder:
         self._history = []
         self._evaluation = []
         # build the model
-        self._model = self._build_model(**self._arguments['build'])
-        # freeze the model
-        build_arguments = self._arguments['build']
-        if all([key in ['weights', 'freeze'] for key in build_arguments.keys()]):
-            weigths = build_arguments['weights']
-            freeze = build_arguments['freeze']
-            if weigths is not None and freeze > 0:
-                self._model = self._freeze_model(self._model, freeze)
+        self._model = self.build_model(**self._arguments['build'])
 
     def _build_model(self, **kwargs):
         return Model()
@@ -209,7 +202,16 @@ class ModelBuilder:
 
     def build_model(self, **kwargs):
         self._arguments['build'] = self._update_arguments(self._arguments['build'], **kwargs)
-        return self._build_model(**self._arguments['build'])
+        model = self._build_model(**self._arguments['build'])
+        # set the weights
+        # this way ensures no key error
+        if 'weights' in kwargs.keys() and kwargs['weigths'] is not None:
+            model.set_weights(kwargs['weights'])
+        # freeze the model
+        if 'freeze' in kwargs.keys() and kwargs['freeze'] != 0:
+            model = self._freeze_model(model, kwargs['freeze'])
+        return model
+
 
     def build_model_from_info(self):
         return self._build_model(**self._arguments['build'])
