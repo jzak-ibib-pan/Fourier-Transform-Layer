@@ -523,9 +523,11 @@ class ModelBuilder:
         loof_files = [f for f in listdir(filepath) if filename in f]
         _stop = False
         it = 0
-        while not _stop and it < len(loof_files):
+        # a list of all iterators at the end of files; required to sort from lowest to highest
+        loof_iterators = sorted(set([(l.split('_')[-1]).split('.')[0] for l in loof_files]))
+        while not _stop and it < len(loof_iterators):
             # extract only number string
-            extracted = (loof_files[it].split('_')[-1]).split('.')[0]
+            extracted = loof_iterators[it]
             compared = f'{it:03d}'
             it += 1
             if compared == extracted:
