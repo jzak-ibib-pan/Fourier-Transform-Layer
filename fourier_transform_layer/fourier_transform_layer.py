@@ -52,7 +52,10 @@ class FTL(Layer):
                 return self._activation(x)
             return x
 
+        shapes = tf.shape(input_tensor)[1:]
         x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
+        x = tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
+
         real = tf.math.real(x)
         real = tf.multiply(real, self.kernel[0])
 

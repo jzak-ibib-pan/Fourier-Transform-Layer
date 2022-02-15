@@ -95,7 +95,7 @@ class ModelBuilder:
     @staticmethod
     def _freeze_model(model, freeze):
         result = model.copy()
-        for layer in result.layers[1:freeze + 1]:
+        for layer in result.layers[1 : freeze + 1]:
             layer.trainable = False
         return result
 
@@ -819,7 +819,7 @@ def test_sampling():
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(100, x_data=x_train, y_data=y_train, batch=16, validation_split=0.1,
                         call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.98,
+                        call_stop_kwargs={'baseline': 0.90,
                                           'monitor': 'val_categorical_accuracy',
                                           'patience': 2,
                                           },
