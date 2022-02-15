@@ -94,7 +94,25 @@ class ModelBuilder:
         return result
 
     def _compile_model(self, optimizer, loss, **kwargs):
+        metrics = []
+        if 'metrics' not in kwargs.keys():
+            self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
+            return
+        if any([type(metric) is not str for metric in kwargs['metrics']]):
+            self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
+            return
+        for metric in kwargs['metrics']:
+            if metric == 'accuracy':
+                metrics.append(Accuracy())
+            if metric == 'categorical_accuracy':
+                metrics.append(CategoricalAccuracy())
+            if metric == 'topk_categorical_accuracy':
+                metrics.append(TopKCategoricalAccuracy(k=5, name='top-5'))
+        kwargs['metrics'] = metrics
+        self._arguments['compile'] = self._verify_arguments(self._arguments['compile'],
+                                                            optimizer=optimizer, loss=loss, **kwargs)
         self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
+        return
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
@@ -221,25 +239,7 @@ class ModelBuilder:
     def compile_model(self, optimizer, loss, **kwargs):
         self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
                                                           optimizer=optimizer, loss=loss, **kwargs)
-        metrics = []
-        if 'metrics' not in kwargs.keys():
-            self._compile_model(**self._arguments['compile'])
-            return
-        if any([type(metric) is not str for metric in kwargs['metrics']]):
-            self._compile_model(**self._arguments['compile'])
-            return
-        for metric in kwargs['metrics']:
-            if metric == 'accuracy':
-                metrics.append(Accuracy())
-            if metric == 'categorical_accuracy':
-                metrics.append(CategoricalAccuracy())
-            if metric == 'topk_categorical_accuracy':
-                metrics.append(TopKCategoricalAccuracy(k=5, name='top-5'))
-        kwargs['metrics'] = metrics
-        self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
-                                                            optimizer=optimizer, loss=loss, **kwargs)
         self._compile_model(**self._arguments['compile'])
-        return
 
     def compile_model_from_info(self):
         self._compile_model(**self._arguments['compile'])
