@@ -675,7 +675,7 @@ class CustomBuilder(ModelBuilder):
         passed_ftl = False
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             if 'ftl' in layer_name:
-                # now its known that weights are FTL (1u2, X, X, C)
+                # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
                 # additional extraction from list (thus [0])
                 # includes bias
                 for step in range(len(weights)):
@@ -838,7 +838,7 @@ def test_sampling():
                               filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu', 'use_bias': True}},
+    layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu', 'use_bias': False}},
               # {'conv2d': {'filters': 256, 'activation': 'relu', 'padding': 'valid'}},
               {'flatten': {}},
               {'dense': {'units': noof_classes, 'kernel_initializer': 'ones'}}]
