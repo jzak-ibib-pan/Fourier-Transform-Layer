@@ -514,7 +514,7 @@ class ModelBuilder:
         loof_files = [f for f in listdir(filepath) if filename in f]
         it = len(loof_files)
         date = dt.now().strftime('%Y-%m-%d_%H_%M_%S')
-        filename_expanded = f'{filename}_{it:03d}_{date}'
+        filename_expanded = f'{filename}_{date}_{it:03d}'
         return filename_expanded
 
     @staticmethod
