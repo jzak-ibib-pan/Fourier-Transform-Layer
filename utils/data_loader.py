@@ -46,21 +46,27 @@ def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
     x_train, y_train = select_images_by_target(x_train, y_train, targets)
     x_test, y_test = select_images_by_target(x_test, y_test, targets)
 
-    if new_shape is None or new_shape == x_test.shape[1:]:
-        return (x_train, y_train), (x_test, y_test), x_test
-
-    x_tr = zeros((x_train.shape[0], *new_shape, data_channels))
-    for it, x in enumerate(x_train):
-        x_tr[it] = resize(x, new_shape[:2], data_channels)
-
-    x_ts = zeros((x_test.shape[0], *new_shape, data_channels))
-    for it, x in enumerate(x_test):
-        x_ts[it] = resize(x, new_shape[:2], data_channels)
-
     if len(x_train.shape) < 4:
-        x_train = expand_dims(x_train, 3)
+        x_train = expand_dims(x_train, -1)
     if len(x_test.shape) < 4:
-        x_test = expand_dims(x_test, 3)
+        x_test = expand_dims(x_test, -1)
+
+    if new_shape is None or new_shape == x_test.shape[1:]:
+        return (x_train, y_train), (x_test, y_test)
+
+    # for sampling
+    x_tr = _resize_data(x_train, new_shape)
+    x_ts = _resize_data(x_test, new_shape)
     if len(x_ts.shape) < 4:
         x_ts = expand_dims(x_ts, 3)
+
     return (x_train, y_train), (x_test, y_test), x_ts
+
+
+def _resize_data(data, new_shape):
+    result = zeros((data.shape[0], *new_shape, data.shape[-1]))
+    for it, x in enumerate(data):
+        if len(x.shape) < 3:
+            x = expand_dims(x, axis=-1)
+        result[it] = resize(x, (new_shape[:2]))
+    return result

@@ -512,7 +512,17 @@ class ModelBuilder:
     def _expand_filename(filename, filepath=''):
         # List OF
         loof_files = [f for f in listdir(filepath) if filename in f]
-        it = len(loof_files)
+        _stop = False
+        it = 0
+        while not _stop and it < len(loof_files):
+            # extract only number string
+            extracted = (loof_files[it].split('_')[-1]).split('.')[0]
+            compared = f'{it:03d}'
+            it += 1
+            if compared == extracted:
+                continue
+            it -= 1
+            _stop = True
         date = dt.now().strftime('%Y-%m-%d_%H_%M_%S')
         filename_expanded = f'{filename}_{date}_{it:03d}'
         return filename_expanded
