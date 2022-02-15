@@ -7,7 +7,7 @@ from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, C
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
-from numpy import squeeze, ones, expand_dims, pad, array
+from numpy import squeeze, ones, pad
 from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL
@@ -798,7 +798,4 @@ class FourierBuilder(CustomBuilder):
 
 
 if __name__ == '__main__':
-    # test_minors()
-    from utils.reset_session import session_reset
-    session_reset()
-    test_sampling()
+    print(FourierBuilder())

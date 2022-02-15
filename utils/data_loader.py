@@ -26,7 +26,7 @@ def select_images_by_target(data_x, data_y, targets):
     return x, y
 
 
-def prepare_data_for_sampling(classes=[0, 1], data_channels = 1, op=64):
+def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     # (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
@@ -43,16 +43,19 @@ def prepare_data_for_sampling(classes=[0, 1], data_channels = 1, op=64):
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
     x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=data_channels, axis=-1)
 
-    x_train, y_train = select_images_by_target(x_train, y_train, classes)
-    x_test, y_test = select_images_by_target(x_test, y_test, classes)
+    x_train, y_train = select_images_by_target(x_train, y_train, targets)
+    x_test, y_test = select_images_by_target(x_test, y_test, targets)
 
-    x_tr = zeros((x_train.shape[0], op, op))
+    if new_shape is None or new_shape == x_test.shape[1:]:
+        return (x_train, y_train), (x_test, y_test), x_test
+
+    x_tr = zeros((x_train.shape[0], *new_shape, data_channels))
     for it, x in enumerate(x_train):
-        x_tr[it] = resize(x, (op, op))
+        x_tr[it] = resize(x, new_shape[:2])
 
-    x_ts = zeros((x_test.shape[0], op, op))
+    x_ts = zeros((x_test.shape[0], *new_shape, data_channels))
     for it, x in enumerate(x_test):
-        x_ts[it] = resize(x, (op, op))
+        x_ts[it] = resize(x, new_shape[:2])
 
     if len(x_train.shape) < 4:
         x_train = expand_dims(x_train, 3)
@@ -60,5 +63,4 @@ def prepare_data_for_sampling(classes=[0, 1], data_channels = 1, op=64):
         x_test = expand_dims(x_test, 3)
     if len(x_ts.shape) < 4:
         x_ts = expand_dims(x_ts, 3)
-
     return (x_train, y_train), (x_test, y_test), x_ts
