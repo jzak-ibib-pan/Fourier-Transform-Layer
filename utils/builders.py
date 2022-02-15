@@ -753,6 +753,8 @@ class FourierBuilder(CustomBuilder):
                   {'flatten': {}},
                   {'dense': {}},
                   ]
+        if 'layers' in kwargs.keys():
+            layers = self._verify_arguments(layers, kwargs['layers'])
         super(FourierBuilder, self).__init__(model_type=model_type,
                                              input_shape=input_shape,
                                              noof_classes=noof_classes,
