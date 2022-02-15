@@ -5,6 +5,9 @@ from tensorflow.keras.utils import to_categorical
 
 
 def select_images_by_target(data_x, data_y, targets):
+    assert type(targets) is list, 'Must provide a list of targets.'
+    assert len(targets) > 0, 'Must provide at least one target.'
+    assert all([type(t) is int for t in targets]), 'Must provide a list of ints.'
     y_chosen = [False for _ in data_y]
     for target_01 in targets:
         y_chosen = logical_or(y_chosen, data_y == target_01)
