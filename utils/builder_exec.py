@@ -73,3 +73,5 @@ def run_sampling():
 
 if __name__ == '__main__':
     run_minors()
+    run_sampling()
+
