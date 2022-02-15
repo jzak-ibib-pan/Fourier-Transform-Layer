@@ -678,18 +678,19 @@ class CustomBuilder(ModelBuilder):
                 # now its known that weights are FTL (1u2, X, X, C)
                 # additional extraction from list (thus [0])
                 # includes bias
-                weights_ftl = weights[0]
-                noof_weights = weights_ftl.shape[0]
-                weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
-                for rep in range(noof_weights):
-                    for ch in range(shape[2]):
-                        if shape_new[0] < shape[0]:
-                            weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
-                        else:
-                            pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
-                            weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
-                                                                 mode='constant', constant_values=replace_value)
-                weights_result.append(weights_replace)
+                for step in range(len(weights)):
+                    weights_ftl = weights[step]
+                    noof_weights = weights_ftl.shape[0]
+                    weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
+                    for rep in range(noof_weights):
+                        for ch in range(shape[2]):
+                            if shape_new[0] < shape[0]:
+                                weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
+                            else:
+                                pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
+                                weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
+                                                                     mode='constant', constant_values=replace_value)
+                    weights_result.append(weights_replace)
                 passed_ftl = True
                 continue
             if 'dense' in layer_name and passed_ftl:
