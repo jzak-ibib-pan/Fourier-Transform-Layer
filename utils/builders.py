@@ -362,7 +362,7 @@ class ModelBuilder:
             if not layer_args:
                 continue
             layer_args = {layer_got.name: list(layer_args.values())[0]}
-            result += self._prepare_argument_text(layer_args, summary) + '\n###\n'
+            result += self._prepare_argument_text(layer_args, summary) + '###\n'
         return result
 
     def _calculate_lengths(self, arguments):
@@ -384,9 +384,10 @@ class ModelBuilder:
         walkover = self._update_arguments_text(arguments, summary)
         for key, value in zip(walkover.keys(), walkover.values()):
             text_build += f'\t{key:{self._length}} - '
-            if 'weights' in key and 'only' not in key and type(value) is not str and value is not None:
-                text_build += '\n'
-                continue
+            # # TODO: possible to remove?
+            # if 'weights' in key and 'only' not in key and type(value) is not str and value is not None:
+            #     text_build += 'Loaded\n'
+            #     continue
             text_build += f'{str(value).rjust(self._length)}\n'
         return text_build
 
@@ -400,7 +401,8 @@ class ModelBuilder:
                 continue
             if type(arguments[key]) is list:
                 if 'weights' in key:
-                    result.update({f'{key}': ''})
+                    result.update({f'{key}': 'Loaded'})
+                    continue
                 for it, key_interior in enumerate(arguments[key]):
                     to_update = self._check_for_name(key_interior)
                     result.update({f'{key}_{it:03d}': to_update})
