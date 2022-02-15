@@ -6,6 +6,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
 from numpy import squeeze, ones, expand_dims, pad, array
 from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
@@ -218,8 +219,17 @@ class ModelBuilder:
         return self._build_model(**self._arguments['build'])
 
     def compile_model(self, optimizer, loss, **kwargs):
+        metrics = []
+        if 'metrics' in kwargs.keys():
+            for metric in kwargs['metrics']:
+                if metric == 'accuracy':
+                    metrics.append(Accuracy())
+                if metric == 'categorical_accuracy':
+                    metrics.append(CategoricalAccuracy())
+                if 'top' in metric:
+                    metrics.append(TopKCategoricalAccuracy(k=5, name='top-5'))
         self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
-                                                          optimizer=optimizer, loss=loss, **kwargs)
+                                                          optimizer=optimizer, loss=loss, metrics=metrics)
         self._compile_model(**self._arguments['compile'])
 
     def compile_model_from_info(self):
@@ -591,6 +601,7 @@ class CustomBuilder(ModelBuilder):
         # layers - a list of dicts
         _NAMES = list(defaults.keys())
         self._UNSAMPLED = [name for name in _NAMES if name not in ['ftl', 'dense']]
+        self._REPLACE_VALUE = 1e-5
         # TODO: name checking
         # l = _NAMES[0] in layers[0].keys()
         # assert all(_NAMES in layer.keys() for layer in layers), \
@@ -653,7 +664,7 @@ class CustomBuilder(ModelBuilder):
         shape_new = arguments_sampled['input_shape']
         model_weights = self._model.get_weights()
         model_layers = self._model.layers
-        replace_value = 1e-6
+        replace_value = self._REPLACE_VALUE
         if 'replace_value' in kwargs.keys():
             replace_value = kwargs['replace_value']
         weights_result = []
@@ -784,92 +795,6 @@ class FourierBuilder(CustomBuilder):
                                              noof_classes=noof_classes,
                                              layers=layers,
                                              **kwargs)
-
-
-def test_minors():
-    from tensorflow.keras.datasets import mnist
-    from tensorflow.keras.utils import to_categorical
-    from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
-    from numpy import asarray, repeat
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_tr = []
-    for x in x_train:
-        x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_train = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
-    y_train = to_categorical(y_train, 10)
-
-    x_tr = []
-    for x in x_test:
-        x_tr.append(pad(x, pad_width=[[2, 2], [2, 2]], mode='constant', constant_values=0))
-    x_test = repeat(expand_dims(asarray(x_tr) / 255, axis=-1), repeats=3, axis=-1)
-    y_test = to_categorical(y_test, 10)
-
-    builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
-                              filename='temp', filepath='../temp')
-    # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
-    #                      filename='temp', filepath='../temp')
-    # layers = [{'ftl': {}}, {'flatten': {}}, {'dense': {'units': 128}}, {'dense': {}}]
-    # builder = CustomBuilder(layers, input_shape=(32, 32, 3), noof_classes=10,
-    #                           filename='temp', filepath='../temp')
-    builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
-                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(2, x_data=x_train, y_data=y_train, batch=128, validation_split=0.1,
-                        call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.5,
-                                          'monitor': 'categorical_accuracy',
-                                          'patience': 3,
-                                          },
-                        call_checkpoint_kwargs={'monitor': 'categorical_accuracy',
-                                                }, save_memory=True
-                        )
-    builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info('Testing training pipeline', summary=True)
-
-
-def test_sampling():
-    from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
-    from utils.data_loader import prepare_data_for_sampling
-    data_channels = 1
-    classes = [1, 3]
-    noof_classes = len(classes)
-    (x_train, y_train), (x_test, y_test), x_test_resized =  prepare_data_for_sampling(classes, data_channels, 64)
-
-    builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, data_channels), noof_classes=noof_classes,
-                              filename='temp', filepath='../temp')
-    # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
-    #                      filename='temp', filepath='../temp')
-    layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu', 'use_bias': False}},
-              # {'conv2d': {'filters': 256, 'activation': 'relu', 'padding': 'valid'}},
-              {'flatten': {}},
-              {'dense': {'units': noof_classes, 'kernel_initializer': 'ones'}}]
-    builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=noof_classes,
-                              filename='temp', filepath='../temp')
-    builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
-                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder.train_model(100, x_data=x_train, y_data=y_train, batch=16, validation_split=0.1,
-                        call_stop=True, call_time=True, call_checkpoint=True,
-                        call_stop_kwargs={'baseline': 0.90,
-                                          'monitor': 'val_categorical_accuracy',
-                                          'patience': 2,
-                                          },
-                        call_checkpoint_kwargs={'monitor': 'val_categorical_accuracy',
-                                                }, save_memory=True
-                        )
-    builder.evaluate_model(x_data=x_test, y_data=y_test)
-    builder.save_model_info(f'Trained model. Classes {classes}', summary=True)
-
-    builder_comparison = CustomBuilder(layers, input_shape=(64, 64, data_channels), noof_classes=noof_classes,
-                                       filename='temp', filepath='../temp')
-    # builder_comparison = FourierBuilder(model_type='fourier', input_shape=(64, 64, data_channels), noof_classes=noof_classes,
-    #                           filename='temp', filepath='../temp')
-    builder_comparison.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
-                                                                       TopKCategoricalAccuracy(k=5, name='top-5')])
-    builder_comparison.evaluate_model(x_data=x_test_resized, y_data=y_test)
-    builder_comparison.save_model_info(f'Non-trained upsampled model. Classes {classes}', summary=True)
-
-    sampled = builder.sample_model(shape=(64, 64), compile=True)
-    sampled.evaluate_model(x_data=x_test_resized, y_data=y_test)
-    sampled.save_model_info(f'Trained upsampled model. Classes {classes}', summary=True)
 
 
 if __name__ == '__main__':

@@ -58,5 +58,7 @@ def prepare_data_for_sampling(classes=[0, 1], data_channels = 1, op=64):
         x_train = expand_dims(x_train, 3)
     if len(x_test.shape) < 4:
         x_test = expand_dims(x_test, 3)
+    if len(x_ts.shape) < 4:
+        x_ts = expand_dims(x_ts, 3)
 
     return (x_train, y_train), (x_test, y_test), x_ts
