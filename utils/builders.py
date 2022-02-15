@@ -328,7 +328,7 @@ class ModelBuilder:
                 suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length=-1, sign='_')
                 hist_text = self._prepare_metrics_text(self._history, suffixes)
                 fil.write(f'Training history: \n{hist_text}')
-            # TODO: move summary to different file
+            # SOLVED: move summary to different file - went back on the idea
             if summary:
                 # SOLVED: layer, weights saving to method
                 # layers[1:] - Input has no weights
@@ -358,11 +358,11 @@ class ModelBuilder:
                 weight_text += '|'.join([str(w.shape) for w in weight])
             else:
                 weight_text = str(layer_got.weights.shape)
-            result += f'\t{layer_got.name:{self._length}} - {weight_text.rjust(self._length)}\n'
+            result += self._prepare_paired_text(layer_got.name, weight_text)
             if not layer_args:
                 continue
             layer_args = {layer_got.name: list(layer_args.values())[0]}
-            result += self._prepare_argument_text(layer_args, summary) + '###\n'
+            result += self._prepare_argument_text(layer_args, summary) + self._prepare_paired_text()
         return result
 
     def _calculate_lengths(self, arguments):
@@ -383,13 +383,17 @@ class ModelBuilder:
         text_build = ''
         walkover = self._update_arguments_text(arguments, summary)
         for key, value in zip(walkover.keys(), walkover.values()):
-            text_build += f'\t{key:{self._length}} - '
-            # # TODO: possible to remove?
-            # if 'weights' in key and 'only' not in key and type(value) is not str and value is not None:
-            #     text_build += 'Loaded\n'
-            #     continue
-            text_build += f'{str(value).rjust(self._length)}\n'
+            text_build += self._prepare_paired_text(key, value)
         return text_build
+
+    def _prepare_paired_text(self, *args):
+        left = "#" * self._length
+        right = "X" * self._length
+        if len(args) > 0:
+            left = str(args)
+        if len(args) > 1:
+            right = str(args)
+        return f'\t{left:{self._length}} - {right.rjust(self._length)}\n'
 
     # a method to change the values of argument holders
     def _update_arguments_text(self, arguments, summary=False):
