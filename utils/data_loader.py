@@ -51,7 +51,7 @@ def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
 
     x_tr = zeros((x_train.shape[0], *new_shape, data_channels))
     for it, x in enumerate(x_train):
-        x_tr[it] = resize(x, new_shape[:2])
+        x_tr[it] = resize(x, new_shape[:2], data_channels)
 
     x_ts = zeros((x_test.shape[0], *new_shape, data_channels))
     for it, x in enumerate(x_test):
