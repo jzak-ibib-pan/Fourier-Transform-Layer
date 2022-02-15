@@ -390,9 +390,9 @@ class ModelBuilder:
         left = "#" * self._length
         right = "X" * self._length
         if len(args) > 0:
-            left = str(args)
+            left = str(args[0])
         if len(args) > 1:
-            right = str(args)
+            right = str(args[1])
         return f'\t{left:{self._length}} - {right.rjust(self._length)}\n'
 
     # a method to change the values of argument holders
