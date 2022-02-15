@@ -55,7 +55,7 @@ def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
 
     x_ts = zeros((x_test.shape[0], *new_shape, data_channels))
     for it, x in enumerate(x_test):
-        x_ts[it] = resize(x, new_shape[:2])
+        x_ts[it] = resize(x, new_shape[:2], data_channels)
 
     if len(x_train.shape) < 4:
         x_train = expand_dims(x_train, 3)
