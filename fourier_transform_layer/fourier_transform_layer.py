@@ -6,7 +6,7 @@ from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 # TODO: get_config implementation
 class FTL(Layer):
     def __init__(self, activation=None, kernel_initializer='he_normal', inverse=False, phase_training=False,
-                 use_imaginary=True, **kwargs):
+                 use_imaginary=True, normalize_to_image_shape=False, **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
@@ -30,6 +30,7 @@ class FTL(Layer):
         self._flag_phase_training = phase_training
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
+        self._flag_normalize = normalize_to_image_shape
         self._kernel_shape_0 = {True: 2,
                                 False: 1,
                                 }
@@ -52,9 +53,10 @@ class FTL(Layer):
                 return self._activation(x)
             return x
 
-        shapes = tf.shape(input_tensor)[1:]
         x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
-        x = tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
+        if self._flag_normalize:
+            shapes = tf.shape(input_tensor)[1:]
+            x = tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
 
         real = tf.math.real(x)
         real = tf.multiply(real, self.kernel[0])
