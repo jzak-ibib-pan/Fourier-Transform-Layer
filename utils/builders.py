@@ -521,7 +521,6 @@ class ModelBuilder:
     def _check_for_name(checked_property):
         if hasattr(checked_property, 'name'):
             return checked_property.name
-
         return checked_property
 
     @staticmethod
