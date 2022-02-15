@@ -68,5 +68,8 @@ def _resize_data(data, new_shape):
     for it, x in enumerate(data):
         if len(x.shape) < 3:
             x = expand_dims(x, axis=-1)
-        result[it] = resize(x, (new_shape[:2]))
+        if x.shape[-1] > 1:
+            result[it] = resize(x, (new_shape[:2]))
+            continue
+        result[it] = expand_dims(resize(x, (new_shape[:2])), axis=-1)
     return result

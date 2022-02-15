@@ -219,18 +219,27 @@ class ModelBuilder:
         return self._build_model(**self._arguments['build'])
 
     def compile_model(self, optimizer, loss, **kwargs):
-        metrics = []
-        if 'metrics' in kwargs.keys():
-            for metric in kwargs['metrics']:
-                if metric == 'accuracy':
-                    metrics.append(Accuracy())
-                if metric == 'categorical_accuracy':
-                    metrics.append(CategoricalAccuracy())
-                if 'top' in metric:
-                    metrics.append(TopKCategoricalAccuracy(k=5, name='top-5'))
         self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
-                                                          optimizer=optimizer, loss=loss, metrics=metrics)
+                                                          optimizer=optimizer, loss=loss, **kwargs)
+        metrics = []
+        if 'metrics' not in kwargs.keys():
+            self._compile_model(**self._arguments['compile'])
+            return
+        if any([type(metric) is not str for metric in kwargs['metrics']]):
+            self._compile_model(**self._arguments['compile'])
+            return
+        for metric in kwargs['metrics']:
+            if metric == 'accuracy':
+                metrics.append(Accuracy())
+            if metric == 'categorical_accuracy':
+                metrics.append(CategoricalAccuracy())
+            if metric == 'topk_categorical_accuracy':
+                metrics.append(TopKCategoricalAccuracy(k=5, name='top-5'))
+        kwargs['metrics'] = metrics
+        self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
+                                                            optimizer=optimizer, loss=loss, **kwargs)
         self._compile_model(**self._arguments['compile'])
+        return
 
     def compile_model_from_info(self):
         self._compile_model(**self._arguments['compile'])
