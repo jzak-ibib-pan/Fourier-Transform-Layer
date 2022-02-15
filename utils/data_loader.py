@@ -3,32 +3,22 @@ from cv2 import resize
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.utils import to_categorical
 
-# 2 classes only for now
-def choose_images(data_x, data_y, classes=[0, 1]):
-    assert classes[0] != classes[1], 'The same class provided.'
-    y_chosen = logical_or(data_y == classes[0], data_y == classes[1])
-    x = data_x[y_chosen]
-    # categorical inaczej wywala
-    y_cat = data_y[y_chosen]
-    y_min = min(y_cat)
-    y_max = max(y_cat)
-    y_cat[y_cat == y_min] = 0
-    y_cat[y_cat == y_max] = 1
-    y = to_categorical(y_cat)
-    return x, y
 
-
-def choose_3_images(data_x, data_y, classes=[0, 1]):
-    assert classes[0] != classes[1], 'The same class provided.'
-    assert classes[0] != classes[2], 'The same class provided.'
-    y_chosen = logical_or(logical_or(data_y == classes[0], data_y == classes[1]), data_y == classes[2])
+def select_images_by_target(data_x, data_y, targets):
+    y_chosen = [False for _ in data_y]
+    for target_01 in targets:
+        y_chosen = logical_or(y_chosen, data_y == target_01)
+        if len(targets) <= 1:
+            continue
+        for target_02 in targets:
+            if target_01 == target_02:
+                continue
+            assert target_01 != target_02, 'The same targets provided.'
     x = data_x[y_chosen]
-    # categorical inaczej wywala
+    # otherwise may end up with non-consecutive values
     y_cat = data_y[y_chosen]
-    ordered = sorted(classes)
-    y_cat[y_cat == ordered[0]] = 0
-    y_cat[y_cat == ordered[1]] = 1
-    y_cat[y_cat == ordered[2]] = 2
+    for it, target in enumerate(sorted(targets)):
+        y_cat[y_cat == target] = it
     y = to_categorical(y_cat)
     return x, y
 
@@ -50,13 +40,8 @@ def prepare_data_for_sampling(classes=[0, 1], data_channels = 1, op=64):
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
     x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=data_channels, axis=-1)
 
-    # wyciągnij tylko 2 klasy
-    if len(classes) == 2:
-        x_train, y_train = choose_images(x_train, y_train, classes)
-        x_test, y_test = choose_images(x_test, y_test, classes)
-    else:
-        x_train, y_train = choose_3_images(x_train, y_train, classes)
-        x_test, y_test = choose_3_images(x_test, y_test, classes)
+    x_train, y_train = select_images_by_target(x_train, y_train, classes)
+    x_test, y_test = select_images_by_target(x_test, y_test, classes)
 
     x_tr = zeros((x_train.shape[0], op, op))
     for it, x in enumerate(x_train):
