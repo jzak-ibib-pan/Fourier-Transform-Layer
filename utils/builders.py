@@ -330,32 +330,40 @@ class ModelBuilder:
                 fil.write(f'Training history: \n{hist_text}')
             # TODO: move summary to different file
             if summary:
-                # TODO: layer, weights saving to method
+                # SOLVED: layer, weights saving to method
                 # layers[1:] - Input has no weights
                 if 'layers' in self._arguments['build']:
                     fil.write('Layers list:\n')
-                    for layer_got, layer_args in zip(self._model.layers[1:], self._arguments['build']['layers']):
-                        weight = layer_got.weights
-                        weight_text = ''
-                        if type(weight) is list:
-                            weight_text += '|'.join([str(w.shape) for w in weight])
-                        else:
-                            weight_text = str(layer_got.weights.shape)
-                        layer_args = {layer_got.name: list(layer_args.values())[0]}
-                        fil.write(f'\t{layer_got.name:{self._length}} - {weight_text.rjust(self._length)}\n')
-                        fil.write(self._prepare_argument_text(layer_args, summary) + '\n###\n')
+                    fil.write(self._layer_weight_summary(layers=self._model.layers[1:],
+                                                         arguments=self._arguments['build']['layers'],
+                                                         summary=summary))
                 else:
                     fil.write('Weights summary:\n')
-                    for layer_got in self._model.layers[1:]:
-                        weight = layer_got.weights
-                        weight_text = ''
-                        if type(weight) is list:
-                            weight_text += '|'.join([str(w.shape) for w in weight])
-                        else:
-                            weight_text = str(layer_got.weights.shape)
-                        fil.write(f'\t{layer_got.name:{self._length}} - {weight_text.rjust(self._length)}\n')
+                    fil.write(self._layer_weight_summary(layers=self._model.layers[1:]))
                 with redirect_stdout(fil):
                     self._model.summary()
+
+    def _layer_weight_summary(self, layers, **kwargs):
+        _arguments = [None for _ in layers]
+        if 'arguments' in kwargs.keys():
+            _arguments = kwargs['arguments']
+        summary = False
+        if 'summary' in kwargs.keys():
+            summary = kwargs['summary']
+        result = ''
+        for layer_got, layer_args in zip(layers, _arguments):
+            weight = layer_got.weights
+            weight_text = ''
+            if type(weight) is list:
+                weight_text += '|'.join([str(w.shape) for w in weight])
+            else:
+                weight_text = str(layer_got.weights.shape)
+            result += f'\t{layer_got.name:{self._length}} - {weight_text.rjust(self._length)}\n'
+            if not layer_args:
+                continue
+            layer_args = {layer_got.name: list(layer_args.values())[0]}
+            result += self._prepare_argument_text(layer_args, summary) + '\n###\n'
+        return result
 
     def _calculate_lengths(self, arguments):
         # protection from weights impact on length of text
