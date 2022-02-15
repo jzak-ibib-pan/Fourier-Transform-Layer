@@ -254,7 +254,7 @@ class ModelBuilder:
                 for key_interior in kwargs[key].keys():
                     result[key].update({key_interior: kwargs[key][key_interior]})
                 continue
-            # just making sure - should never occur
+            # just making sure - should never occur - helpful in kwargs extraction
             if key not in result.keys():
                 result.update({key: kwargs[key]})
                 continue
@@ -578,6 +578,11 @@ class CustomBuilder(ModelBuilder):
                     'ftl': {'activation': None,
                             'kernel_initializer': 'he_normal',
                             'use_imaginary': True,
+                            'inverse': False,
+                            'use_bias': False,
+                            'bias_initializer': 'zeros',
+                            'normalize_to_image_shape': False,
+                            'phase_training': False,
                             },
                     }
         self._SAMPLING_DIRECTIONS = {'up': '*',
@@ -672,6 +677,7 @@ class CustomBuilder(ModelBuilder):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C)
                 # additional extraction from list (thus [0])
+                # includes bias
                 weights_ftl = weights[0]
                 noof_weights = weights_ftl.shape[0]
                 weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
@@ -763,7 +769,10 @@ class CNNBuilder(ModelBuilder):
 # Fourier Model for classification
 class FourierBuilder(CustomBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
-        layers = [{'ftl': {}},
+        # just to be safe
+        layers = [{'ftl': {'use_imaginary': True,
+                           'inverse': 'inverse' in model_type,
+                           }},
                   {'flatten': {}},
                   {'dense': {}},
                   ]
@@ -828,12 +837,12 @@ def test_sampling():
                               filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    # layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu'}},
-    #           # {'conv2d': {'filters': 256, 'activation': 'relu', 'padding': 'valid'}},
-    #           {'flatten': {}},
-    #           {'dense': {'units': noof_classes, 'kernel_initializer': 'ones'}}]
-    # builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=noof_classes,
-    #                           filename='test', filepath='../test')
+    layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu', 'use_bias': True}},
+              # {'conv2d': {'filters': 256, 'activation': 'relu', 'padding': 'valid'}},
+              {'flatten': {}},
+              {'dense': {'units': noof_classes, 'kernel_initializer': 'ones'}}]
+    builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=noof_classes,
+                              filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(100, x_data=x_train, y_data=y_train, batch=16, validation_split=0.1,
@@ -848,10 +857,10 @@ def test_sampling():
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info(f'Trained model. Classes {classes}', summary=True)
 
-    # builder_comparison = CustomBuilder(layers, input_shape=(64, 64, data_channels), noof_classes=noof_classes,
-    #                                    filename='test', filepath='../test')
-    builder_comparison = FourierBuilder(model_type='fourier', input_shape=(64, 64, data_channels), noof_classes=noof_classes,
-                              filename='test', filepath='../test')
+    builder_comparison = CustomBuilder(layers, input_shape=(64, 64, data_channels), noof_classes=noof_classes,
+                                       filename='test', filepath='../test')
+    # builder_comparison = FourierBuilder(model_type='fourier', input_shape=(64, 64, data_channels), noof_classes=noof_classes,
+    #                           filename='test', filepath='../test')
     builder_comparison.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder_comparison.evaluate_model(x_data=x_test_resized, y_data=y_test)

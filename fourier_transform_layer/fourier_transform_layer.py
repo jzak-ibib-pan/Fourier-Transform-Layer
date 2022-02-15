@@ -5,8 +5,9 @@ from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 # TODO: find source of nan loss and eliminate
 # TODO: get_config implementation
 class FTL(Layer):
-    def __init__(self, activation=None, kernel_initializer='he_normal', inverse=False, phase_training=False,
-                 use_imaginary=True, normalize_to_image_shape=False, **kwargs):
+    def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
+                 use_bias=False, bias_initializer='zeros', normalize_to_image_shape=False,
+                 phase_training=False, **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
@@ -34,12 +35,9 @@ class FTL(Layer):
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
         self._flag_normalize = normalize_to_image_shape
-        self._flag_use_bias = False
         self._bias_initializer = 'zeros'
-        if 'use_bias' in kwargs.keys() and kwargs['use_bias']:
-            self._flag_use_bias = True
-            if 'bias_initializer' in kwargs.keys():
-                self._bias_initializer = kwargs['bias_initializer']
+        self._flag_use_bias = use_bias
+        self._bias_initializer = bias_initializer
 
     def build(self, input_shape):
         self.kernel = self.add_weight(name='kernel',
