@@ -200,12 +200,13 @@ class ModelBuilder:
     def _evaluate_model(self, **kwargs):
         return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
 
+    # previous version caused not setting the weights, thus causing unexpected results for sampling
     def build_model(self, **kwargs):
         self._arguments['build'] = self._update_arguments(self._arguments['build'], **kwargs)
         model = self._build_model(**self._arguments['build'])
         # set the weights
         # this way ensures no key error
-        if 'weights' in kwargs.keys() and kwargs['weigths'] is not None:
+        if 'weights' in kwargs.keys() and kwargs['weights'] is not None:
             model.set_weights(kwargs['weights'])
         # freeze the model
         if 'freeze' in kwargs.keys() and kwargs['freeze'] != 0:
@@ -803,20 +804,20 @@ def test_sampling():
     from tensorflow.keras.metrics import CategoricalAccuracy, TopKCategoricalAccuracy
     from utils.data_loader import prepare_data_for_sampling
     data_channels = 1
-    classes = [1, 3, 6]
+    classes = [1, 3]
     noof_classes = len(classes)
     (x_train, y_train), (x_test, y_test), x_test_resized =  prepare_data_for_sampling(classes, data_channels, 64)
 
-    # builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, 3), noof_classes=10,
-    #                           filename='test', filepath='../test')
+    builder = FourierBuilder(model_type='fourier', input_shape=(32, 32, data_channels), noof_classes=noof_classes,
+                              filename='test', filepath='../test')
     # builder = CNNBuilder(model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=10, weights='imagenet', freeze=5,
     #                      filename='test', filepath='../test')
-    layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu'}},
-              # {'conv2d': {'filters': 256, 'activation': 'relu', 'padding': 'valid'}},
-              {'flatten': {}},
-              {'dense': {'units': noof_classes, 'kernel_initializer': 'ones'}}]
-    builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=noof_classes,
-                              filename='test', filepath='../test')
+    # layers = [{'ftl': {'kernel_initializer': 'ones', 'activation': 'relu'}},
+    #           # {'conv2d': {'filters': 256, 'activation': 'relu', 'padding': 'valid'}},
+    #           {'flatten': {}},
+    #           {'dense': {'units': noof_classes, 'kernel_initializer': 'ones'}}]
+    # builder = CustomBuilder(layers, input_shape=(32, 32, data_channels), noof_classes=noof_classes,
+    #                           filename='test', filepath='../test')
     builder.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder.train_model(100, x_data=x_train, y_data=y_train, batch=16, validation_split=0.1,
@@ -831,8 +832,10 @@ def test_sampling():
     builder.evaluate_model(x_data=x_test, y_data=y_test)
     builder.save_model_info(f'Trained model. Classes {classes}', summary=True)
 
-    builder_comparison = CustomBuilder(layers, input_shape=(64, 64, data_channels), noof_classes=noof_classes,
-                                       filename='test', filepath='../test')
+    # builder_comparison = CustomBuilder(layers, input_shape=(64, 64, data_channels), noof_classes=noof_classes,
+    #                                    filename='test', filepath='../test')
+    builder_comparison = FourierBuilder(model_type='fourier', input_shape=(64, 64, data_channels), noof_classes=noof_classes,
+                              filename='test', filepath='../test')
     builder_comparison.compile_model('adam', 'categorical_crossentropy', metrics=[CategoricalAccuracy(),
                                                                        TopKCategoricalAccuracy(k=5, name='top-5')])
     builder_comparison.evaluate_model(x_data=x_test_resized, y_data=y_test)

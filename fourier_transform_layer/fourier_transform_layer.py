@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 
-
+# TODO: find source of nan loss and eliminate
 # TODO: get_config implementation
 class FTL(Layer):
     def __init__(self, activation=None, kernel_initializer='he_normal', inverse=False, phase_training=False,
