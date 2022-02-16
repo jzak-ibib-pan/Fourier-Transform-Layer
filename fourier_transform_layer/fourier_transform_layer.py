@@ -152,14 +152,19 @@ class FTLSuperResolution(FTL):
         if direction == 'down':
             # just extract important fft fragment
             return x[:, :target_shape[0], :target_shape[1], :]
-        # shapes = tf.shape(x)[1:]
-        shapes = x.shape[1:]
+        shapes = x.shape
         # not using fftshift, thus 0
-        pads = tf.constant([[0, 0], [0, target_shape[0] - shapes[0]], [0, target_shape[1] - shapes[1]], [0, 0]])
-        # real padding to increase ifft image size
+        # shapes contain batch size, thus shifted by one
+        pads = tf.constant([[0, 0], [0, target_shape[0] - shapes[1]], [0, target_shape[1] - shapes[2]], [0, 0]])
+        replace_value = 1e-6
+        core = tf.multiply(tf.ones_like(x), -replace_value)
         result = tf.pad(x, pads, 'CONSTANT')
+        replace_tensor = tf.multiply(tf.ones_like(result), replace_value)
+        core_padded = tf.pad(core, pads, 'CONSTANT')
+        core_padded = tf.add(core_padded, replace_tensor)
+        # padding to increase ifft image size
         # TODO: replace 0s with 1e-6
-        return result
+        return tf.add(result, core_padded)
 
     @staticmethod
     def _calculate_target_shape(value, nominator=2, direction='*'):
