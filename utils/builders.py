@@ -668,17 +668,18 @@ class CustomBuilder(ModelBuilder):
         return Model(inp, arch)
 
     @staticmethod
-    def _return_layer(layer, previous):
-        arguments = list(layer.values())[0]
-        if 'conv2d' in layer.keys():
+    def _return_layer(layer_dict, previous):
+        layer_name = list(layer_dict.keys())[0]
+        arguments = list(layer_dict.values())[0]
+        if 'conv2d' in layer_name:
             return Conv2D(**arguments)(previous), False
-        if 'ftl'  in layer.keys():
-            if 'super_resolution' in layer.keys():
+        if 'ftl'  in layer_name:
+            if 'super_resolution' in layer_name:
                 return FTLSuperResolution(**arguments)(previous), False
             return FTL(**arguments)(previous), False
-        if 'flatten' in layer.keys():
+        if 'flatten' in layer_name:
             return Flatten()(previous), True
-        if 'dense' not in layer.keys():
+        if 'dense' not in layer_name:
             return None
         return Dense(**arguments)(previous), True
 
