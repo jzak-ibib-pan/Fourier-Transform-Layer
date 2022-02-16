@@ -213,8 +213,9 @@ class ModelBuilder:
                 tims.append(callbacks[0].times[0])
             if flag_checkpoint and flag_checkpoint_best:
                 callback_checkpoint.best = hist[-1][callback_checkpoint.monitor]
-        self._model.save_weights(filepath=f'{self._filepath}/checkpoints/{self._filename}_finished.hdf5',
-                                 overwrite=True)
+        if flag_checkpoint:
+            self._model.save_weights(filepath=f'{self._filepath}/checkpoints/{self._filename}_finished.hdf5',
+                                     overwrite=True)
         if flag_time:
             return self._merge_history_and_times(hist, tims)
         return hist
