@@ -200,7 +200,8 @@ class ModelBuilder:
                 callback_checkpoint.filepath = self._manage_checkpoint_filepath(epoch=epoch)
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
             hist.append(self._model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
-                                       validation_split=split, callbacks=callbacks).history)
+                                        validation_split=split, callbacks=callbacks,
+                                        run_eagerly=True).history)
             epoch += 1
             stop = epoch >= epochs
             if flag_stop:
