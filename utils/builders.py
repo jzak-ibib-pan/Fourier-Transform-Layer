@@ -12,6 +12,7 @@ from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL
 from utils.callbacks import TimeHistory, EarlyStopOnBaseline
+from utils.sampling import DIRECTIONS, sampling_calculation
 
 
 # Generic builder
@@ -615,9 +616,7 @@ class CustomBuilder(ModelBuilder):
                             'phase_training': False,
                             },
                     }
-        self._SAMPLING_DIRECTIONS = {'up': '*',
-                                     'down': '//',
-                                     }
+        self._SAMPLING_DIRECTIONS = DIRECTIONS
         # layers - a list of dicts
         _NAMES = list(defaults.keys())
         self._UNSAMPLED = [name for name in _NAMES if name not in ['ftl', 'dense']]
@@ -750,11 +749,7 @@ class CustomBuilder(ModelBuilder):
 
     @staticmethod
     def _operation(value, nominator=2, sign='div'):
-        assert sign in ['divide', 'div', '//', 'multiply', 'mult', '*']
-        if sign in ['divide', 'div', '//']:
-            return [v // nominator for v in value]
-        elif sign in ['multiply', 'mult', '*']:
-            return [v * nominator for v in value]
+        return sampling_calculation(value, nominator, sign)
 
 
 # Standard CNNs for classification

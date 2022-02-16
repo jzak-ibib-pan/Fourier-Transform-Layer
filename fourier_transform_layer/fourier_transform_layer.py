@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
+from utils.sampling import DIRECTIONS, sampling_calculation
 
 # TODO: find source of nan loss and eliminate
 # TODO: get_config implementation
@@ -108,7 +109,21 @@ class FTL_super_resolution(FTL):
         super(FTL_super_resolution, self).__init__(activation, kernel_initializer, use_imaginary, inverse,
                                                    use_bias, bias_initializer, normalize_to_image_shape,
                                                    phase_training, **kwargs)
+        self._nominator = sampling_nominator
+        # in this case direction must be specified
+        self._sampling_direction = DIRECTIONS[direction]
+        self._target_shape = ()
 
+    def build(self, input_shape):
+        self._target_shape = self._calculate_target_shape(input_shape[1:], self._nominator, self._sampling_direction)
+        super(FTL_super_resolution, self).build(self._target_shape)
+
+    def call(self, input_tensor, **kwargs):
+        return 0
+
+    @staticmethod
+    def _calculate_target_shape(value, nominator=2, direction='*'):
+        return sampling_calculation(value, nominator, direction)
 
 
 if __name__ == '__main__':
