@@ -17,8 +17,8 @@ class FTL(Layer):
         self._kernel_shape_0 = {True: 2,
                                 False: 1,
                                 }
-        self.kernel = None
-        self.bias = None
+        self._kernel = None
+        self._bias = None
         self._activation = None
         if activation == 'relu':
             self._activation = relu
@@ -40,12 +40,12 @@ class FTL(Layer):
         self._bias_initializer = bias_initializer
 
     def build(self, input_shape):
-        self.kernel = self.add_weight(name='kernel',
+        self._kernel = self.add_weight(name='kernel',
                                       shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
                                       initializer=self._kernel_initializer,
                                       trainable=True)
         if self._flag_use_bias:
-            self.bias = self.add_weight(name='bias',
+            self._bias = self.add_weight(name='bias',
                                         shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
                                         initializer=self._bias_initializer,
                                         trainable=True)
@@ -68,9 +68,9 @@ class FTL(Layer):
             x = tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
 
         real = tf.math.real(x)
-        real = tf.multiply(real, self.kernel[0])
+        real = tf.multiply(real, self._kernel[0])
         if self._flag_use_bias:
-            real = tf.add(real, self.bias[0])
+            real = tf.add(real, self._bias[0])
 
         if not self._flag_use_imaginary:
             if self._activation is not None:
@@ -78,9 +78,9 @@ class FTL(Layer):
             return real
 
         imag = tf.math.imag(x)
-        imag = tf.multiply(imag, self.kernel[1])
+        imag = tf.multiply(imag, self._kernel[1])
         if self._flag_use_bias:
-            imag = tf.add(imag, self.bias[1])
+            imag = tf.add(imag, self._bias[1])
 
         if self._flag_phase_training:
             if self._activation is not None:
@@ -99,6 +99,16 @@ class FTL(Layer):
         if self.phase_training:
             return input_shape, input_shape
         return input_shape
+
+class FTL_super_resolution(FTL):
+    def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
+                 use_bias=False, bias_initializer='zeros', normalize_to_image_shape=False,
+                 phase_training=False, sampling_nominator=2, direction='up',
+                 **kwargs):
+        super(FTL_super_resolution, self).__init__(activation, kernel_initializer, use_imaginary, inverse,
+                                                   use_bias, bias_initializer, normalize_to_image_shape,
+                                                   phase_training, **kwargs)
+
 
 
 if __name__ == '__main__':
