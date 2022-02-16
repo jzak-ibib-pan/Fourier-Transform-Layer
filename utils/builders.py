@@ -669,7 +669,7 @@ class CustomBuilder(ModelBuilder):
         if 'conv2d' in layer.keys():
             return Conv2D(**arguments)(previous), False
         if 'ftl'  in layer.keys():
-            if 'super_resolution' in layer.keys:
+            if 'super_resolution' in layer.keys():
                 return FTLSuperResolution(**arguments)(previous), False
             return FTL(**arguments)(previous), False
         if 'flatten' in layer.keys():
