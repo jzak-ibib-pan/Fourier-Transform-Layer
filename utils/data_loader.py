@@ -30,9 +30,6 @@ def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     # (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
     # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    x_train = x_train / 255
-    x_test = x_test / 255
-
     if x_train.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_train.shape[1:3]]
         x_train = pad(x_train, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])

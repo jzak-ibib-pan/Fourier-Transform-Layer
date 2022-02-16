@@ -109,6 +109,7 @@ class FTL(Layer):
 
 
 class FTLSuperResolution(FTL):
+    # TODO: make sure can call predict without shape [1, X, X, C]
     def __init__(self, activation=None, kernel_initializer='he_normal', sampling_nominator=2, direction='up',
                  use_bias=False, bias_initializer='zeros', normalize_to_image_shape=False,
                  **kwargs):
