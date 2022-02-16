@@ -57,6 +57,7 @@ class ModelBuilder:
                                                          'save_best_only': True,
                                                          },
                               'save_memory': True,
+                              'debug': False,
                               },
                     }
         if 'defaults' in kwargs.keys():
@@ -120,6 +121,7 @@ class ModelBuilder:
         'Must provide either generator or full dataset.'
         # full set or generator
         flag_full_set = False
+        # TODO: save_memory implementation
         flag_save_memory = False
         if 'save_memory' in kwargs.keys():
             flag_save_memory = kwargs['save_memory']
@@ -186,7 +188,8 @@ class ModelBuilder:
 
         if not flag_full_set:
             hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
-                                        validation_data=validation_data, callbacks=callbacks).history)
+                                        validation_data=validation_data, callbacks=callbacks,
+                                        run_eagerly=kwargs['debug']).history)
             if flag_time:
                 # time callback will always be before stop callback if flag time is True, thus 0
                 return self._merge_history_and_times(hist, callbacks[0].times)
@@ -201,7 +204,7 @@ class ModelBuilder:
             x_train, y_train = shuffle(x_train, y_train, random_state=epoch)
             hist.append(self._model.fit(x_train, y_train, epochs=1, batch_size=batch, shuffle=False, verbose=verbosity,
                                         validation_split=split, callbacks=callbacks,
-                                        run_eagerly=True).history)
+                                        run_eagerly=kwargs['debug']).history)
             epoch += 1
             stop = epoch >= epochs
             if flag_stop:
