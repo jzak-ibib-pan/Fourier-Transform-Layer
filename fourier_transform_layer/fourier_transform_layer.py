@@ -131,7 +131,8 @@ class FTLSuperResolution(FTL):
         self._target_shape = ()
 
     def build(self, input_shape):
-        self._target_shape = self._calculate_target_shape(input_shape[1:], self._nominator, self._sampling_direction)
+        target_shape = self._calculate_target_shape(input_shape[1:3], self._nominator, self._sampling_direction)
+        self._target_shape = (*target_shape, input_shape[-1])
         super(FTLSuperResolution, self).build(self._target_shape)
 
     def call(self, input_tensor, **kwargs):
@@ -139,7 +140,7 @@ class FTLSuperResolution(FTL):
         _real = self._pad_or_extract(real, self._target_shape, self._direction)
         if self._flag_use_imaginary:
             _imag = self._pad_or_extract(imag, self._target_shape, self._direction)
-        return self._call_split_and_process_fft(_real, _imag)
+        return self._call_process_split_fft(_real, _imag)
 
     def compute_output_shape(self, input_shape):
         return self._target_shape
@@ -149,9 +150,10 @@ class FTLSuperResolution(FTL):
         if direction == 'down':
             # just extract important fft fragment
             return x[:target_shape[0], :target_shape[1]]
-        shapes = tf.shape(x)
+        # shapes = tf.shape(x)[1:]
+        shapes = x.shape[1:]
         # not using fftshift, thus 0
-        pads = tf.constant([0, target_shape[0] - shapes[0]], [0, target_shape[1] - shapes[1]])
+        pads = tf.constant([[0, 0], [0, target_shape[0] - shapes[0]], [0, target_shape[1] - shapes[1]], [0, 0]])
         # real padding to increase ifft image size
         result = tf.pad(x, pads, 'CONSTANT')
         # TODO: replace 0s with 1e-6
