@@ -169,8 +169,8 @@ class FTLSuperResolution(FTL):
     @staticmethod
     def _calculate_target_shape(value, nominator=2, direction='*'):
         return sampling_calculation(value, nominator, direction)
-
-
+# TODO: colorization using FTL
+# class FTLColorization(FTL):
 if __name__ == '__main__':
     ftl = FTL(name='test_ftl')
     print(ftl.name)
