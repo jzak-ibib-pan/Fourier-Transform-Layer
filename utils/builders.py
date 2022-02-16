@@ -10,7 +10,7 @@ from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategori
 from numpy import squeeze, ones, pad
 from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
-from fourier_transform_layer.fourier_transform_layer import FTL
+from fourier_transform_layer.fourier_transform_layer import FTL, FTLSuperResolution
 from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 from utils.sampling import DIRECTIONS, sampling_calculation
 
@@ -615,6 +615,14 @@ class CustomBuilder(ModelBuilder):
                             'normalize_to_image_shape': False,
                             'phase_training': False,
                             },
+                    'ftl_super_resolution': {'activation': None,
+                                             'kernel_initializer': 'he_normal',
+                                             'sampling_nominator': 2,
+                                             'direction': 'up',
+                                             'use_bias': False,
+                                             'bias_initializer': 'zeros',
+                                             'normalize_to_image_shape': False,
+                                             },
                     }
         self._SAMPLING_DIRECTIONS = DIRECTIONS
         # layers - a list of dicts
@@ -661,6 +669,8 @@ class CustomBuilder(ModelBuilder):
         if 'conv2d' in layer.keys():
             return Conv2D(**arguments)(previous), False
         if 'ftl'  in layer.keys():
+            if 'super_resolution' in layer.keys:
+                return FTLSuperResolution(**arguments)(previous), False
             return FTL(**arguments)(previous), False
         if 'flatten' in layer.keys():
             return Flatten()(previous), True
