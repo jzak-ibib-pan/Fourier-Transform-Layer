@@ -64,11 +64,15 @@ class FTL(Layer):
         #         return self._activation(x)
         #     return x
 
-        x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
-        if self._flag_normalize:
-            shapes = tf.shape(input_tensor)[1:]
-            x = tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
+        x = self._perform_fft(input_tensor, self._flag_normalize)
+        return self._call_split_and_process_fft(x)
 
+    def compute_output_shape(self, input_shape):
+        if self.phase_training:
+            return input_shape, input_shape
+        return input_shape
+
+    def _call_split_and_process_fft(self, x):
         real = tf.math.real(x)
         real = tf.multiply(real, self._kernel[0])
         if self._flag_use_bias:
@@ -97,10 +101,14 @@ class FTL(Layer):
             return self._activation(x)
         return x
 
-    def compute_output_shape(self, input_shape):
-        if self.phase_training:
-            return input_shape, input_shape
-        return input_shape
+    @staticmethod
+    def _perform_fft(input_tensor, normalize=False):
+        x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
+        if not normalize:
+            return x
+        shapes = tf.shape(input_tensor)[1:]
+        return tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
+
 
 class FTL_super_resolution(FTL):
     def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
