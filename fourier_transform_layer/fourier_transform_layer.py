@@ -129,11 +129,21 @@ class FTLSuperResolution(FTL):
         self._sampling_direction = DIRECTIONS[direction]
         self._direction = direction
         self._target_shape = ()
+        self._flag_recalculated_shape = True
 
     def build(self, input_shape):
-        target_shape = self._calculate_target_shape(input_shape[1:3], self._nominator, self._sampling_direction)
-        self._target_shape = (*target_shape, input_shape[-1])
-        super(FTLSuperResolution, self).build(self._target_shape)
+        _target_shape = self._calculate_target_shape(input_shape[1:3], self._nominator, self._sampling_direction)
+        target_shape = (*_target_shape, input_shape[-1])
+        self._kernel = self.add_weight(name='kernel',
+                                      shape=(self._kernel_shape_0[self._flag_use_imaginary], *target_shape),
+                                      initializer=self._kernel_initializer,
+                                      trainable=True)
+        if self._flag_use_bias:
+            self._bias = self.add_weight(name='bias',
+                                        shape=(self._kernel_shape_0[self._flag_use_imaginary], *target_shape),
+                                        initializer=self._bias_initializer,
+                                        trainable=True)
+        self._target_shape = target_shape
 
     def call(self, input_tensor, **kwargs):
         real, imag = self._perform_fft(input_tensor, self._flag_normalize)
