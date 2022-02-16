@@ -577,6 +577,8 @@ class ModelBuilder:
 class CustomBuilder(ModelBuilder):
     # TODO: default sampling initializations
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
+        assert len(layers) > 1, 'CustomBuilder requires at least two layers. May cause problems with FTL layers, ' \
+                                'mainly calling build twice.'
                     # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
         defaults = {'conv2d': {'filters': 128,
                                'kernel_size': 3,
