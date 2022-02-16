@@ -132,14 +132,15 @@ class FTLSuperResolution(FTL):
 
     def build(self, input_shape):
         _target_shape = self._calculate_target_shape(input_shape[1:3], self._nominator, self._sampling_direction)
-        self._target_shape = (input_shape[0], *_target_shape, input_shape[-1])
-        super(FTLSuperResolution, self).build(self._target_shape)
+        self._target_shape = (*_target_shape, input_shape[-1])
+        # build omits first shape, thus -1
+        super(FTLSuperResolution, self).build((-1, *self._target_shape))
 
     def call(self, input_tensor, **kwargs):
         real, imag = self._perform_fft(input_tensor, self._flag_normalize)
-        _real = self._pad_or_extract(real, self._target_shape[1:], self._direction)
+        _real = self._pad_or_extract(real, self._target_shape, self._direction)
         if self._flag_use_imaginary:
-            _imag = self._pad_or_extract(imag, self._target_shape[1:], self._direction)
+            _imag = self._pad_or_extract(imag, self._target_shape, self._direction)
         return self._call_process_split_fft(_real, _imag)
 
     def compute_output_shape(self, input_shape):
