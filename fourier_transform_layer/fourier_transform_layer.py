@@ -133,17 +133,8 @@ class FTLSuperResolution(FTL):
 
     def build(self, input_shape):
         _target_shape = self._calculate_target_shape(input_shape[1:3], self._nominator, self._sampling_direction)
-        target_shape = (*_target_shape, input_shape[-1])
-        self._kernel = self.add_weight(name='kernel',
-                                      shape=(self._kernel_shape_0[self._flag_use_imaginary], *target_shape),
-                                      initializer=self._kernel_initializer,
-                                      trainable=True)
-        if self._flag_use_bias:
-            self._bias = self.add_weight(name='bias',
-                                        shape=(self._kernel_shape_0[self._flag_use_imaginary], *target_shape),
-                                        initializer=self._bias_initializer,
-                                        trainable=True)
-        self._target_shape = target_shape
+        self._target_shape = (*_target_shape, input_shape[-1])
+        super(FTLSuperResolution, self).build(self._target_shape)
 
     def call(self, input_tensor, **kwargs):
         real, imag = self._perform_fft(input_tensor, self._flag_normalize)
@@ -153,7 +144,7 @@ class FTLSuperResolution(FTL):
         return self._call_process_split_fft(_real, _imag)
 
     def compute_output_shape(self, input_shape):
-        return self._target_shape
+        return [input_shape[0], *self._target_shape]
 
     @staticmethod
     def _pad_or_extract(x, target_shape, direction):
