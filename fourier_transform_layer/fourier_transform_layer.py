@@ -109,7 +109,7 @@ class FTL(Layer):
 
 
 class FTLSuperResolution(FTL):
-    # TODO: make sure can call predict without shape [1, X, X, C]
+    # TODO: make sure can call predict without shape [1, X, X, C] - on skądś bierze original input shape[1] jako target_shape[0]
     def __init__(self, activation=None, kernel_initializer='he_normal', sampling_nominator=2, direction='up',
                  use_bias=False, bias_initializer='zeros', normalize_to_image_shape=False,
                  **kwargs):
