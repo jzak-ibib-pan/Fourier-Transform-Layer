@@ -56,11 +56,14 @@ def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
 
     # for sampling
     x_tr = _resize_data(x_train, new_shape)
+    if len(x_tr.shape) < 4:
+        x_tr = expand_dims(x_tr, 3)
+
     x_ts = _resize_data(x_test, new_shape)
     if len(x_ts.shape) < 4:
         x_ts = expand_dims(x_ts, 3)
 
-    return (x_train, y_train), (x_test, y_test), x_ts
+    return (x_train, y_train), (x_test, y_test), (x_tr, x_ts)
 
 
 def _resize_data(data, new_shape):

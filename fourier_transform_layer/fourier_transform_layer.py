@@ -64,36 +64,34 @@ class FTL(Layer):
         #         return self._activation(x)
         #     return x
 
-        x = self._perform_fft(input_tensor, self._flag_normalize)
-        return self._call_split_and_process_fft(x)
+        real, imag = self._perform_fft(input_tensor, self._flag_normalize)
+        return self._call_process_split_fft(real, imag)
 
     def compute_output_shape(self, input_shape):
         if self.phase_training:
             return input_shape, input_shape
         return input_shape
 
-    def _call_split_and_process_fft(self, x):
-        real = tf.math.real(x)
-        real = tf.multiply(real, self._kernel[0])
+    def _call_process_split_fft(self, real, imag):
+        _real = tf.multiply(real, self._kernel[0])
         if self._flag_use_bias:
-            real = tf.add(real, self._bias[0])
+            _real = tf.add(_real, self._bias[0])
 
         if not self._flag_use_imaginary:
             if self._activation is not None:
-                return self._activation(real)
-            return real
+                return self._activation(_real)
+            return _real
 
-        imag = tf.math.imag(x)
-        imag = tf.multiply(imag, self._kernel[1])
+        _imag = tf.multiply(imag, self._kernel[1])
         if self._flag_use_bias:
-            imag = tf.add(imag, self._bias[1])
+            _imag = tf.add(_imag, self._bias[1])
 
         if self._flag_phase_training:
             if self._activation is not None:
-                return self._activation(real), self._activation(imag)
-            return real, imag
+                return self._activation(_real), self._activation(_imag)
+            return _real, _imag
 
-        x = tf.cast(tf.dtypes.complex(real, imag), tf.complex64)
+        x = tf.cast(tf.dtypes.complex(_real, _imag), tf.complex64)
         if self._flag_inverse:
             x = tf.signal.ifft3d(x)
         x = tf.math.abs(x)
@@ -104,31 +102,60 @@ class FTL(Layer):
     @staticmethod
     def _perform_fft(input_tensor, normalize=False):
         x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
-        if not normalize:
-            return x
-        shapes = tf.shape(input_tensor)[1:]
-        return tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
+        if normalize:
+            shapes = tf.shape(input_tensor)[1:]
+            x = tf.divide(x, tf.cast((shapes[0] * shapes[1]), tf.complex64))
+        return tf.math.real(x), tf.math.imag(x)
 
 
-class FTL_super_resolution(FTL):
-    def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
+class FTLSuperResolution(FTL):
+    def __init__(self, activation=None, kernel_initializer='he_normal', sampling_nominator=2, direction='up',
                  use_bias=False, bias_initializer='zeros', normalize_to_image_shape=False,
-                 phase_training=False, sampling_nominator=2, direction='up',
                  **kwargs):
-        super(FTL_super_resolution, self).__init__(activation, kernel_initializer, use_imaginary, inverse,
-                                                   use_bias, bias_initializer, normalize_to_image_shape,
-                                                   phase_training, **kwargs)
+        super(FTLSuperResolution, self).__init__(activation=activation,
+                                                   kernel_initializer=kernel_initializer,
+                                                   # required for superresolution
+                                                   use_imaginary=True,
+                                                   # required for superresolution
+                                                   inverse=True,
+                                                   use_bias=use_bias,
+                                                   bias_initializer=bias_initializer,
+                                                   normalize_to_image_shape=normalize_to_image_shape,
+                                                   # required for superresolution
+                                                   phase_training=False,
+                                                   **kwargs)
         self._nominator = sampling_nominator
         # in this case direction must be specified
         self._sampling_direction = DIRECTIONS[direction]
+        self._direction = direction
         self._target_shape = ()
 
     def build(self, input_shape):
         self._target_shape = self._calculate_target_shape(input_shape[1:], self._nominator, self._sampling_direction)
-        super(FTL_super_resolution, self).build(self._target_shape)
+        super(FTLSuperResolution, self).build(self._target_shape)
 
     def call(self, input_tensor, **kwargs):
-        return 0
+        real, imag = self._perform_fft(input_tensor, self._flag_normalize)
+        _real = self._pad_or_extract(real, self._target_shape, self._direction)
+        if self._flag_use_imaginary:
+            _imag = self._pad_or_extract(imag, self._target_shape, self._direction)
+        return self._call_split_and_process_fft(_real, _imag)
+
+    def compute_output_shape(self, input_shape):
+        return self._target_shape
+
+    @staticmethod
+    def _pad_or_extract(x, target_shape, direction):
+        if direction == 'down':
+            # just extract important fft fragment
+            return x[:target_shape[0], :target_shape[1]]
+        shapes = tf.shape(x)[1:]
+        # not using fftshift, thus 0
+        pads = tf.constant([0, target_shape[0] - shapes[0]], [0, target_shape[1] - shapes[1]])
+        # real padding to increase ifft image size
+        result = tf.pad(x, pads, 'CONSTANT')
+        # TODO: replace 0s with 1e-6
+        return result
 
     @staticmethod
     def _calculate_target_shape(value, nominator=2, direction='*'):
