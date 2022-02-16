@@ -58,6 +58,7 @@ class ModelBuilder:
                                                          'save_best_only': True,
                                                          },
                               'save_memory': True,
+                              'save_final': True,
                               },
                     }
         if 'defaults' in kwargs.keys():
@@ -213,7 +214,7 @@ class ModelBuilder:
                 tims.append(callbacks[0].times[0])
             if flag_checkpoint and flag_checkpoint_best:
                 callback_checkpoint.best = hist[-1][callback_checkpoint.monitor]
-        if flag_checkpoint:
+        if ['save_final'] in kwargs.keys() and kwargs['save_final']:
             self._model.save_weights(filepath=f'{self._filepath}/checkpoints/{self._filename}_finished.hdf5',
                                      overwrite=True)
         if flag_time:
