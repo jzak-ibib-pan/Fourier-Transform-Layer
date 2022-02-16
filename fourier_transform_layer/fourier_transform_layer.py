@@ -149,7 +149,7 @@ class FTLSuperResolution(FTL):
         if direction == 'down':
             # just extract important fft fragment
             return x[:target_shape[0], :target_shape[1]]
-        shapes = tf.shape(x)[1:]
+        shapes = tf.shape(x)
         # not using fftshift, thus 0
         pads = tf.constant([0, target_shape[0] - shapes[0]], [0, target_shape[1] - shapes[1]])
         # real padding to increase ifft image size
