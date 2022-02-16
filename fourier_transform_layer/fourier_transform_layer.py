@@ -149,7 +149,7 @@ class FTLSuperResolution(FTL):
     def _pad_or_extract(x, target_shape, direction):
         if direction == 'down':
             # just extract important fft fragment
-            return x[:target_shape[0], :target_shape[1]]
+            return x[:, :target_shape[0], :target_shape[1], :]
         # shapes = tf.shape(x)[1:]
         shapes = x.shape[1:]
         # not using fftshift, thus 0
