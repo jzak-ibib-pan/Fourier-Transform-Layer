@@ -13,6 +13,7 @@ from sklearn.utils import shuffle
 from fourier_transform_layer.fourier_transform_layer import FTL, FTLSuperResolution
 from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 from utils.sampling import DIRECTIONS, sampling_calculation
+from utils.losses import ssim
 
 
 # Generic builder
@@ -97,12 +98,15 @@ class ModelBuilder:
         return result
 
     def _compile_model(self, optimizer, loss, **kwargs):
+        _loss = loss
+        if loss == 'ssim':
+            _loss = ssim
         metrics = []
         if 'metrics' not in kwargs.keys():
-            self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
+            self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
             return
         if any([type(metric) is not str for metric in kwargs['metrics']]):
-            self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
+            self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
             return
         for metric in kwargs['metrics']:
             if metric == 'accuracy':
@@ -113,8 +117,8 @@ class ModelBuilder:
                 metrics.append(TopKCategoricalAccuracy(k=5, name='top-5'))
         kwargs['metrics'] = metrics
         self._arguments['compile'] = self._verify_arguments(self._arguments['compile'],
-                                                            optimizer=optimizer, loss=loss, **kwargs)
-        self._model.compile(optimizer=optimizer, loss=loss, **kwargs)
+                                                            optimizer=optimizer, loss=_loss, **kwargs)
+        self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
         return
 
     def _train_model(self, epochs, **kwargs):
