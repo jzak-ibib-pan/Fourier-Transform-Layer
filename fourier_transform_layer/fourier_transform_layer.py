@@ -54,14 +54,15 @@ class FTL(Layer):
     @tf.autograph.experimental.do_not_convert
     def call(self, input_tensor, **kwargs):
         # ifft for 2-tuple input
-        if type(input_tensor) is tuple:
-            x = tf.dtypes.complex(input_tensor[0] * self.kernel, input_tensor[1] * self.kernel_imag)
-            if self._flag_inverse:
-                x = tf.signal.ifft3d(tf.cast(x, tf.complex64))
-            x = tf.math.abs(x)
-            if self._activation is not None:
-                return self._activation(x)
-            return x
+        # TODO: rework to work with new version
+        # if type(input_tensor) is tuple:
+        #     x = tf.dtypes.complex(input_tensor[0] * self.kernel, input_tensor[1] * self.kernel_imag)
+        #     if self._flag_inverse:
+        #         x = tf.signal.ifft3d(tf.cast(x, tf.complex64))
+        #     x = tf.math.abs(x)
+        #     if self._activation is not None:
+        #         return self._activation(x)
+        #     return x
 
         x = tf.signal.fft3d(tf.cast(input_tensor, tf.complex64))
         if self._flag_normalize:
