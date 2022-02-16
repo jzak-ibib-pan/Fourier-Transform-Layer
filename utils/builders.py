@@ -415,7 +415,8 @@ class ModelBuilder:
             left = str(args[0])
         if len(args) > 1:
             right = str(args[1])
-        return f'\t{left:{self._length}} - {right.rjust(self._length)}\n'
+        overwrite = max([len(left) - self._length, 0])
+        return f'\t{left:{self._length}} - {right.rjust(self._length - overwrite)}\n'
 
     # a method to change the values of argument holders
     def _update_arguments_text(self, arguments, summary=False):
