@@ -53,6 +53,10 @@ class EarlyStopOnBaseline(Callback):
         self._flag_reached_baseline = False
         self._best_weights = None
         self._stopped_training = False
+        self._delta_sign = {True: 1,
+                            False: -1,
+                            }
+
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
@@ -64,10 +68,12 @@ class EarlyStopOnBaseline(Callback):
         # find out if the monitored value improved
         if self._flag_monitor_accuracy:
             self._flag_reached_baseline = monitored_value >= self._baseline or self._flag_reached_baseline
-            flag_better_result = monitored_value >= self._best_value + self._delta
+            flag_better_result = monitored_value >= self._best_value + \
+                                 self._delta * self._delta_sign[self._flag_monitor_accuracy]
         else:
             self._flag_reached_baseline = monitored_value <= self._baseline or self._flag_reached_baseline
-            flag_better_result = monitored_value <= self._best_value - self._delta
+            flag_better_result = monitored_value <= self._best_value + \
+                                 self._delta * self._delta_sign[self._flag_monitor_accuracy]
 
         if not self._flag_reached_baseline:
             return
@@ -84,7 +90,9 @@ class EarlyStopOnBaseline(Callback):
         if self._restore_weights:
             self.model.set_weights(self._best_weights)
             if self._verbose:
-                print(f'\tRestoring weights @ {self._monitor} = {round(self._best_value, 4)} vs {round(monitored_value, 4)}.')
+                print(f'\tRestoring weights @ {self._monitor} = '
+                      f'{round(self._best_value + self._delta * self._delta_sign[self._flag_monitor_accuracy], 4)} vs '
+                      f'{round(monitored_value, 4)}.')
         self._patience_counter += 1
         if self._patience_counter < self._patience:
             return
