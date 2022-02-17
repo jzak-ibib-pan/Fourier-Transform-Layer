@@ -80,7 +80,7 @@ def prepare_data_for_sampling(dataset, **kwargs):
     if dataset.lower() == 'celeb':
         reset = False
         if 'reset' in kwargs.keys():
-            reset = kwargs['keys']
+            reset = kwargs['reset']
         X = _load_celeb(reset=reset)
         # calculate train / test split
         test_split = 0.1
