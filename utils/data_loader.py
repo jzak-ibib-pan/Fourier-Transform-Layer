@@ -43,11 +43,14 @@ def _resize_data(data, new_shape):
 
 def _load_celeb():
     filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebA-HQ-img')
-    loof_files = listdir(filepath)[:1000]
+    loof_files = listdir(filepath)[:10]
     # each image is of this size
     result = zeros((len(loof_files), 1024, 1024, 3), dtype=int8)
-    shufle = shuffle(arange(len(loof_files)))
-    for it, filename in zip(shufle, loof_files):
+    # iterators to be randomized
+    numbers = arange(len(loof_files))
+    shuffle(numbers)
+    # instead of enumerate
+    for it, filename in zip(numbers, loof_files):
         result[it] = imread(join(filepath, filename)) / 255
     return result
 
