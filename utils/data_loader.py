@@ -1,4 +1,4 @@
-from numpy import logical_or, zeros, expand_dims, pad, repeat
+from numpy import logical_or, zeros, expand_dims, pad, repeat, array
 from cv2 import resize, imread
 from tensorflow.keras.datasets import mnist, fashion_mnist
 from tensorflow.keras.utils import to_categorical
@@ -40,6 +40,18 @@ def _resize_data(data, new_shape):
     return result
 
 
+def _load_celeb():
+    filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebAMask-HQ-img')
+    loof_files = listdir(filepath)
+    # each image is of this size
+    result = zeros((len(loof_files), 1024, 1024, 3))
+    for it, filename in enumerate(loof_files):
+        result[it] = imread(join(filepath, filename))
+    test_split = 0.1
+    cutoff = int(test_split * result.shape[0])
+    return result[:cutoff], result[cutoff:]
+
+
 def prepare_data_for_sampling(dataset, targets, data_channels = 1, new_shape=None):
     assert type(dataset) is str, 'Dataset must be a str.'
     assert dataset in ['mnist', 'fmnist', 'celeb'], f'{dataset.capitalize()} not implemented yet.'
@@ -47,6 +59,25 @@ def prepare_data_for_sampling(dataset, targets, data_channels = 1, new_shape=Non
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
     if dataset.lower() == 'fmnist':
         (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+    if dataset.lower() == 'celeb':
+        x_train, x_test = _load_celeb()
+        if new_shape is None:
+            return x_train, x_test
+        x_tr = []
+        for x in x_train:
+            # extract only top left corner of image - for calculation sake
+            x_tr.append(x[512 - new_shape[0] // 4 : 512 + new_shape[0] // 4,
+                        512 - new_shape[0] // 4 : 512 + new_shape[0] // 4])
+        x_train = array(x_tr)
+
+        x_tr = []
+        for x in x_test:
+            # extract only top left corner of image - for calculation sake
+            x_tr.append(x[512 - new_shape[0] // 2 : 512 + new_shape[0] // 2,
+                        512 - new_shape[0] // 2 : 512 + new_shape[0] // 2])
+        x_test = array(x_test)
+        return x_train, x_test
+
 
     if x_train.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_train.shape[1:3]]
