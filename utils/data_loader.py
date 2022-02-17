@@ -52,7 +52,7 @@ def _load_celeb():
     return result[:cutoff], result[cutoff:]
 
 
-def prepare_data_for_sampling(dataset, targets, data_channels = 1, new_shape=None):
+def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=None):
     assert type(dataset) is str, 'Dataset must be a str.'
     assert dataset in ['mnist', 'fmnist', 'celeb'], f'{dataset.capitalize()} not implemented yet.'
     if dataset.lower() == 'mnist':
@@ -89,8 +89,9 @@ def prepare_data_for_sampling(dataset, targets, data_channels = 1, new_shape=Non
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
     x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=data_channels, axis=-1)
 
-    x_train, y_train = _select_images_by_target(x_train, y_train, targets)
-    x_test, y_test = _select_images_by_target(x_test, y_test, targets)
+    if targets:
+        x_train, y_train = _select_images_by_target(x_train, y_train, targets)
+        x_test, y_test = _select_images_by_target(x_test, y_test, targets)
 
     if len(x_train.shape) < 4:
         x_train = expand_dims(x_train, -1)
