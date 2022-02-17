@@ -105,9 +105,9 @@ def prepare_data_for_sampling(dataset, **kwargs):
         x_re = array(x_re)
         return (x_tr[:cutoff], None), (x_tr[cutoff:], None), (x_re[:cutoff], x_re[cutoff:])
 
-    data_channels=1
-    if 'data_channels' in kwargs.keys():
-        data_channels = kwargs['data_channels']
+    noof_channels=1
+    if 'noof_channels' in kwargs.keys():
+        noof_channels = kwargs['noof_channels']
 
     targets = range(10)
     if 'targets' in kwargs.keys():
@@ -116,12 +116,12 @@ def prepare_data_for_sampling(dataset, **kwargs):
     if x_train.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_train.shape[1:3]]
         x_train = pad(x_train, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
-    x_train = repeat(expand_dims(x_train / 255, axis=-1), repeats=data_channels, axis=-1)
+    x_train = repeat(expand_dims(x_train / 255, axis=-1), repeats=noof_channels, axis=-1)
 
     if x_test.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_test.shape[1:3]]
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
-    x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=data_channels, axis=-1)
+    x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=noof_channels, axis=-1)
 
     if targets:
         x_train, y_train = _select_images_by_target(x_train, y_train, targets)
