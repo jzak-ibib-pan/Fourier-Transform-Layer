@@ -78,7 +78,10 @@ def prepare_data_for_sampling(dataset, **kwargs):
     if 'new_shape' in kwargs.keys():
         new_shape = kwargs['new_shape']
     if dataset.lower() == 'celeb':
-        X = _load_celeb()
+        reset = False
+        if 'reset' in kwargs.keys():
+            reset = kwargs['keys']
+        X = _load_celeb(reset=reset)
         # calculate train / test split
         test_split = 0.1
         cutoff = int((1 - test_split) * X.shape[0])
