@@ -67,13 +67,16 @@ def _load_celeb(reset=False):
     return result
 
 
-def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=None):
+def prepare_data_for_sampling(dataset, **kwargs):
     assert type(dataset) is str, 'Dataset must be a str.'
     assert dataset in ['mnist', 'fmnist', 'celeb'], f'{dataset.capitalize()} not implemented yet.'
     if dataset.lower() == 'mnist':
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
     if dataset.lower() == 'fmnist':
         (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+    new_shape = None
+    if 'new_shape' in kwargs.keys():
+        new_shape = kwargs['new_shape']
     if dataset.lower() == 'celeb':
         X = _load_celeb()
         # calculate train / test split
@@ -83,7 +86,6 @@ def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=
             # return split data (train), (test)
             return (X[:cutoff], None), (X[cutoff:], None)
         # smaller dataset-> // 4
-
         x_tr = []
         shx, shy = [x // 2 for x in X.shape[1:3]]
         for x in X:
@@ -100,6 +102,13 @@ def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=
         x_re = array(x_re)
         return (x_tr[:cutoff], None), (x_tr[cutoff:], None), (x_re[:cutoff], x_re[cutoff:])
 
+    data_channels=1
+    if 'data_channels' in kwargs.keys():
+        data_channels = kwargs['data_channels']
+
+    targets = range(10)
+    if 'targets' in kwargs.keys():
+        targets = kwargs['targets']
 
     if x_train.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_train.shape[1:3]]
