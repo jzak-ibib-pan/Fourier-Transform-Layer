@@ -46,7 +46,7 @@ def _load_celeb(reset=False):
     if isfile(join(filepath, 'images.npy')) and not reset:
         result = load(join(filepath, 'images.npy'))
         return result
-    loof_files = listdir(filepath)
+    loof_files = [l for l in listdir(filepath) if '.jpg' in l]
     new_shape = (130, 130)
     # each image is of this size
     result = zeros((len(loof_files), *new_shape, 1), dtype=uint8)
