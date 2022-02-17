@@ -68,15 +68,15 @@ def prepare_data_for_sampling(dataset, targets, data_channels = 1, new_shape=Non
             # extract only top left corner of image - for calculation sake
             x_tr.append(x[512 - new_shape[0] // 4 : 512 + new_shape[0] // 4,
                         512 - new_shape[0] // 4 : 512 + new_shape[0] // 4])
-        x_train = array(x_tr)
+        x_train_resized = array(x_tr)
 
         x_tr = []
         for x in x_test:
             # extract only top left corner of image - for calculation sake
             x_tr.append(x[512 - new_shape[0] // 2 : 512 + new_shape[0] // 2,
                         512 - new_shape[0] // 2 : 512 + new_shape[0] // 2])
-        x_test = array(x_test)
-        return x_train, x_test
+        x_test_resized = array(x_tr)
+        return (x_train, None), (x_test, None), (x_train_resized, x_test_resized)
 
 
     if x_train.shape[1] < 32:
