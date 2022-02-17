@@ -1,10 +1,12 @@
-from numpy import logical_or, min, max, zeros, expand_dims, pad, repeat
-from cv2 import resize
-from tensorflow.keras.datasets import mnist
+from numpy import logical_or, zeros, expand_dims, pad, repeat
+from cv2 import resize, imread
+from tensorflow.keras.datasets import mnist, fashion_mnist
 from tensorflow.keras.utils import to_categorical
+from os import listdir
+from os.path import join
 
 
-def select_images_by_target(data_x, data_y, targets):
+def _select_images_by_target(data_x, data_y, targets):
     assert type(targets) is list, 'Must provide a list of targets.'
     assert len(targets) > 0, 'Must provide at least one target.'
     assert all([type(t) is int for t in targets]), 'Must provide a list of ints.'
@@ -26,10 +28,26 @@ def select_images_by_target(data_x, data_y, targets):
     return x, y
 
 
-def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    # (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
-    # (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+def _resize_data(data, new_shape):
+    result = zeros((data.shape[0], *new_shape, data.shape[-1]))
+    for it, x in enumerate(data):
+        if len(x.shape) < 3:
+            x = expand_dims(x, axis=-1)
+        if x.shape[-1] > 1:
+            result[it] = resize(x, (new_shape[:2]))
+            continue
+        result[it] = expand_dims(resize(x, (new_shape[:2])), axis=-1)
+    return result
+
+
+def prepare_data_for_sampling(dataset, targets, data_channels = 1, new_shape=None):
+    assert type(dataset) is str, 'Dataset must be a str.'
+    assert dataset in ['mnist', 'fmnist', 'celeb'], f'{dataset.capitalize()} not implemented yet.'
+    if dataset.lower() == 'mnist':
+        (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    if dataset.lower() == 'fmnist':
+        (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+
     if x_train.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_train.shape[1:3]]
         x_train = pad(x_train, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
@@ -40,8 +58,8 @@ def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
     x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=data_channels, axis=-1)
 
-    x_train, y_train = select_images_by_target(x_train, y_train, targets)
-    x_test, y_test = select_images_by_target(x_test, y_test, targets)
+    x_train, y_train = _select_images_by_target(x_train, y_train, targets)
+    x_test, y_test = _select_images_by_target(x_test, y_test, targets)
 
     if len(x_train.shape) < 4:
         x_train = expand_dims(x_train, -1)
@@ -63,13 +81,5 @@ def prepare_data_for_sampling(targets, data_channels = 1, new_shape=None):
     return (x_train, y_train), (x_test, y_test), (x_tr, x_ts)
 
 
-def _resize_data(data, new_shape):
-    result = zeros((data.shape[0], *new_shape, data.shape[-1]))
-    for it, x in enumerate(data):
-        if len(x.shape) < 3:
-            x = expand_dims(x, axis=-1)
-        if x.shape[-1] > 1:
-            result[it] = resize(x, (new_shape[:2]))
-            continue
-        result[it] = expand_dims(resize(x, (new_shape[:2])), axis=-1)
-    return result
+if __name__ == '__main__':
+    print(0)
