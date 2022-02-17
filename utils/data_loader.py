@@ -66,18 +66,18 @@ def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=
             # return split data (train), (test)
             return (X[:cutoff], None), (X[cutoff:], None)
         # smaller dataset-> // 4
+
         x_tr = []
         for x in X:
             # extract part of image - for calculation sake
             x_tr.append(x[512 - new_shape[0] // 4 : 512 + new_shape[0] // 4,
                         512 - new_shape[0] // 4 : 512 + new_shape[0] // 4])
         x_tr = array(x_tr)
-
         # 'resized' dataset-> // 2
         x_re = []
         for x in X:
             # extract part of image - for calculation sake
-            x_tr.append(x[512 - new_shape[0] // 2 : 512 + new_shape[0] // 2,
+            x_re.append(x[512 - new_shape[0] // 2 : 512 + new_shape[0] // 2,
                         512 - new_shape[0] // 2 : 512 + new_shape[0] // 2])
         x_re = array(x_re)
         return (x_tr[:cutoff], None), (x_tr[cutoff:], None), (x_re[:cutoff], x_re[cutoff:])
