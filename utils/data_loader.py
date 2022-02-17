@@ -43,7 +43,7 @@ def _resize_data(data, new_shape):
 
 def _load_celeb():
     filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebA-HQ-img')
-    loof_files = listdir(filepath)[:1000]
+    loof_files = listdir(filepath)
     new_shape = (130, 130)
     # each image is of this size
     result = zeros((len(loof_files), *new_shape, 1), dtype=uint8)
