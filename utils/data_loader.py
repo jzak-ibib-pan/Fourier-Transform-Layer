@@ -1,4 +1,4 @@
-from numpy import logical_or, zeros, expand_dims, pad, repeat, array, int8, arange
+from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32
 from numpy.random import shuffle
 from cv2 import resize, imread
 from tensorflow.keras.datasets import mnist, fashion_mnist
@@ -46,7 +46,7 @@ def _load_celeb():
     loof_files = listdir(filepath)[:10]
     new_shape = (130, 130)
     # each image is of this size
-    result = zeros((len(loof_files), *new_shape, 3), dtype=int8)
+    result = zeros((len(loof_files), *new_shape, 3), dtype=uint8)
     # iterators to be randomized
     numbers = arange(len(loof_files))
     shuffle(numbers)
@@ -54,8 +54,8 @@ def _load_celeb():
     for it, filename in zip(numbers, loof_files):
         image = imread(join(filepath, filename))
         image = resize(image, new_shape)
-        result[it] = image / 255
-    return result
+        result[it] = image
+    return float32(result) / 255
 
 
 def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=None):
