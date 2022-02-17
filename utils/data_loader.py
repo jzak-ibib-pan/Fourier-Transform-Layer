@@ -44,14 +44,17 @@ def _resize_data(data, new_shape):
 def _load_celeb():
     filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebA-HQ-img')
     loof_files = listdir(filepath)[:10]
+    new_shape = (130, 130)
     # each image is of this size
-    result = zeros((len(loof_files), 1024, 1024, 3), dtype=int8)
+    result = zeros((len(loof_files), *new_shape, 3), dtype=int8)
     # iterators to be randomized
     numbers = arange(len(loof_files))
     shuffle(numbers)
     # instead of enumerate
     for it, filename in zip(numbers, loof_files):
-        result[it] = imread(join(filepath, filename)) / 255
+        image = imread(join(filepath, filename))
+        image = resize(image, new_shape)
+        result[it] = image / 255
     return result
 
 
@@ -73,17 +76,18 @@ def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=
         # smaller dataset-> // 4
 
         x_tr = []
+        shx, shy = [x // 2 for x in X.shape[1:3]]
         for x in X:
-            # extract part of image - for calculation sake
-            x_tr.append(x[512 - new_shape[0] // 4 : 512 + new_shape[0] // 4,
-                        512 - new_shape[0] // 4 : 512 + new_shape[0] // 4])
+            # extract part of image - for calculations' sake
+            x_tr.append(x[shx - new_shape[0] // 4 : shx + new_shape[0] // 4,
+                        shy - new_shape[0] // 4 : shy + new_shape[0] // 4])
         x_tr = array(x_tr)
         # 'resized' dataset-> // 2
         x_re = []
         for x in X:
-            # extract part of image - for calculation sake
-            x_re.append(x[512 - new_shape[0] // 2 : 512 + new_shape[0] // 2,
-                        512 - new_shape[0] // 2 : 512 + new_shape[0] // 2])
+            # extract part of image - for calculations' sake
+            x_re.append(x[shx - new_shape[0] // 2 : shx + new_shape[0] // 2,
+                        shy - new_shape[0] // 2 : shy + new_shape[0] // 2])
         x_re = array(x_re)
         return (x_tr[:cutoff], None), (x_tr[cutoff:], None), (x_re[:cutoff], x_re[cutoff:])
 
