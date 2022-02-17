@@ -1,10 +1,10 @@
-from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32
+from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load
 from numpy.random import shuffle
 from cv2 import resize, imread
 from tensorflow.keras.datasets import mnist, fashion_mnist
 from tensorflow.keras.utils import to_categorical
 from os import listdir
-from os.path import join
+from os.path import join, isfile
 
 
 def _select_images_by_target(data_x, data_y, targets):
@@ -41,8 +41,11 @@ def _resize_data(data, new_shape):
     return result
 
 
-def _load_celeb():
+def _load_celeb(reset=False):
     filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebA-HQ-img')
+    if isfile(join(filepath, 'images.npy')) and not reset:
+        result = load(join(filepath, 'images.npy'))
+        return result
     loof_files = listdir(filepath)
     new_shape = (130, 130)
     # each image is of this size
@@ -59,7 +62,9 @@ def _load_celeb():
         if len(image.shape) < 3:
             image = expand_dims(image, axis=-1)
         result[it] = image
-    return float32(result) / 255
+    result = float32(result) / 255
+    save(join(filepath, 'images.npy'), result)
+    return result
 
 
 def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=None):
