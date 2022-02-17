@@ -42,14 +42,12 @@ def _resize_data(data, new_shape):
 
 def _load_celeb():
     filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebA-HQ-img')
-    loof_files = listdir(filepath)
+    loof_files = listdir(filepath)[:10]
     # each image is of this size
     result = zeros((len(loof_files), 1024, 1024, 3), dtype=int8)
     for it, filename in enumerate(loof_files):
         result[it] = imread(join(filepath, filename))
-    test_split = 0.1
-    cutoff = int(test_split * result.shape[0])
-    return result[:cutoff], result[cutoff:]
+    return result
 
 
 def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=None):
@@ -60,23 +58,29 @@ def prepare_data_for_sampling(dataset, targets=None, data_channels=1, new_shape=
     if dataset.lower() == 'fmnist':
         (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
     if dataset.lower() == 'celeb':
-        x_train, x_test = _load_celeb()
-        if new_shape is None:
-            return x_train, x_test
+        X = _load_celeb()
+        # calculate train / test split
+        test_split = 0.1
+        cutoff = int((1 - test_split) * X.shape[0])
+        if not new_shape:
+            # return split data (train), (test)
+            return (X[:cutoff], None), (X[cutoff:], None)
+        # smaller dataset-> // 4
         x_tr = []
-        for x in x_train:
-            # extract only top left corner of image - for calculation sake
+        for x in X:
+            # extract part of image - for calculation sake
             x_tr.append(x[512 - new_shape[0] // 4 : 512 + new_shape[0] // 4,
                         512 - new_shape[0] // 4 : 512 + new_shape[0] // 4])
-        x_train_resized = array(x_tr)
+        x_tr = array(x_tr)
 
-        x_tr = []
-        for x in x_test:
-            # extract only top left corner of image - for calculation sake
+        # 'resized' dataset-> // 2
+        x_re = []
+        for x in X:
+            # extract part of image - for calculation sake
             x_tr.append(x[512 - new_shape[0] // 2 : 512 + new_shape[0] // 2,
                         512 - new_shape[0] // 2 : 512 + new_shape[0] // 2])
-        x_test_resized = array(x_tr)
-        return (x_train, None), (x_test, None), (x_train_resized, x_test_resized)
+        x_re = array(x_re)
+        return (x_tr[:cutoff], None), (x_tr[cutoff:], None), (x_re[:cutoff], x_re[cutoff:])
 
 
     if x_train.shape[1] < 32:
