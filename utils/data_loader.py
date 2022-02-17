@@ -42,11 +42,11 @@ def _resize_data(data, new_shape):
 
 def _load_celeb():
     filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebA-HQ-img')
-    loof_files = listdir(filepath)[:10]
+    loof_files = listdir(filepath)[:1000]
     # each image is of this size
     result = zeros((len(loof_files), 1024, 1024, 3), dtype=int8)
     for it, filename in enumerate(loof_files):
-        result[it] = imread(join(filepath, filename))
+        result[it] = imread(join(filepath, filename)) / 255
     return result
 
 
