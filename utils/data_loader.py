@@ -1,4 +1,4 @@
-from numpy import logical_or, zeros, expand_dims, pad, repeat, array
+from numpy import logical_or, zeros, expand_dims, pad, repeat, array, int8
 from cv2 import resize, imread
 from tensorflow.keras.datasets import mnist, fashion_mnist
 from tensorflow.keras.utils import to_categorical
@@ -44,7 +44,7 @@ def _load_celeb():
     filepath = join('Y://', 'super_resolution', 'CelebAMask-HQ', 'CelebA-HQ-img')
     loof_files = listdir(filepath)
     # each image is of this size
-    result = zeros((len(loof_files), 1024, 1024, 3))
+    result = zeros((len(loof_files), 1024, 1024, 3), dtype=int8)
     for it, filename in enumerate(loof_files):
         result[it] = imread(join(filepath, filename))
     test_split = 0.1
