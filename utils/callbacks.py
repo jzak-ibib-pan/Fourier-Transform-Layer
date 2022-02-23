@@ -61,16 +61,18 @@ class EarlyStopOnBaseline(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
+
+        if isnan(logs.get('loss')):
+            if self._verbose:
+                print(f'\tEpoch {epoch}: Terminating training due to nan loss.')
+            self.model.stop_training = True
+            self._stopped_training = True
+
         monitored_value = logs.get(self._monitor)
 
         if monitored_value is None or self._baseline is None:
             return
 
-        if isnan(monitored_value):
-            if self._verbose:
-                print(f'\tEpoch {epoch}: Terminating training due to nan.')
-            self.model.stop_training = True
-            self._stopped_training = True
         # find out if the monitored value improved
         if self._flag_monitor_accuracy:
             self._flag_reached_baseline = monitored_value >= self._baseline or self._flag_reached_baseline
