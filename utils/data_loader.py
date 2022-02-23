@@ -131,7 +131,7 @@ def prepare_data_for_sampling(dataset, **kwargs):
         pads = [(32 - sh) // 2 for sh in x_test.shape[1:3]]
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
 
-    train_max = max(y_train)[0] + 1
+    train_max = max(y_train) + 1
 
     if len(targets) < train_max:
         x_train, y_train = _select_images_by_target(x_train, y_train, targets)
