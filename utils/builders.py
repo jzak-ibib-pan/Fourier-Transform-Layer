@@ -742,7 +742,8 @@ class CustomBuilder(ModelBuilder):
                    'compile': {'optimizer': ['adam'],
                                'loss': ['mse'],
                                },
-                   'layers': {'ftl' : {'activation' : [None, 'relu', 'softmax', 'sigmoid', 'tanh', 'selu'}},
+                   'layers': {'ftl' : {'activation' : [None, 'relu', 'softmax', 'sigmoid', 'tanh', 'selu']},
+                              },
                    }
         return allowed
 
