@@ -1,5 +1,6 @@
 from tensorflow.keras.callbacks import Callback
 from time import time
+from numpy import isnan
 
 
 class TimeHistory(Callback):
@@ -65,6 +66,11 @@ class EarlyStopOnBaseline(Callback):
         if monitored_value is None or self._baseline is None:
             return
 
+        if isnan(monitored_value):
+            if self._verbose:
+                print(f'\tEpoch {epoch}: Terminating training due to nan.')
+            self.model.stop_training = True
+            self._stopped_training = True
         # find out if the monitored value improved
         if self._flag_monitor_accuracy:
             self._flag_reached_baseline = monitored_value >= self._baseline or self._flag_reached_baseline
