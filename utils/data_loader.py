@@ -142,6 +142,10 @@ def prepare_data_for_sampling(dataset, **kwargs):
     if len(targets) < max(y_train):
         x_train, y_train = _select_images_by_target(x_train, y_train, targets)
         x_test, y_test = _select_images_by_target(x_test, y_test, targets)
+    else:
+        # suppose that both subsets contain the same classes
+        y_train = to_categorical(y_train, max(y_train))
+        y_test = to_categorical(y_test, max(y_train))
 
     if len(x_train.shape) < 4:
         x_train = expand_dims(x_train, -1)
