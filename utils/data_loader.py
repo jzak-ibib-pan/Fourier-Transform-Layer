@@ -139,13 +139,15 @@ def prepare_data_for_sampling(dataset, **kwargs):
         x_test = _grayscale_data(x_test)
     x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=noof_channels, axis=-1)
 
-    if len(targets) < max(y_train):
+    train_max = max(y_train)[0] + 1
+
+    if len(targets) < train_max:
         x_train, y_train = _select_images_by_target(x_train, y_train, targets)
         x_test, y_test = _select_images_by_target(x_test, y_test, targets)
     else:
         # suppose that both subsets contain the same classes
-        y_train = to_categorical(y_train, max(y_train))
-        y_test = to_categorical(y_test, max(y_train))
+        y_train = to_categorical(y_train, train_max)
+        y_test = to_categorical(y_test, train_max)
 
     if len(x_train.shape) < 4:
         x_train = expand_dims(x_train, -1)
