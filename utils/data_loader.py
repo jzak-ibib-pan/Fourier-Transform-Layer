@@ -126,16 +126,10 @@ def prepare_data_for_sampling(dataset, **kwargs):
     if x_train.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_train.shape[1:3]]
         x_train = pad(x_train, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
-    # supposedly convert to grayscale
-    if x_train.shape[3] > noof_channels:
-        x_train = _grayscale_data(x_train)
 
     if x_test.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_test.shape[1:3]]
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
-    # supposedly convert to grayscale
-    if x_test.shape[3] > noof_channels:
-        x_test = _grayscale_data(x_test)
 
     train_max = max(y_train)[0] + 1
 
@@ -151,6 +145,14 @@ def prepare_data_for_sampling(dataset, **kwargs):
         x_train = repeat(expand_dims(x_train / 255, axis=-1), repeats=noof_channels, axis=-1)
     if len(x_test.shape) < 4:
         x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=noof_channels, axis=-1)
+
+    # supposedly convert to grayscale
+    if x_train.shape[3] > noof_channels:
+        x_train = _grayscale_data(x_train)
+
+    # supposedly convert to grayscale
+    if x_test.shape[3] > noof_channels:
+        x_test = _grayscale_data(x_test)
 
     if new_shape is None or new_shape == x_test.shape[1:]:
         return (x_train, y_train), (x_test, y_test)
