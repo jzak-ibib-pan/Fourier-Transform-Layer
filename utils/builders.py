@@ -734,39 +734,16 @@ class CustomBuilder(ModelBuilder):
                     }
         return defaults
 
+    # placeholder
     @staticmethod
     def _define_allowed_kwargs():
         allowed = {'build' : {'model_type': ['custom'],
-                              # 'input_shape': (8, 8, 1), TODO: assertion
-                              # 'noof_classes': -1, TODO: assertion
-                              # 'weights': None,
-                              # 'freeze': 0, TODO: assertion
+                              },
+                   'compile': {'optimizer': ['adam'],
+                               'loss': ['mse'],
                                },
-                    'compile': {'optimizer': ['adam'],
-                                'loss': ['mse'],
-                                # 'run_eagerly': False, TODO: assertion
-                                },
-                    # 'train': {'epochs': 10, TODO: assertion
-                    #           'batch': 8, TODO: assertion
-                    #           'call_time': True, TODO: assertion
-                    #           'call_stop': True, TODO: assertion
-                    #           'call_stop_kwargs': {'baseline': 0.80,
-                    #                                'monitor': 'val_categorical_accuracy',
-                    #                                'patience': 2,
-                    #                                },
-                    #           'call_checkpoint': True, TODO: assertion
-                    #           'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{filename}' +
-                    #                                                  '_{epoch:03d}_.hdf5',
-                    #                                      'monitor': 'val_categorical_accuracy',
-                    #                                      'mode': 'auto',
-                    #                                      'save_freq': 'epoch',
-                    #                                      'save_weights_only': True,
-                    #                                      'save_best_only': True,
-                    #                                      },
-                    #           'save_memory': True, TODO: assertion
-                    #           'save_final': True, TODO: assertion
-                    #           },
-                    }
+                   'layers': {'ftl' : {'activation' : [None, 'relu', 'softmax', 'sigmoid', 'tanh', 'selu'}},
+                   }
         return allowed
 
     def _build_model(self, layers, input_shape, noof_classes, **kwargs):
@@ -893,7 +870,17 @@ class CNNBuilder(ModelBuilder):
         super(CNNBuilder, self).__init__(model_type=model_type,
                                          input_shape=input_shape,
                                          noof_classes=noof_classes, **kwargs)
-    # TODO: default model types
+
+    @staticmethod
+    def _define_allowed_kwargs():
+        allowed = {'build' : {'model_type': ['mobilenet', 'mobilenet2', 'vgg16', 'vgg19', 'resnet50', 'resnet101'],
+                              },
+                   'compile': {'optimizer': ['adam'],
+                               'loss': ['mse'],
+                               },
+                   }
+        return allowed
+
     def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
