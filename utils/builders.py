@@ -20,6 +20,10 @@ from utils.losses import ssim
 class ModelBuilder:
     # TODO: allowed kwargs
     def __init__(self, **kwargs):
+        # placeholder
+        self._allowed_kwargs = self._get_allowed_kwargs()
+        # placeholder
+        # kwargs = self._check_allowed_kwargs(allowed, kwargs)
         filepath = '../temp'
         if 'filepath' in kwargs.keys():
             filepath = kwargs['filepath']
@@ -31,37 +35,7 @@ class ModelBuilder:
         self._filename_original = filename
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
-        defaults = {'build' : {'model_type': 'any',
-                               'input_shape': (8, 8, 1),
-                               'noof_classes': -1,
-                               'weights': None,
-                               'freeze': 0,
-                               },
-                    'compile': {'optimizer': 'adam',
-                                'loss': 'mse',
-                                'run_eagerly': False,
-                                },
-                    'train': {'epochs': 10,
-                              'batch': 8,
-                              'call_time': True,
-                              'call_stop': True,
-                              'call_stop_kwargs': {'baseline': 0.80,
-                                                   'monitor': 'val_categorical_accuracy',
-                                                   'patience': 2,
-                                                   },
-                              'call_checkpoint': True,
-                              'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{self._filename}' +
-                                                                     '_{epoch:03d}_.hdf5',
-                                                         'monitor': 'val_categorical_accuracy',
-                                                         'mode': 'auto',
-                                                         'save_freq': 'epoch',
-                                                         'save_weights_only': True,
-                                                         'save_best_only': True,
-                                                         },
-                              'save_memory': True,
-                              'save_final': True,
-                              },
-                    }
+        defaults = self._get_default_arguments(filepath, self._filename)
         if 'defaults' in kwargs.keys():
             defaults = self._update_build_defaults(defaults, kwargs['defaults'])
         self._METRICS = ['loss', 'acc', 'accuracy', 'categorical_accuracy', 'top-1', 'top-5',
@@ -86,9 +60,90 @@ class ModelBuilder:
         # build the model
         self._model = self.build_model(**self._arguments['build'])
 
-    def _build_model(self, **kwargs):
-        return Model()
+    # Default or allowed kwargs
+    @staticmethod
+    def _define_default_arguments(filepath, filename):
+        defaults = {'build' : {'model_type': 'any',
+                               'input_shape': (8, 8, 1),
+                               'noof_classes': -1,
+                               'weights': None,
+                               'freeze': 0,
+                               },
+                    'compile': {'optimizer': 'adam',
+                                'loss': 'mse',
+                                'run_eagerly': False,
+                                },
+                    'train': {'epochs': 10,
+                              'batch': 8,
+                              'call_time': True,
+                              'call_stop': True,
+                              'call_stop_kwargs': {'baseline': 0.80,
+                                                   'monitor': 'val_categorical_accuracy',
+                                                   'patience': 2,
+                                                   },
+                              'call_checkpoint': True,
+                              'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{filename}' +
+                                                                     '_{epoch:03d}_.hdf5',
+                                                         'monitor': 'val_categorical_accuracy',
+                                                         'mode': 'auto',
+                                                         'save_freq': 'epoch',
+                                                         'save_weights_only': True,
+                                                         'save_best_only': True,
+                                                         },
+                              'save_memory': True,
+                              'save_final': True,
+                              },
+                    }
+        return defaults
 
+    def _get_default_arguments(self, filepath, filename):
+        return self._define_default_arguments(filepath, filename)
+
+    @staticmethod
+    def _define_allowed_kwargs():
+        allowed = {'build' : {'model_type': ['any'],
+                              # 'input_shape': (8, 8, 1), TODO: assertion
+                              # 'noof_classes': -1, TODO: assertion
+                              # 'weights': None,
+                              # 'freeze': 0, TODO: assertion
+                               },
+                    'compile': {'optimizer': ['adam'],
+                                'loss': ['mse'],
+                                # 'run_eagerly': False, TODO: assertion
+                                },
+                    # 'train': {'epochs': 10, TODO: assertion
+                    #           'batch': 8, TODO: assertion
+                    #           'call_time': True, TODO: assertion
+                    #           'call_stop': True, TODO: assertion
+                    #           'call_stop_kwargs': {'baseline': 0.80,
+                    #                                'monitor': 'val_categorical_accuracy',
+                    #                                'patience': 2,
+                    #                                },
+                    #           'call_checkpoint': True, TODO: assertion
+                    #           'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{filename}' +
+                    #                                                  '_{epoch:03d}_.hdf5',
+                    #                                      'monitor': 'val_categorical_accuracy',
+                    #                                      'mode': 'auto',
+                    #                                      'save_freq': 'epoch',
+                    #                                      'save_weights_only': True,
+                    #                                      'save_best_only': True,
+                    #                                      },
+                    #           'save_memory': True, TODO: assertion
+                    #           'save_final': True, TODO: assertion
+                    #           },
+                    }
+        return allowed
+
+    def _get_allowed_kwargs(self):
+        return self._define_allowed_kwargs()
+
+    # placeholder
+    # TODO: allow also keras class imports (Layers, Losses, Optimizers, etc.)
+    @staticmethod
+    def _check_allowed_kwargs(allowed, checked):
+        return None
+
+    # Model preparation
     # SOLVED: make freeze more generic
     @staticmethod
     def _freeze_model(model, freeze):
@@ -96,6 +151,38 @@ class ModelBuilder:
         for layer in result.layers[1 : freeze + 1]:
             layer.trainable = False
         return result
+
+    # previous version caused not setting the weights, thus causing unexpected results for sampling
+    # wrapper to build with parameters and freeze
+    def build_model(self, **kwargs):
+        self._arguments['build'] = self._update_arguments(self._arguments['build'], **kwargs)
+        model = self._build_model(**self._arguments['build'])
+        # set the weights
+        # this way ensures no key error
+        if 'weights' in kwargs.keys() and kwargs['weights'] is not None:
+            model.set_weights(kwargs['weights'])
+        # freeze the model
+        if 'freeze' in kwargs.keys() and kwargs['freeze'] != 0:
+            model = self._freeze_model(model, kwargs['freeze'])
+        return model
+
+    # placeholder
+    def build_model_from_info(self):
+        return self._build_model(**self._arguments['build'])
+
+    # building model
+    def _build_model(self, **kwargs):
+        return Model()
+
+    # wrapper
+    def compile_model(self, optimizer, loss, **kwargs):
+        self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
+                                                          optimizer=optimizer, loss=loss, **kwargs)
+        self._compile_model(**self._arguments['compile'])
+
+    # placeholder
+    def compile_model_from_info(self):
+        self._compile_model(**self._arguments['compile'])
 
     def _compile_model(self, optimizer, loss, **kwargs):
         _loss = loss
@@ -120,6 +207,11 @@ class ModelBuilder:
                                                             optimizer=optimizer, loss=_loss, **kwargs)
         self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
         return
+
+    # wrapper
+    def train_model(self, epochs, **kwargs):
+        self._arguments['train'] = self._update_arguments(self._arguments['train'], epochs=epochs, **kwargs)
+        self._history = self._train_model(**self._arguments['train'])
 
     def _train_model(self, epochs, **kwargs):
         assert 'generator' in kwargs.keys() or sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2, \
@@ -225,46 +317,21 @@ class ModelBuilder:
             return self._merge_history_and_times(hist, tims)
         return hist
 
-    def _evaluate_model(self, **kwargs):
-        return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
-
-    # previous version caused not setting the weights, thus causing unexpected results for sampling
-    def build_model(self, **kwargs):
-        self._arguments['build'] = self._update_arguments(self._arguments['build'], **kwargs)
-        model = self._build_model(**self._arguments['build'])
-        # set the weights
-        # this way ensures no key error
-        if 'weights' in kwargs.keys() and kwargs['weights'] is not None:
-            model.set_weights(kwargs['weights'])
-        # freeze the model
-        if 'freeze' in kwargs.keys() and kwargs['freeze'] != 0:
-            model = self._freeze_model(model, kwargs['freeze'])
-        return model
-
-
-    def build_model_from_info(self):
-        return self._build_model(**self._arguments['build'])
-
-    def compile_model(self, optimizer, loss, **kwargs):
-        self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
-                                                          optimizer=optimizer, loss=loss, **kwargs)
-        self._compile_model(**self._arguments['compile'])
-
-    def compile_model_from_info(self):
-        self._compile_model(**self._arguments['compile'])
-
-    def train_model(self, epochs, **kwargs):
-        self._arguments['train'] = self._update_arguments(self._arguments['train'], epochs=epochs, **kwargs)
-        self._history = self._train_model(**self._arguments['train'])
-
+    # wrapper
     def evaluate_model(self, **kwargs):
         self._evaluation = self._evaluate_model(**kwargs)
 
+    def _evaluate_model(self, **kwargs):
+        return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
+
+    # placeholder
     def prepare_model_from_info(self):
         self._model = self.build_model_from_info()
         self.compile_model_from_info()
         return self._model
 
+    # Arguments (build, compile, train, evaluate) checking and setting
+    # method copies key-value pairs from kwargs into arguments, only if arguments contains the key
     @staticmethod
     def _verify_arguments(arguments, **kwargs):
         result = arguments.copy()
@@ -274,6 +341,7 @@ class ModelBuilder:
             result[key] = kwargs[key]
         return result
 
+    # method copies key-value pairs from kwargs into arguments, by updating arguments keys
     @staticmethod
     def _update_arguments(arguments, **kwargs):
         result = arguments.copy()
@@ -289,6 +357,7 @@ class ModelBuilder:
             result[key] = kwargs[key]
         return result
 
+    # build settings copied from children
     @staticmethod
     def _update_build_defaults(arguments, defaults):
         result = arguments.copy()
@@ -568,6 +637,10 @@ class ModelBuilder:
 
     # Properties
     @property
+    def allowed_kwargs(self):
+        return  self._allowed_kwargs
+
+    @property
     def model(self):
         return self._model
 
@@ -587,6 +660,30 @@ class CustomBuilder(ModelBuilder):
         assert len(layers) > 1, 'CustomBuilder requires at least two layers. May cause problems with FTL layers, ' \
                                 'mainly calling build twice.'
                     # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
+        defaults = self._define_default_layers()
+        self._SAMPLING_DIRECTIONS = DIRECTIONS
+        # layers - a list of dicts
+        _NAMES = list(defaults.keys())
+        self._UNSAMPLED = [name for name in _NAMES if name not in ['ftl', 'dense']]
+        self._REPLACE_VALUE = 1e-5
+        # TODO: name checking
+        # l = _NAMES[0] in layers[0].keys()
+        # assert all(_NAMES in layer.keys() for layer in layers), \
+        #     f'Unsupported name. Supported names: {_NAMES}.'
+        _layers = []
+        for layer in layers:
+            for key, value in zip(layer.keys(), layer.values()):
+                _layer = self._verify_arguments(defaults[key], **value)
+                _layers.append({key : _layer})
+        if 'model_type' not in kwargs.keys():
+            kwargs.update({'model_type' : 'custom'})
+        super(CustomBuilder, self).__init__(input_shape=input_shape,
+                                            noof_classes=noof_classes,
+                                            defaults={'layers': _layers},
+                                            **kwargs)
+
+    @staticmethod
+    def _define_default_layers():
         defaults = {'conv2d': {'filters': 128,
                                'kernel_size': 3,
                                'strides': (1, 1),
@@ -635,26 +732,7 @@ class CustomBuilder(ModelBuilder):
                                              'normalize_to_image_shape': False,
                                              },
                     }
-        self._SAMPLING_DIRECTIONS = DIRECTIONS
-        # layers - a list of dicts
-        _NAMES = list(defaults.keys())
-        self._UNSAMPLED = [name for name in _NAMES if name not in ['ftl', 'dense']]
-        self._REPLACE_VALUE = 1e-5
-        # TODO: name checking
-        # l = _NAMES[0] in layers[0].keys()
-        # assert all(_NAMES in layer.keys() for layer in layers), \
-        #     f'Unsupported name. Supported names: {_NAMES}.'
-        _layers = []
-        for layer in layers:
-            for key, value in zip(layer.keys(), layer.values()):
-                _layer = self._verify_arguments(defaults[key], **value)
-                _layers.append({key : _layer})
-        if 'model_type' not in kwargs.keys():
-            kwargs.update({'model_type' : 'custom'})
-        super(CustomBuilder, self).__init__(input_shape=input_shape,
-                                            noof_classes=noof_classes,
-                                            defaults={'layers': _layers},
-                                            **kwargs)
+        return defaults
 
     def _build_model(self, layers, input_shape, noof_classes, **kwargs):
         inp = Input(input_shape)
@@ -780,7 +858,7 @@ class CNNBuilder(ModelBuilder):
         super(CNNBuilder, self).__init__(model_type=model_type,
                                          input_shape=input_shape,
                                          noof_classes=noof_classes, **kwargs)
-
+    # TODO: default model types
     def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
         model_type_low = model_type.lower()
         if 'mobilenet' in model_type_low:
@@ -819,12 +897,7 @@ class CNNBuilder(ModelBuilder):
 class FourierBuilder(CustomBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
         # just to be safe
-        layers = [{'ftl': {'use_imaginary': True,
-                           'inverse': 'inverse' in model_type,
-                           }},
-                  {'flatten': {}},
-                  {'dense': {}},
-                  ]
+        layers = self.__define_default_layers(model_type)
         if 'layers' in kwargs.keys():
             layers = self._verify_arguments(layers, kwargs['layers'])
         super(FourierBuilder, self).__init__(model_type=model_type,
@@ -832,6 +905,16 @@ class FourierBuilder(CustomBuilder):
                                              noof_classes=noof_classes,
                                              layers=layers,
                                              **kwargs)
+
+    @staticmethod
+    def __define_default_layers(model_type):
+        structure = [{'ftl': {'use_imaginary': True,
+                              'inverse': 'inverse' in model_type,
+                              }},
+                     {'flatten': {}},
+                     {'dense': {}},
+                     ]
+        return structure
 
 
 if __name__ == '__main__':
