@@ -1,6 +1,6 @@
 from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load
 from numpy.random import shuffle
-from cv2 import resize, imread
+from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
 from tensorflow.keras.utils import to_categorical
 from os import listdir
@@ -39,6 +39,13 @@ def _resize_data(data, new_shape):
             result[it] = resize(x, (new_shape[:2]))
             continue
         result[it] = expand_dims(resize(x, (new_shape[:2])), axis=-1)
+    return result
+
+
+def _grayscale_data(data):
+    result = zeros((data.shape[:-1]))
+    for it, x in enumerate(data):
+        result[it] = cvtColor(x, COLOR_RGB2GRAY)
     return result
 
 
@@ -108,7 +115,7 @@ def prepare_data_for_sampling(dataset, **kwargs):
         x_re = array(x_re)
         return (x_tr[:cutoff], None), (x_tr[cutoff:], None), (x_re[:cutoff], x_re[cutoff:])
 
-    noof_channels=1
+    noof_channels = 1
     if 'noof_channels' in kwargs.keys():
         noof_channels = kwargs['noof_channels']
 
@@ -119,11 +126,17 @@ def prepare_data_for_sampling(dataset, **kwargs):
     if x_train.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_train.shape[1:3]]
         x_train = pad(x_train, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
+    # supposedly convert to grayscale
+    if x_train.shape[3] > noof_channels:
+        x_train = _grayscale_data(x_train)
     x_train = repeat(expand_dims(x_train / 255, axis=-1), repeats=noof_channels, axis=-1)
 
     if x_test.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_test.shape[1:3]]
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
+    # supposedly convert to grayscale
+    if x_test.shape[3] > noof_channels:
+        x_test = _grayscale_data(x_test)
     x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=noof_channels, axis=-1)
 
     if len(targets) < max(y_train):
