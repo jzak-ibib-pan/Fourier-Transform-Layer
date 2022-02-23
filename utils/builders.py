@@ -875,8 +875,8 @@ class CNNBuilder(ModelBuilder):
     def _define_allowed_kwargs():
         allowed = {'build' : {'model_type': ['mobilenet', 'mobilenet2', 'vgg16', 'vgg19', 'resnet50', 'resnet101'],
                               },
-                   'compile': {'optimizer': ['adam'],
-                               'loss': ['mse'],
+                   'compile': {'optimizer': ['adam', 'sgd'],
+                               'loss': ['mse', 'categorical_crossentropy'],
                                },
                    }
         return allowed
