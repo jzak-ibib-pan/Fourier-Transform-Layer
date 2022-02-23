@@ -3,6 +3,7 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 from utils.sampling import DIRECTIONS, sampling_calculation
 
+# TODO: remove concatenate requirement
 # TODO: find source of nan loss and eliminate
 # TODO: get_config implementation
 class FTL(Layer):

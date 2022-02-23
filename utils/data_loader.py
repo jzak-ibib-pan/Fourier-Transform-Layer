@@ -80,10 +80,13 @@ def prepare_data_for_sampling(dataset, **kwargs):
     assert dataset in ['mnist', 'fmnist', 'cifar10', 'celeb'], f'{dataset.capitalize()} not implemented yet.'
     if dataset.lower() == 'mnist':
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
+        train_max = 10
     if dataset.lower() == 'fmnist':
         (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+        train_max = 10
     if dataset.lower() == 'cifar10':
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+        train_max = 10
     new_shape = None
     if 'new_shape' in kwargs.keys():
         new_shape = kwargs['new_shape']
@@ -130,8 +133,6 @@ def prepare_data_for_sampling(dataset, **kwargs):
     if x_test.shape[1] < 32:
         pads = [(32 - sh) // 2 for sh in x_test.shape[1:3]]
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
-
-    train_max = max(y_train) + 1
 
     if len(targets) < train_max:
         x_train, y_train = _select_images_by_target(x_train, y_train, targets)
