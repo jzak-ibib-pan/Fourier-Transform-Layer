@@ -734,6 +734,41 @@ class CustomBuilder(ModelBuilder):
                     }
         return defaults
 
+    @staticmethod
+    def _define_allowed_kwargs():
+        allowed = {'build' : {'model_type': ['custom'],
+                              # 'input_shape': (8, 8, 1), TODO: assertion
+                              # 'noof_classes': -1, TODO: assertion
+                              # 'weights': None,
+                              # 'freeze': 0, TODO: assertion
+                               },
+                    'compile': {'optimizer': ['adam'],
+                                'loss': ['mse'],
+                                # 'run_eagerly': False, TODO: assertion
+                                },
+                    # 'train': {'epochs': 10, TODO: assertion
+                    #           'batch': 8, TODO: assertion
+                    #           'call_time': True, TODO: assertion
+                    #           'call_stop': True, TODO: assertion
+                    #           'call_stop_kwargs': {'baseline': 0.80,
+                    #                                'monitor': 'val_categorical_accuracy',
+                    #                                'patience': 2,
+                    #                                },
+                    #           'call_checkpoint': True, TODO: assertion
+                    #           'call_checkpoint_kwargs': {'filepath': f'{filepath}/checkpoints/{filename}' +
+                    #                                                  '_{epoch:03d}_.hdf5',
+                    #                                      'monitor': 'val_categorical_accuracy',
+                    #                                      'mode': 'auto',
+                    #                                      'save_freq': 'epoch',
+                    #                                      'save_weights_only': True,
+                    #                                      'save_best_only': True,
+                    #                                      },
+                    #           'save_memory': True, TODO: assertion
+                    #           'save_final': True, TODO: assertion
+                    #           },
+                    }
+        return allowed
+
     def _build_model(self, layers, input_shape, noof_classes, **kwargs):
         inp = Input(input_shape)
         arch, flat = self._return_layer(layers[0], inp)
@@ -899,7 +934,7 @@ class FourierBuilder(CustomBuilder):
         # just to be safe
         layers = self.__define_default_layers(model_type)
         if 'layers' in kwargs.keys():
-            layers = self._verify_arguments(layers, kwargs['layers'])
+            layers = self._verify_arguments(layers, layers=kwargs['layers'])
         super(FourierBuilder, self).__init__(model_type=model_type,
                                              input_shape=input_shape,
                                              noof_classes=noof_classes,
