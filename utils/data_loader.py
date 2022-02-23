@@ -1,7 +1,7 @@
 from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load
 from numpy.random import shuffle
 from cv2 import resize, imread
-from tensorflow.keras.datasets import mnist, fashion_mnist
+from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
 from tensorflow.keras.utils import to_categorical
 from os import listdir
 from os.path import join, isfile
@@ -69,11 +69,13 @@ def _load_celeb(reset=False):
 
 def prepare_data_for_sampling(dataset, **kwargs):
     assert type(dataset) is str, 'Dataset must be a str.'
-    assert dataset in ['mnist', 'fmnist', 'celeb'], f'{dataset.capitalize()} not implemented yet.'
+    assert dataset in ['mnist', 'fmnist', 'cifar10', 'celeb'], f'{dataset.capitalize()} not implemented yet.'
     if dataset.lower() == 'mnist':
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
     if dataset.lower() == 'fmnist':
         (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+    if dataset.lower() == 'cifar10':
+        (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     new_shape = None
     if 'new_shape' in kwargs.keys():
         new_shape = kwargs['new_shape']
