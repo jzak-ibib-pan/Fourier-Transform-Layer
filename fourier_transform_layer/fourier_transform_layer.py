@@ -4,7 +4,7 @@ from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 from utils.sampling import DIRECTIONS, sampling_calculation
 
 # TODO: remove concatenate requirement
-# TODO: find source of nan loss and eliminate
+# TODO: find source of nan loss and eliminate - nan appears with SGD; disappears with Adam or run_eagerly in compile
 # TODO: get_config implementation
 class FTL(Layer):
     def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
