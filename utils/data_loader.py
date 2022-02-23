@@ -125,7 +125,7 @@ def prepare_data_for_sampling(dataset, **kwargs):
         x_test = pad(x_test, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
     x_test = repeat(expand_dims(x_test / 255, axis=-1), repeats=noof_channels, axis=-1)
 
-    if targets:
+    if len(targets) < max(y_train):
         x_train, y_train = _select_images_by_target(x_train, y_train, targets)
         x_test, y_test = _select_images_by_target(x_test, y_test, targets)
 
