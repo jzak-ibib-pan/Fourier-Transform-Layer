@@ -3,7 +3,7 @@ from os import listdir, mkdir
 from os.path import join, isdir
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D
+from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
@@ -714,6 +714,8 @@ class CustomBuilder(ModelBuilder):
                               'bias_constraint': None,
                               },
                     'flatten': {},
+                    'concatenate': {'axis': -1,
+                                    },
                     'ftl': {'activation': None,
                             'kernel_initializer': 'he_normal',
                             'use_imaginary': True,
@@ -779,6 +781,8 @@ class CustomBuilder(ModelBuilder):
             return FTL(**arguments)(previous), False
         if 'flatten' in layer_name:
             return Flatten()(previous), True
+        if 'concatenate' in layer_name:
+            return Concatenate(**arguments)(previous), False
         if 'dense' not in layer_name:
             return None
         return Dense(**arguments)(previous), True
