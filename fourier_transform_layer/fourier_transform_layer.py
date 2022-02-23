@@ -7,7 +7,7 @@ from utils.sampling import DIRECTIONS, sampling_calculation
 # TODO: get_config implementation
 class FTL(Layer):
     def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
-                 use_bias=False, bias_initializer='zeros', normalize_to_image_shape=False,
+                 use_bias=False, bias_initializer='zeros', calculate_abs=True, normalize_to_image_shape=False,
                  phase_training=False, **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
@@ -39,6 +39,7 @@ class FTL(Layer):
         self._bias_initializer = 'zeros'
         self._flag_use_bias = use_bias
         self._bias_initializer = bias_initializer
+        self._flag_calculate_abs = calculate_abs
 
     def build(self, input_shape):
         self._kernel = self.add_weight(name='kernel',
@@ -68,7 +69,7 @@ class FTL(Layer):
         return self._call_process_split_fft(real, imag)
 
     def compute_output_shape(self, input_shape):
-        if self.phase_training:
+        if self._flag_phase_training or self._flag_calculate_abs:
             return input_shape, input_shape
         return input_shape
 
@@ -94,10 +95,17 @@ class FTL(Layer):
         x = tf.cast(tf.dtypes.complex(_real, _imag), tf.complex64)
         if self._flag_inverse:
             x = tf.signal.ifft3d(x)
-        x = tf.math.abs(x)
+
+        if self._flag_calculate_abs:
+            x = tf.math.abs(x)
+            if self._activation is not None:
+                return self._activation(x)
+            return x
+
+        result_real, result_imag = tf.math.real(x), tf.math.imag(x)
         if self._activation is not None:
-            return self._activation(x)
-        return x
+            return self._activation(result_real), self._activation(result_imag)
+        return result_real, result_imag
 
     @staticmethod
     def _perform_fft(input_tensor, normalize=False):
