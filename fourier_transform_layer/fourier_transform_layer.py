@@ -69,7 +69,7 @@ class FTL(Layer):
         return self._call_process_split_fft(real, imag)
 
     def compute_output_shape(self, input_shape):
-        if self._flag_phase_training:
+        if self._flag_phase_training or self._flag_calculate_abs:
             return input_shape, input_shape
         return input_shape
 
@@ -98,12 +98,15 @@ class FTL(Layer):
 
         if self._flag_calculate_abs:
             x = tf.math.abs(x)
-        else:
-            # because flatten expects one input
-            x = tf.math.real(x)
+            if self._activation is not None:
+                return self._activation(x)
+            return x
+
+        # returning only real would work the same as use_imaginary = False
+        result_real, result_imag = tf.math.real(x), tf.math.imag(x)
         if self._activation is not None:
-            return self._activation(x)
-        return x
+            return self._activation(result_real), self._activation(result_imag)
+        return result_real, result_imag
 
     @staticmethod
     def _perform_fft(input_tensor, normalize=False):
