@@ -32,6 +32,7 @@ class ModelBuilder:
             filename = kwargs['filename']
         if not isdir(filepath):
             mkdir(filepath)
+            mkdir(join(filepath, 'checkpoints'))
         self._filename_original = filename
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
