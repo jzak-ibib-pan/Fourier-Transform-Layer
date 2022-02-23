@@ -99,6 +99,7 @@ class FTL(Layer):
         if self._flag_calculate_abs:
             x = tf.math.abs(x)
         else:
+            # because flatten expects one input
             x = tf.math.real(x)
         if self._activation is not None:
             return self._activation(x)
