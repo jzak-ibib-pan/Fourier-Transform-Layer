@@ -720,6 +720,7 @@ class CustomBuilder(ModelBuilder):
                             'inverse': False,
                             'use_bias': False,
                             'bias_initializer': 'zeros',
+                            'calculate_abs': True,
                             'normalize_to_image_shape': False,
                             'phase_training': False,
                             },
@@ -729,6 +730,7 @@ class CustomBuilder(ModelBuilder):
                                              'direction': 'up',
                                              'use_bias': False,
                                              'bias_initializer': 'zeros',
+                                             'calculate_abs': True,
                                              'normalize_to_image_shape': False,
                                              },
                     }
