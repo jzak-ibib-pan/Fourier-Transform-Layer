@@ -19,6 +19,7 @@ from utils.losses import ssim
 # Generic builder
 class ModelBuilder:
     # TODO: allowed kwargs
+    # TODO: dataset name
     def __init__(self, **kwargs):
         # placeholder
         self._allowed_kwargs = self._get_allowed_kwargs()
