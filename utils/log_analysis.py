@@ -1,6 +1,7 @@
 from os import listdir
 from pandas import DataFrame as df
 from numpy import mean, std, median
+from ast import literal_eval
 
 
 STANDARD_KEYS = ['ftl-activation',
@@ -70,8 +71,7 @@ def main(use_abs=False, calculate='mean'):
             with open(filepath + filename, 'r') as fil:
                 lines = fil.readlines()
             result = analyze(lines, monitor)
-            # remember to remove spaces - '' work, str - does not
-            if result['ftl-calculate_abs'] == str(not use_abs) or result['input_shape'] == '(32,32,3)':
+            if literal_eval(result['ftl-calculate_abs']) == (not use_abs) or literal_eval(result['input_shape']) == (32, 32, 3):
                 continue
             frame[result['ftl-activation']][result['Dataset']].append(result['Evaluation'][chosen_metric])
     result = frame.copy()
@@ -103,7 +103,6 @@ def prepare_for_latex(frames):
         txt = txt[:-2]
         txt += '\ \\'.replace(' ', '')
         print(txt)
-    print('\n')
     print('Median')
     for line_id in range(frame_median.shape[0]):
         txt = ''
@@ -115,7 +114,9 @@ def prepare_for_latex(frames):
 
 
 if __name__ == '__main__':
-    frames = []
-    for calc in ['mean', 'std', 'median']:
-        frames.append(main(calculate=calc))
-    prepare_for_latex(frames)
+    for use_abs in [False, True]:
+        print(use_abs)
+        frames = []
+        for calc in ['mean', 'std', 'median']:
+            frames.append(main(use_abs, calculate=calc))
+        prepare_for_latex(frames)
