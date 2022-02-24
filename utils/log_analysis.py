@@ -89,12 +89,11 @@ def main(use_abs=False, calculate='mean'):
     return df.from_dict(data=result)
 
 
-if __name__ == '__main__':
-    frames = []
-    for calc in ['mean', 'std', 'median']:
-        frames.append(main(calculate=calc))
+def prepare_for_latex(frames):
     frame_mean = frames[0].to_numpy()
     frame_std = frames[1].to_numpy()
+    frame_median = frames[2].to_numpy()
+    print('Mean')
     for line_id in range(frame_mean.shape[0]):
         txt = ''
         me = frame_mean[line_id]
@@ -104,3 +103,19 @@ if __name__ == '__main__':
         txt = txt[:-2]
         txt += '\ \\'.replace(' ', '')
         print(txt)
+    print('\n')
+    print('Median')
+    for line_id in range(frame_median.shape[0]):
+        txt = ''
+        for value_me in frame_mean[line_id]:
+            txt += f'{value_me:.3f} & '
+        txt = txt[:-2]
+        txt += '\ \\'.replace(' ', '')
+        print(txt)
+
+
+if __name__ == '__main__':
+    frames = []
+    for calc in ['mean', 'std', 'median']:
+        frames.append(main(calculate=calc))
+    prepare_for_latex(frames)
