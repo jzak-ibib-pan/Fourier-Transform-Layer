@@ -555,7 +555,7 @@ class ModelBuilder:
                        'time': 6,
                        'default': 6,
                        }
-        _MAX_WIDTHS = {'loss': 10,
+        _MAX_WIDTHS = {'loss': 13,
                        'acc': 8,
                        'top': 8,
                        'time': 12,

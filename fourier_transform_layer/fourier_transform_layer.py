@@ -6,6 +6,7 @@ from utils.sampling import DIRECTIONS, sampling_calculation
 # TODO: remove concatenate requirement
 # TODO: find source of nan loss and eliminate - nan appears with SGD; disappears with Adam or run_eagerly in compile
 # TODO: get_config implementation
+# TODO: move bias initializer to kwargs, depending on use_bias
 class FTL(Layer):
     def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
                  use_bias=False, bias_initializer='zeros', calculate_abs=True, normalize_to_image_shape=False,
