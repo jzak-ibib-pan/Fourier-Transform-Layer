@@ -71,7 +71,7 @@ def main(use_abs=False, calculate='mean'):
             with open(filepath + filename, 'r') as fil:
                 lines = fil.readlines()
             result = analyze(lines, monitor)
-            if literal_eval(result['ftl-calculate_abs']) == (not use_abs) or literal_eval(result['input_shape']) == (32, 32, 3):
+            if literal_eval(result['ftl-calculate_abs']) == (not use_abs) or literal_eval(result['input_shape']) == (32, 32, 1):
                 continue
             frame[result['ftl-activation']][result['Dataset']].append(result['Evaluation'][chosen_metric])
     result = frame.copy()
@@ -93,9 +93,11 @@ def prepare_for_latex(frames):
     frame_mean = frames[0].to_numpy()
     frame_std = frames[1].to_numpy()
     frame_median = frames[2].to_numpy()
+    frame_top = frames[1].head()
+    names = list(frame_top.index)
     print('Mean')
     for line_id in range(frame_mean.shape[0]):
-        txt = ''
+        txt = f'{names[line_id]} & '
         me = frame_mean[line_id]
         st = frame_std[line_id]
         for value_me, value_st in zip(me, st):
@@ -105,7 +107,7 @@ def prepare_for_latex(frames):
         print(txt)
     print('Median')
     for line_id in range(frame_median.shape[0]):
-        txt = ''
+        txt = f'{names[line_id]} & '
         for value_me in frame_mean[line_id]:
             txt += f'{value_me:.3f} & '
         txt = txt[:-2]
