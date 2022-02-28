@@ -7,6 +7,8 @@ from ast import literal_eval
 STANDARD_KEYS = ['ftl-activation',
                  'ftl-calculate_abs',
                  'input_shape',
+                 'use_imaginary',
+                 'ftl-kernel_initializer',
                  ]
 
 
@@ -51,7 +53,7 @@ def analyze(lines, monitor=[]):
     return result
 
 
-def main(use_abs=False, calculate='mean'):
+def main_activ_abs(use_abs=False, calculate='mean'):
     chosen_metric = 'cat_acc'
     frame = {'None': {},
              'tanh': {},
@@ -64,16 +66,53 @@ def main(use_abs=False, calculate='mean'):
             frame[key].update({dset: []})
     monitor = ['input_shape', 'ftl-activation', 'ftl-calculate_abs', 'Dataset']
     for tries in range(10):
-        filepath = f'../experiments/hyperparameter_optimization/results/try_0{tries}/'
+        filepath = f'../experiments/hyperparameter_optimization/results/abs_and_activation/try_0{tries}/'
         for filename in listdir(filepath):
             if filename == 'checkpoints':
                 continue
             with open(filepath + filename, 'r') as fil:
                 lines = fil.readlines()
             result = analyze(lines, monitor)
-            if literal_eval(result['ftl-calculate_abs']) == (not use_abs) or literal_eval(result['input_shape']) == (32, 32, 1):
+            if literal_eval(result['ftl-calculate_abs']) == (not use_abs) or literal_eval(result['input_shape']) == (32, 32, 3):
                 continue
             frame[result['ftl-activation']][result['Dataset']].append(result['Evaluation'][chosen_metric])
+    result = frame.copy()
+    for key in frame.keys():
+        for dset in ['cifar10', 'fmnist', 'mnist']:
+            if calculate == 'mean':
+                result[key][dset] = mean(frame[key][dset])
+                continue
+            if calculate == 'std':
+                result[key][dset] = std(frame[key][dset])
+                continue
+            if calculate == 'median':
+                result[key][dset] = median(frame[key][dset])
+                continue
+    return df.from_dict(data=result)
+
+
+def main(use_imag=False, calculate='mean'):
+    chosen_metric = 'cat_acc'
+    frame = {'ones': {},
+             'he_normal': {},
+             'glorot_uniform': {},
+             }
+    # set zeros for mean calculation
+    for key in frame.keys():
+        for dset in ['cifar10', 'fmnist', 'mnist']:
+            frame[key].update({dset: []})
+    monitor = ['input_shape', 'ftl-kernel_initializer', 'ftl-use_imaginary', 'Dataset']
+    for tries in range(10):
+        filepath = f'../experiments/hyperparameter_optimization/results/imag_and_initialization/try_0{tries}/'
+        for filename in listdir(filepath):
+            if filename == 'checkpoints':
+                continue
+            with open(filepath + filename, 'r') as fil:
+                lines = fil.readlines()
+            result = analyze(lines, monitor)
+            if literal_eval(result['ftl-use_imaginary']) == (not use_imag) or literal_eval(result['input_shape']) == (32, 32, 3):
+                continue
+            frame[result['ftl-kernel_initializer']][result['Dataset']].append(result['Evaluation'][chosen_metric])
     result = frame.copy()
     for key in frame.keys():
         for dset in ['cifar10', 'fmnist', 'mnist']:
@@ -116,9 +155,16 @@ def prepare_for_latex(frames):
 
 
 if __name__ == '__main__':
-    for use_abs in [False, True]:
-        print(use_abs)
+    for use in [False, True]:
+        print(use)
         frames = []
         for calc in ['mean', 'std', 'median']:
-            frames.append(main(use_abs, calculate=calc))
+            frames.append(main_activ_abs(use, calculate=calc))
+        prepare_for_latex(frames)
+
+    for use in [False, True]:
+        print(use)
+        frames = []
+        for calc in ['mean', 'std', 'median']:
+            frames.append(main(use, calculate=calc))
         prepare_for_latex(frames)
