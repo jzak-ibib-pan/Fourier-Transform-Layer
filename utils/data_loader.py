@@ -116,9 +116,11 @@ class DatasetLoader(DataLoader):
 
 
 class DataGenerator(DataLoader):
-    def __init__(self, dataset_name, out_shape):
+    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=8, seed=None):
         super(DataGenerator, self).__init__(dataset_name=dataset_name,
                                             out_shape=out_shape)
+
+
 
 
 def _select_images_by_target(data_x, data_y, targets):
