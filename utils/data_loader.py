@@ -8,12 +8,38 @@ from os.path import join, isfile
 
 
 class DataLoader:
-    def __init__(self):
-        self.X_train = []
-        self.Y_train = []
+    def __init__(self, shape):
+        self._X_train = []
+        self._Y_train = []
+        self._data_shape = shape
 
     def _load_data(self):
-        return 0
+        return self._data_shape
+
+    def load_data(self):
+        return self._load_data()
+
+    @staticmethod
+    def _resize_data(data, new_shape):
+        # assume one input image
+        if len(data.shape) < 4:
+            return resize(data, new_shape)
+        # iterate over every image
+        result = zeros((data.shape[0], *new_shape))
+        for it, image in enumerate(data):
+            result[it] = resize(image, new_shape)
+        return result
+
+    # pad to at least 32x32
+    @staticmethod
+    def _pad_data_to_32(data):
+        index_shape = 1
+        if len(data) < 4:
+            index_shape = 0
+        if all([sh >= 32 for sh in data.shape[index_shape : index_shape + 2]]):
+            return data
+        pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
+        return pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
 
 
 def _select_images_by_target(data_x, data_y, targets):
