@@ -1,4 +1,4 @@
-from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load
+from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load, squeeze
 from numpy.random import shuffle
 from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
@@ -8,23 +8,18 @@ from os.path import join, isfile
 
 
 class DataLoader:
-    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
-        self._X_train = []
-        self._Y_train = []
+    # TODO: add augmentation methods
+    # TODO: generator as a child
+    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1)):
         self._data_shape = out_shape[:2]
         self._channels = 1
         if len(out_shape.shape) >= 3:
             self._channels = out_shape[-1]
         self.dataset = dataset_name
-        self._flag_generate = False
-        if 'generator' in kwargs.keys():
-            self._flag_generate = kwargs['generator']
-        self._seed = None
-        if 'seed' in kwargs.keys():
-            self._seed = kwargs['seed']
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
+        noof_classes = 1
         if self.dataset.lower() == 'mnist':
             (x_train, y_train), (x_test, y_test) = mnist.load_data()
             noof_classes = 10
@@ -39,23 +34,37 @@ class DataLoader:
             noof_classes = 100
         y_train = to_categorical(y_train, noof_classes)
         y_test = to_categorical(y_test, noof_classes)
-        if not self._flag_generate:
-            return (x_train, y_train), (x_test, y_test)
-        return 0
+        x_train = self._preprocess_data(x_train)
+        x_test = self._preprocess_data(x_test)
+        return (x_train, y_train), (x_test, y_test)
 
     def load_data(self):
         return self._load_data()
 
+    def _preprocess_data(self, data):
+        # resize if necessary
+        result = self._resize_data(data, self._data_shape)
+        # pad if necessary
+        result = self._pad_data_to_32(result)
+        # expand dimentions if necessary
+        result = self._expand_dims(result, channels=self._channels)
+        return result
+
     @staticmethod
     def _resize_data(data, new_shape):
+        _data = data.copy()
         # assume one input image
-        if len(data.shape) < 4:
-            return resize(data, new_shape)
+        if len(_data.shape) < 4:
+            _data = expand_dims(_data, axis=0)
+        # do not perform resize if unnecessary
+        if _data.shape[1:] == new_shape:
+            return data
         # iterate over every image
-        result = zeros((data.shape[0], *new_shape))
+        result = zeros((_data.shape[0], *new_shape))
         for it, image in enumerate(data):
             result[it] = resize(image, new_shape)
-        return result
+        # resize removes trailing (1) shapes anyway
+        return squeeze(result)
 
     # pad to at least 32x32
     @staticmethod
@@ -68,6 +77,11 @@ class DataLoader:
         pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
         return pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
 
+    @staticmethod
+    def _expand_dims(data, channels=1):
+        if len(data.shape) < 4:
+            return repeat(expand_dims(data, axis=-1), repeats=channels, axis=-1)
+        return data
 
 
 
@@ -235,4 +249,4 @@ def prepare_data_for_sampling(dataset, **kwargs):
 
 
 if __name__ == '__main__':
-    print(0)
+    loader = DataLoader('mnist', (64, 64, 1))
