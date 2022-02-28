@@ -7,6 +7,15 @@ from os import listdir
 from os.path import join, isfile
 
 
+class DataLoader:
+    def __init__(self):
+        self.X_train = []
+        self.Y_train = []
+
+    def _load_data(self):
+        return 0
+
+
 def _select_images_by_target(data_x, data_y, targets):
     # TODO: make sure it works on cifar10
     assert type(targets) is list, 'Must provide a list of targets.'
