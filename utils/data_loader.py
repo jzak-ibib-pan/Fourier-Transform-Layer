@@ -54,9 +54,12 @@ class DataLoader:
     @staticmethod
     def _resize_data(data, new_shape):
         _data = data.copy()
-        # assume one input image
-        if len(_data.shape) < 4:
+        # single image
+        if len(_data.shape) == 2:
             _data = expand_dims(_data, axis=0)
+        # collection of images
+        if len(_data.shape) == 3:
+            _data = expand_dims(_data, axis=-1)
         # do not perform resize if unnecessary
         if _data.shape[1:] == new_shape:
             return data
