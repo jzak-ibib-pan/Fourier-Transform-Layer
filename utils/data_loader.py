@@ -92,7 +92,7 @@ class DataLoader:
 class DatasetLoader(DataLoader):
     @property
     def x_train(self):
-        return self._x_train
+        return self._x_train / 255
 
     @property
     def y_train(self):
@@ -100,7 +100,7 @@ class DatasetLoader(DataLoader):
 
     @property
     def x_test(self):
-        return self._x_test
+        return self._x_test / 255
 
     @property
     def y_test(self):
@@ -108,19 +108,25 @@ class DatasetLoader(DataLoader):
 
     @property
     def train_data(self):
-        return self.x_train, self.y_train
+        return self.x_train / 255, self.y_train
 
     @property
     def test_data(self):
-        return self.x_test, self.y_test
+        return self.x_test / 255, self.y_test
 
 
 class DataGenerator(DataLoader):
-    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=8, seed=None):
+    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, seed=None):
         super(DataGenerator, self).__init__(dataset_name=dataset_name,
                                             out_shape=out_shape)
+        self._batch = batch
+        self._seed = seed
+        self._val_split = split
 
-
+    def _generator(self):
+        while True:
+            yield True
+        return self._batch
 
 
 def _select_images_by_target(data_x, data_y, targets):
