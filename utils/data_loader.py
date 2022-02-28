@@ -13,7 +13,7 @@ class DataLoader:
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1)):
         self._data_shape = out_shape[:2]
         self._channels = 1
-        if len(out_shape.shape) >= 3:
+        if len(out_shape) >= 3:
             self._channels = out_shape[-1]
         self.dataset = dataset_name
         self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
@@ -37,7 +37,7 @@ class DataLoader:
         y_test = to_categorical(y_test, noof_classes)
         x_train = self._preprocess_data(x_train)
         x_test = self._preprocess_data(x_test)
-        return (x_train, y_train), (x_test, y_test)
+        return x_train, y_train, x_test, y_test
 
     def load_data(self):
         return self._load_data()
