@@ -1,20 +1,47 @@
 from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load
 from numpy.random import shuffle
 from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
-from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
+from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
 from tensorflow.keras.utils import to_categorical
 from os import listdir
 from os.path import join, isfile
 
 
 class DataLoader:
-    def __init__(self, shape):
+    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
         self._X_train = []
         self._Y_train = []
-        self._data_shape = shape
+        self._data_shape = out_shape[:2]
+        self._channels = 1
+        if len(out_shape.shape) >= 3:
+            self._channels = out_shape[-1]
+        self.dataset = dataset_name
+        self._flag_generate = False
+        if 'generator' in kwargs.keys():
+            self._flag_generate = kwargs['generator']
+        self._seed = None
+        if 'seed' in kwargs.keys():
+            self._seed = kwargs['seed']
 
     def _load_data(self):
-        return self._data_shape
+        x_train, y_train, x_test, y_test = (0, 0, 0, 0)
+        if self.dataset.lower() == 'mnist':
+            (x_train, y_train), (x_test, y_test) = mnist.load_data()
+            noof_classes = 10
+        if self.dataset.lower() == 'fmnist':
+            (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+            noof_classes = 10
+        if self.dataset.lower() == 'cifar10':
+            (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+            noof_classes = 10
+        if self.dataset.lower() == 'cifar100':
+            (x_train, y_train), (x_test, y_test) = cifar100.load_data()
+            noof_classes = 100
+        y_train = to_categorical(y_train, noof_classes)
+        y_test = to_categorical(y_test, noof_classes)
+        if not self._flag_generate:
+            return (x_train, y_train), (x_test, y_test)
+        return 0
 
     def load_data(self):
         return self._load_data()
@@ -40,6 +67,8 @@ class DataLoader:
             return data
         pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
         return pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
+
+
 
 
 def _select_images_by_target(data_x, data_y, targets):
