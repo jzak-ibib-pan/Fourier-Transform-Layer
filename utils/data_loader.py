@@ -11,6 +11,7 @@ class DataLoader:
     # TODO: add augmentation methods
     # TODO: generator as a child
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1)):
+        assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
         self._data_shape = out_shape[:2]
         self._channels = 1
         if len(out_shape) >= 3:
@@ -276,7 +277,7 @@ def prepare_data_for_sampling(dataset, **kwargs):
 
 
 if __name__ == '__main__':
-    loader = DataLoader('mnist', (64, 64, 1))
-    x = loader.x_train
-    y = loader.y_train
+    loader = DataLoader('mnist', (32, 32, 3))
+    print(loader.x_train.shape)
+    print(loader.y_train.shape)
     print(0)
