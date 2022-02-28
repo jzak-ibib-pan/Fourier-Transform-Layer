@@ -16,6 +16,7 @@ class DataLoader:
         if len(out_shape.shape) >= 3:
             self._channels = out_shape[-1]
         self.dataset = dataset_name
+        self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -83,6 +84,29 @@ class DataLoader:
             return repeat(expand_dims(data, axis=-1), repeats=channels, axis=-1)
         return data
 
+    @property
+    def x_train(self):
+        return self._x_train
+
+    @property
+    def y_train(self):
+        return self._y_train
+
+    @property
+    def x_test(self):
+        return self._x_test
+
+    @property
+    def y_test(self):
+        return self._y_test
+
+    @property
+    def train_data(self):
+        return self.x_train, self.y_train
+
+    @property
+    def test_data(self):
+        return self.x_test, self.y_test
 
 
 def _select_images_by_target(data_x, data_y, targets):
@@ -250,3 +274,6 @@ def prepare_data_for_sampling(dataset, **kwargs):
 
 if __name__ == '__main__':
     loader = DataLoader('mnist', (64, 64, 1))
+    x = loader.x_train
+    y = loader.y_train
+    print(0)
