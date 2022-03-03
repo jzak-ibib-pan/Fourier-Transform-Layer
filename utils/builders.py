@@ -726,7 +726,6 @@ class CustomBuilder(ModelBuilder):
                             'bias_initializer': 'zeros',
                             'calculate_abs': True,
                             'normalize_to_image_shape': False,
-                            'phase_training': False,
                             },
                     'ftl_super_resolution': {'activation': None,
                                              'kernel_initializer': 'he_normal',
