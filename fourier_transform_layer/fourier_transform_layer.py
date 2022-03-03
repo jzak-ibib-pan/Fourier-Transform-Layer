@@ -117,17 +117,17 @@ class FTLSuperResolution(FTL):
                  use_bias=False, bias_initializer='zeros', normalize_to_image_shape=False,
                  **kwargs):
         super(FTLSuperResolution, self).__init__(activation=activation,
-                                                   kernel_initializer=kernel_initializer,
-                                                   # required for superresolution
-                                                   use_imaginary=True,
-                                                   # required for superresolution
-                                                   inverse=True,
-                                                   use_bias=use_bias,
-                                                   bias_initializer=bias_initializer,
-                                                   normalize_to_image_shape=normalize_to_image_shape,
-                                                   # required for superresolution
-                                                   phase_training=False,
-                                                   **kwargs)
+                                                 kernel_initializer=kernel_initializer,
+                                                 # required for superresolution
+                                                 use_imaginary=True,
+                                                 # required for superresolution
+                                                 inverse=True,
+                                                 # possibly required for superresolution
+                                                 calculate_abs=True,
+                                                 use_bias=use_bias,
+                                                 bias_initializer=bias_initializer,
+                                                 normalize_to_image_shape=normalize_to_image_shape,
+                                                 **kwargs)
         self._nominator = sampling_nominator
         # in this case direction must be specified
         self._sampling_direction = DIRECTIONS[direction]
@@ -143,6 +143,7 @@ class FTLSuperResolution(FTL):
     def call(self, input_tensor, **kwargs):
         real, imag = self._perform_fft(input_tensor, self._flag_normalize)
         _real = self._pad_or_extract(real, self._target_shape, self._direction)
+        _imag = None
         if self._flag_use_imaginary:
             _imag = self._pad_or_extract(imag, self._target_shape, self._direction)
         return self._call_process_split_fft(_real, _imag)
