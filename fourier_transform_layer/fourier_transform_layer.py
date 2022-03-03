@@ -3,7 +3,7 @@ from tensorflow.keras.layers import Layer, Concatenate
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 from utils.sampling import DIRECTIONS, sampling_calculation
 
-# TODO: remove concatenate requirement
+# SOLVED: remove concatenate requirement
 # TODO: find source of nan loss and eliminate - nan appears with SGD; disappears with Adam or run_eagerly in compile
 # TODO: get_config implementation
 # TODO: move bias initializer to kwargs, depending on use_bias - to consider
