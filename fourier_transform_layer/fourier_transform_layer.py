@@ -10,13 +10,11 @@ from utils.sampling import DIRECTIONS, sampling_calculation
 class FTL(Layer):
     def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
                  use_bias=False, bias_initializer='zeros', calculate_abs=True, normalize_to_image_shape=False,
-                 phase_training=False, **kwargs):
+                 **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
-        assert not (inverse is True and phase_training is True), 'Cannot phase train and inverse at the same time.'
         assert not (inverse is True and use_imaginary is False), 'Cannot inverse FFT without imaginary part.'
-        assert not (phase_training is True and use_imaginary is False), 'Cannot phase train without imaginary part.'
         self._kernel_shape_0 = {True: 2,
                                 False: 1,
                                 }
@@ -34,7 +32,6 @@ class FTL(Layer):
         elif activation == 'selu':
             self._activation = selu
         self._kernel_initializer = kernel_initializer
-        self._flag_phase_training = phase_training
         self._flag_inverse = inverse
         self._flag_use_imaginary = use_imaginary
         self._flag_normalize = normalize_to_image_shape
@@ -71,7 +68,7 @@ class FTL(Layer):
         return self._call_process_split_fft(real, imag)
 
     def compute_output_shape(self, input_shape):
-        if self._flag_phase_training or self._flag_calculate_abs:
+        if self._flag_calculate_abs:
             return input_shape, input_shape
         return input_shape
 
@@ -88,11 +85,6 @@ class FTL(Layer):
         _imag = tf.multiply(imag, self._kernel[1])
         if self._flag_use_bias:
             _imag = tf.add(_imag, self._bias[1])
-
-        if self._flag_phase_training:
-            if self._activation is not None:
-                return self._activation(_real), self._activation(_imag)
-            return _real, _imag
 
         x = tf.cast(tf.dtypes.complex(_real, _imag), tf.complex64)
         if self._flag_inverse:
