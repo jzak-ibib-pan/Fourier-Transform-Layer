@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import Layer, Concatenate
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 from utils.sampling import DIRECTIONS, sampling_calculation
 
@@ -99,8 +99,8 @@ class FTL(Layer):
         # returning only real would work the same as use_imaginary = False
         result_real, result_imag = tf.math.real(x), tf.math.imag(x)
         if self._activation is not None:
-            return self._activation(result_real), self._activation(result_imag)
-        return result_real, result_imag
+            return Concatenate(axis=0)([self._activation(result_real), self._activation(result_imag)])
+        return Concatenate(axis=0)([result_real, result_imag])
 
     @staticmethod
     def _perform_fft(input_tensor, normalize=False):
