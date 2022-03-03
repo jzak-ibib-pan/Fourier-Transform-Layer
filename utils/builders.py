@@ -654,6 +654,10 @@ class ModelBuilder:
     def evaluation(self):
         return self._evaluation
 
+    @property
+    def filename(self):
+        return self._filename
+
 
 # Custom model builder - can build any model (including hybrid), based on layer information
 class CustomBuilder(ModelBuilder):
