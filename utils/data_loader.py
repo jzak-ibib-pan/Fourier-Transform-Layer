@@ -9,7 +9,7 @@ from os.path import join, isfile
 
 class DataLoader:
     # TODO: add augmentation methods
-    # TODO: generator as a child
+    # TODO: saving data processing to .npy
     # split is redundant here, since keras will split the data during training on a whole dataset
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
@@ -160,6 +160,8 @@ class DataGenerator(DataLoader):
 
     def _generator(self):
         # 1. prepare data list to be shuffled
+        # 1a. (optional) split the list between train and val data
+        # 1b. (optional) the same generator, only generates validation data
         # 2. actually shuffle and load the data
         while True:
             yield self._batch
