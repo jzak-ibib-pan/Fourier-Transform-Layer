@@ -1,5 +1,5 @@
 from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load, squeeze
-from numpy.random import shuffle
+from numpy.random import shuffle, seed, randint
 from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
 from tensorflow.keras.utils import to_categorical
@@ -146,12 +146,17 @@ class DatasetLoader(DataLoader):
 
 
 class DataGenerator(DataLoader):
-    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, seed=None):
-        super(DataGenerator, self).__init__(dataset_name=dataset_name,
-                                            out_shape=out_shape)
+    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
+        if dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100']:
+            super(DataGenerator, self).__init__(dataset_name=dataset_name,
+                                                out_shape=out_shape,
+                                                **kwargs)
         self._batch = batch
-        self._seed = seed
         self._val_split = split
+        if shuffle_seed < 0:
+            seed(randint(2**31))
+        elif shuffle_seed:
+            seed(shuffle_seed)
 
     def _generator(self):
         while True:
