@@ -144,6 +144,10 @@ class DatasetLoader(DataLoader):
     def test_data(self):
         return self.x_test / 255, self.y_test
 
+    @property
+    def full_data(self):
+        return self.x_train / 255, self.y_train, self.x_test / 255, self.y_test
+
 
 class DataGenerator(DataLoader):
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
