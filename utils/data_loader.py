@@ -10,7 +10,8 @@ from os.path import join, isfile
 class DataLoader:
     # TODO: add augmentation methods
     # TODO: generator as a child
-    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1)):
+    # split is redundant here, since keras will split the data during training on a whole dataset
+    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
         self._data_shape = out_shape[:2]
         self._channels = 1
@@ -18,6 +19,12 @@ class DataLoader:
             self._channels = out_shape[-1]
         self.dataset = dataset_name
         self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
+        _targets = None
+        if 'targets' in kwargs.keys():
+            _targets = kwargs['targets']
+        if _targets is not None:
+            self._x_train, self._y_train = self._select_data_by_target(self._x_train, self._y_train, _targets)
+            self._x_test, self._y_test = self._select_data_by_target(self._x_test, self._y_test, _targets)
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -88,6 +95,29 @@ class DataLoader:
             return repeat(expand_dims(data, axis=-1), repeats=channels, axis=-1)
         return data
 
+    @staticmethod
+    def _select_data_by_target(data_x, data_y, targets):
+        # TODO: make sure it works on cifar10
+        assert type(targets) is list, 'Must provide a list of targets.'
+        assert len(targets) > 0, 'Must provide at least one target.'
+        assert all([type(t) is int for t in targets]), 'Must provide a list of ints.'
+        y_chosen = [False for _ in data_y]
+        for target_01 in targets:
+            y_chosen = logical_or(y_chosen, data_y == target_01)
+            if len(targets) <= 1:
+                continue
+            for target_02 in targets:
+                if target_01 == target_02:
+                    continue
+                assert target_01 != target_02, 'The same targets provided.'
+        x = data_x[y_chosen]
+        # otherwise may end up with non-consecutive values
+        y_cat = data_y[y_chosen]
+        for it, target in enumerate(sorted(targets)):
+            y_cat[y_cat == target] = it
+        y = to_categorical(y_cat)
+        return x, y
+
 
 class DatasetLoader(DataLoader):
     @property
@@ -125,8 +155,7 @@ class DataGenerator(DataLoader):
 
     def _generator(self):
         while True:
-            yield True
-        return self._batch
+            yield self._batch
 
 
 def _select_images_by_target(data_x, data_y, targets):
