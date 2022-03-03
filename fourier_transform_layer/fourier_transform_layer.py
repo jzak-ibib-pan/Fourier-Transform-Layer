@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, Concatenate
+from tensorflow.keras.layers import Layer
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 from utils.sampling import DIRECTIONS, sampling_calculation
 
