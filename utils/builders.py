@@ -55,6 +55,7 @@ class ModelBuilder:
         self._length = 0
         # Fourier weights reveal whether imag is used or not
         self._SUMMARIES = {'fourier': True,
+                           'custom': True,
                            'default': False,
                            }
         self._history = []
