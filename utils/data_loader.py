@@ -223,7 +223,23 @@ class DataGenerator(DataLoader):
     def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
         self._batch = batch
         self._seed = self._process_seed(shuffle_seed)
+        self._out_shape = out_shape
+        self._noof_classes = 0
 
+    @staticmethod
+    def _generate_data(out_shape):
+        return np.zeros(out_shape), 0
+
+    def _generator(self):
+        _X = np.zeros((self._batch, *self._out_shape))
+        _Y = np.zeros((self._batch,))
+        for rep in range(self._batch):
+            _X[rep], _Y[rep] = self._generate_data(self._out_shape)
+        yield _X, _Y
+
+    @property
+    def generator(self):
+        return self._generator()
 
 
 if __name__ == '__main__':
