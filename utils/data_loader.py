@@ -105,7 +105,7 @@ class DataLoader:
         if len(_data.shape) == 2:
             _data = np.expand_dims(_data, axis=0)
         # collection of images
-        if len(_data.shape) == 3:
+        if len(_data.shape) == 3 and _data.shape[2] not in [1, 3]:
             _data = np.expand_dims(_data, axis=-1)
         # do not perform resize if unnecessary
         if _data.shape[1:] == new_shape:
@@ -113,6 +113,7 @@ class DataLoader:
         # iterate over every image
         result = np.zeros((_data.shape[0], *new_shape))
         for it, image in enumerate(data):
+            # TODO: solve index out of bounds for axis
             result[it] = resize(image, new_shape)
         # resize removes trailing (1) shapes anyway
         return np.squeeze(result)
@@ -188,8 +189,7 @@ class DataLoader:
         xy = ndimage.rotate(_data, angle)
         shx, shy = [sh // 2 for sh in xy.shape[:2]]
         # this returned half an image
-        # return xy[shx - shape[0] // 2 : shx + shape[0] // 2, shy - shape[1] // 2 : shy + shape[1] // 2]
-        return xy
+        return xy[shx - shape[0] : shx + shape[0], shy - shape[1] : shy + shape[1]]
 
     @staticmethod
     def _augment_noise(data, flag):
