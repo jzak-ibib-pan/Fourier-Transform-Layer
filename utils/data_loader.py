@@ -157,7 +157,7 @@ class DataGenerator(DataLoader):
                                                 **kwargs)
         self._batch = batch
         self._val_split = split
-        if shuffle_seed < 0:
+        if shuffle_seed is None or shuffle_seed < 0:
             seed(randint(2**31))
         elif shuffle_seed:
             seed(shuffle_seed)
@@ -170,9 +170,11 @@ class DataGenerator(DataLoader):
         while True:
             yield self._batch
 
+    @property
+    def generator(self):
+        return self._generator()
+
 
 if __name__ == '__main__':
-    loader = DatasetLoader('mnist', (32, 32, 3))
-    print(loader.x_train.shape)
-    print(loader.y_train.shape)
-    print(0)
+    generator = DataGenerator().generator
+    print(next(generator))
