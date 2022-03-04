@@ -57,8 +57,10 @@ class DataLoader:
         result = self._pad_data_to_32(result)
         # expand dimentions if necessary
         result = self._expand_dims(result, channels=self._channels)
-        if type(result) == np.uint8:
-            print(0)
+        if type(result) == np.uint8 and np.max(result) == 2**8 - 1:
+            result = result / (2**8 - 1)
+        if type(result) == np.uint16 and np.max(result) == 2**16 - 1:
+            result = result / (2**16 - 1)
         return result
 
     @staticmethod
@@ -159,7 +161,7 @@ class DatasetGenerator(DataLoader):
                                                out_shape=out_shape,
                                                **kwargs)
         self._batch = batch
-        self._shuffle_seed = np.randint(2**31)
+        self._shuffle_seed = np.random.randint(2**31)
         if shuffle_seed is not None and shuffle_seed >= 0:
             self._shuffle_seed = shuffle_seed
         self._flag_validation = split > 0
