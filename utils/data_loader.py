@@ -1,5 +1,6 @@
 from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load, squeeze
-from numpy.random import shuffle, seed, randint
+from numpy.random import seed, randint
+from sklearn.utils import shuffle
 from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
 from tensorflow.keras.utils import to_categorical
@@ -149,32 +150,51 @@ class DatasetLoader(DataLoader):
         return self.x_train / 255, self.y_train, self.x_test / 255, self.y_test
 
 
-class DataGenerator(DataLoader):
-    # TODO: MotherlistGenerator as a child
+class DatasetGenerator(DataLoader):
+    # TODO: MotherlistGenerator, DataGenerator as children
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
-        if dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100']:
-            super(DataGenerator, self).__init__(dataset_name=dataset_name,
-                                                out_shape=out_shape,
-                                                **kwargs)
+        assert dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100'], 'Other datasets not supported.'
+        super(DatasetGenerator, self).__init__(dataset_name=dataset_name,
+                                               out_shape=out_shape,
+                                               **kwargs)
         self._batch = batch
-        if shuffle_seed is None or shuffle_seed < 0:
-            seed(randint(2**31))
-        elif shuffle_seed:
-            seed(shuffle_seed)
-        # 1. prepare data list to be shuffled - changes with dataset
+        self._shuffle_seed = randint(2**31)
+        if shuffle_seed is not None and shuffle_seed >= 0:
+            self._shuffle_seed = shuffle_seed
+        self._flag_validation = split > 0
+        # 1. prepare data list to be shuffled - changes with dataset - already loaded from DataLoader
         # 1a. (optional) split the list between train and val data
+        self._x_train, self._y_train, self._x_val, self._y_val = self._split_data(self._x_train,
+                                                                                self._y_train,
+                                                                                split=split)
+
 
 
     def _generator(self, validation=False):
-        # 1b. (optional) the same generator, only generates validation data
+        x_data, y_data = self._x_train, self._y_train
+        if validation:
+            x_data, y_data = self._x_val, self._y_val
         # 2. actually shuffle and load the data
+        x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
+        index_data = 0
         while True:
-            yield self._batch
+            X = zeros((self._batch, *x_data.shape[1:]))
+            Y = zeros((self._batch, *y_data.shape[1:]))
+            # this will "eat" the end of dataset without loading, but shuffling should smooth the errors
+            if index_data + self._batch >= x_data.shape[0]:
+                x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
+                index_data = 0
+                continue
+            for rep in range(self._batch):
+                X[rep] = x_data[index_data]
+                Y[rep] = y_data[index_data]
+                index_data += 1
+            yield X, Y
 
     @staticmethod
     def _split_data(x_data, y_data, split=0.1):
         if split == 0:
-            return x_data, y_data
+            return x_data, y_data, [], []
         cutoff = (1 - split) * x_data.shape[0]
         return x_data[:cutoff], y_data[:cutoff], x_data[cutoff:], y_data[cutoff:]
 
@@ -185,10 +205,11 @@ class DataGenerator(DataLoader):
 
     @property
     def validation_generator(self):
+        assert self._flag_validation, 'Must have validation data to generate it.'
         # implicit, just to make no mistakes
         return self._generator(validation=True)
 
 
 if __name__ == '__main__':
-    generator = DataGenerator().generator
+    generator = DatasetGenerator().generator
     print(next(generator))
