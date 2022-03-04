@@ -1,10 +1,12 @@
 import numpy as np
 from sklearn.utils import shuffle
+from scipy import ndimage
 from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
 from tensorflow.keras.utils import to_categorical
 from os import listdir
 from os.path import join, isfile
+from warnings import warn
 
 
 class DataLoader:
@@ -218,6 +220,7 @@ class DatasetGenerator(DataLoader):
         return self._generator(validation=True)
 
 
+# Generic class
 class DataGenerator(DataLoader):
     # TODO: MotherlistGenerator as a child
     def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
@@ -235,11 +238,116 @@ class DataGenerator(DataLoader):
         _Y = np.zeros((self._batch,))
         for rep in range(self._batch):
             _X[rep], _Y[rep] = self._generate_data(self._out_shape)
-        yield _X, _Y
+        yield _X, to_categorical(_Y, self._noof_classes)
 
     @property
     def generator(self):
         return self._generator()
+
+
+class FringeGenerator(DataGenerator):
+    def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
+        super(FringeGenerator, self).__init__(out_shape, batch, shuffle_seed)
+        self._noof_classes = 2
+        self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
+        self._ROTATIONS = [25, 45, 135, 170]
+        self._WARNING_FLAGS = 'Both noise and rotation are used. Not recommended for experiments.'
+        self._flag_shift = False
+        if 'shift' in kwargs.keys() and kwargs['shift']:
+            assert type(kwargs['shift']) is bool, 'Shift must be a boolean.'
+            self._flag_shift = kwargs['shift']
+        self._flag_noise = False
+        if 'noise' in kwargs.keys() and kwargs['noise']:
+            assert kwargs['noise'] in self._VARIANCES, \
+                f'Wrong variance value. Input one of the following {self._VARIANCES}.'
+            self._flag_noise = True
+            var = kwargs['noise']
+            self._mean = 0
+            self._sigma = var ** 0.5
+        self._flag_rotation = False
+        if 'rotation' in kwargs.keys() and kwargs['rotation']:
+            assert kwargs['rotation'] in self._ROTATIONS, \
+                f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
+            self._flag_rotation = True
+            self._rot_angle = kwargs['rotation']
+        if self._flag_noise and self._flag_rotation:
+            warn(self._WARNING_FLAGS)
+        self._flag_test = False
+        if 'test' in kwargs.keys() and kwargs['test']:
+            assert kwargs['test'] in [0, 1], 'Test must be one of targets (0, 1).'
+            self._test_class = kwargs['test']
+            self._flag_test = True
+        self._flag_discrete = False
+        if 'discrete' in kwargs.keys() and kwargs['discrete']:
+            assert type(kwargs['discrete']) is bool, 'Discrete must be a boolean.'
+            self._flag_discrete = kwargs['discrete']
+
+    def _generate_data(self, **kwargs):
+        while True:
+            _X, _Y = ([], [])
+            while len(Y) < self._batch:
+                rand = np.random.randint(1, 3)
+                if self._flag_test:
+                    rand = 1 + self._test_class
+                # no shifting fringes
+                shift = 0
+                if self._flag_shift:
+                    # added shifting fringes
+                    shift = np.pi * np.random.randn() / 2
+                    # shift = np.pi * np.random.choice([0, 0.25, 0.5], 1)[0]
+                x = np.linspace(shift, shift + 2 * np.pi, self._out_shape[0])
+                # 2 - two fringe tops
+                multiplier = 3
+                if self._flag_discrete:
+                    multiplier = 8
+                y = 32.0 + (31.0 * np.sin(x * multiplier))
+                y = np.uint8(y)
+
+                if rand % 2 == 0:
+                    xy = np.tile(y, (self._out_shape[1], 1))  # pionowe prążki
+                    if self._flag_rotation:
+                        # 5 zamiast 2 - więcej prążków po obrocie
+                        x = np.linspace(shift, shift + 5 * np.pi, self._out_shape[0] * 2)
+                        y = 32.0 + (31.0 * np.sin(x * 2))
+                        y = np.uint8(y)
+                        xy = np.tile(y, (self._out_shape[1] * 2, 1))  # pionowe prążki
+                        xy = self._rotate_by_scipy(xy, self._rot_angle)
+                    klasa = 1
+                else:
+                    xy = np.tile(y, (self._out_shape[1], 1))  # poziome prążki
+                    xy = np.transpose(xy)
+                    klasa = 0
+
+                xy = xy / (self._out_shape[0] - 1)
+                # próba pozbycia się błędów
+                xy = xy - np.min(xy)
+                xy = xy / np.max(xy)
+
+                if self._flag_discrete:
+                    xy[xy >= 0.5] = 1
+                    xy[xy < 1] = 0
+
+                # dalsze próby
+                x_t = xy / 100
+                x_t = np.expand_dims(x_t, axis=-1)
+
+                if self._flag_noise:
+                    r, c, ch = x_t.shape
+                    gausss = np.random.normal(self._mean, self._sigma, (r, c, ch))
+                    gausss = gausss.reshape(r, c, ch)
+                    x_t = x_t + gausss
+
+                _X.append(x_t)
+                _Y.append(klasa)
+
+            yield np.array(_X), to_categorical(_Y, self._noof_classes)
+
+    @staticmethod
+    def _rotate_by_scipy(x, angle=45):
+        shape = [sh // 2 for sh in x.shape[:2]]
+        xy = ndimage.rotate(x, angle)
+        shx, shy = [sh // 2 for sh in xy.shape[:2]]
+        return xy[shx - shape[0] // 2 : shx + shape[0] // 2, shy - shape[1] // 2 : shy + shape[1] // 2]
 
 
 if __name__ == '__main__':
