@@ -72,15 +72,17 @@ class DataLoader:
             noof_classes = 100
         y_train = to_categorical(y_train, noof_classes)
         y_test = to_categorical(y_test, noof_classes)
-        x_train = self._preprocess_data(x_train)
-        x_test = self._preprocess_data(x_test)
+        x_train = self._preprocess_data(x_train, augmentation=False)
+        x_test = self._preprocess_data(x_test, augmentation=False)
         return x_train, y_train, x_test, y_test
 
     def load_data(self):
         return self._load_data()
 
-    def _preprocess_data(self, data):
-        result = self._augment_data(data)
+    def _preprocess_data(self, data, augmentation=True):
+        result = data.copy()
+        if augmentation:
+            result = self._augment_data(result)
         # resize if necessary
         result = self._resize_data(result, self._data_shape)
         # np.pad if necessary
