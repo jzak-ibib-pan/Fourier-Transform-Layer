@@ -402,7 +402,7 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
-    generator = DatasetGenerator(shift=32).generator
+    generator = DatasetGenerator(shift=5).generator
     X, Y = next(generator)
     print(Y)
     plt.imshow(np.squeeze(X[0]))
