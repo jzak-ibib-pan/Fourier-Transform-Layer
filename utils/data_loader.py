@@ -162,8 +162,8 @@ class DataGenerator(DataLoader):
         elif shuffle_seed:
             seed(shuffle_seed)
 
-    def _generator(self):
-        # 1. prepare data list to be shuffled
+    def _generator(self, validation=False):
+        # 1. prepare data list to be shuffled - changes with dataset
         # 1a. (optional) split the list between train and val data
         # 1b. (optional) the same generator, only generates validation data
         # 2. actually shuffle and load the data
@@ -172,7 +172,12 @@ class DataGenerator(DataLoader):
 
     @property
     def generator(self):
-        return self._generator()
+        # implicit, just to make no mistakes
+        return self._generator(validation=False)
+
+    @property
+    def validation_generator(self):
+        return self._generator(validation=True)
 
 
 if __name__ == '__main__':
