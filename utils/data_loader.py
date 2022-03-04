@@ -16,16 +16,16 @@ class DataLoader:
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
-        self._ROTATIONS = np.arange(180)
+        self._ROTATIONS = np.arange(181)
         self._flags = {'shift' : {},
                        'noise': {},
                        'rotation': {},
                        }
         self._flag_shift = False
         if 'shift' in kwargs.keys() and kwargs['shift']:
-            assert type(kwargs['shift']) is bool, 'Shift must be a boolean.'
-            self._flag_shift = kwargs['shift']
-            self._flags['shift'].update({'threshold': 0.5})
+            assert type(kwargs['shift']) is int, 'Shift must be a boolean.'
+            self._flag_shift = True
+            self._flags['shift'].update({'threshold': 0, 'value': kwargs['shift']})
         self._flag_noise = False
         if 'noise' in kwargs.keys() and kwargs['noise']:
             assert kwargs['noise'] in self._VARIANCES, \
@@ -41,7 +41,7 @@ class DataLoader:
                 f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
             self._flag_rotation = True
             self._rot_angle = kwargs['rotation']
-            self._flags['rotation'].update({'threshold': 0, 'angle': self._rot_angle})
+            self._flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
         self._data_shape = out_shape[:2]
         self._channels = 1
         if len(out_shape) >= 3:
@@ -112,8 +112,8 @@ class DataLoader:
             return data
         # iterate over every image
         result = np.zeros((_data.shape[0], *new_shape))
-        for it, image in enumerate(data):
-            # SOLVED: solve index out of bounds for axis
+        # SOLVED: solve index out of bounds for axis - caused by iterating over data, not _data
+        for it, image in enumerate(_data):
             result[it] = resize(image, new_shape)
         # resize removes trailing (1) shapes anyway
         return np.squeeze(result)
@@ -165,10 +165,11 @@ class DataLoader:
         return np.random.randint(2**31)
 
     # Augmentation methods
+    # TODO: rotation in range
     def _augment_data(self, data):
         _data = data.copy()
         if self._flags['shift'] and np.random.rand() > self._flags['shift']['threshold']:
-            _data = self._augment_shift(_data)
+            _data = self._augment_shift(_data, self._flags['shift']['value'])
         if self._flags['rotation'] and np.random.rand() > self._flags['rotation']['threshold']:
             _data = self._augment_rotate(_data, self._flags['rotation']['angle'])
         if self._flags['noise'] and np.random.rand() > self._flags['noise']['threshold']:
@@ -177,9 +178,25 @@ class DataLoader:
 
     # placeholder
     @staticmethod
-    def _augment_shift(data):
-        # TODO: implementation
-        _data = data.copy()
+    def _augment_shift(data, shift_value):
+        # SOLVED: implementation
+        sx, sy = data.shape[:2]
+        shift_shape = [sh + 2 * shift_value for sh in [sx, sy]]
+        shift_x, shift_y = np.random.randint(shift_value, size=2)
+        sign = {True: 1,
+                False: -1,
+                }
+        randx, randy = (np.random.rand() > 0.5, np.random.rand() > 0.5)
+        x_range = [shift_shape[0] // 2 - sx // 2 + sign[randx] * shift_x,
+                   shift_shape[0] // 2 + sx // 2 + sign[randx] * shift_x]
+        y_range = [shift_shape[1] // 2 - sy // 2 + sign[randy] * shift_y,
+                   shift_shape[1] // 2 + sy // 2 + sign[randy] * shift_y]
+        if len(data.shape) == 3:
+            _data = np.zeros((*shift_shape, data.shape[2]))
+            _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1], :] = data
+            return _data
+        _data = np.zeros(shift_shape)
+        _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1]] = data
         return _data
 
     @staticmethod
@@ -385,7 +402,7 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
-    generator = DatasetGenerator(rotation=15).generator
+    generator = DatasetGenerator(shift=32).generator
     X, Y = next(generator)
     print(Y)
     plt.imshow(np.squeeze(X[0]))
