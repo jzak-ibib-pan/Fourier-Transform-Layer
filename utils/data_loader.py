@@ -150,25 +150,33 @@ class DatasetLoader(DataLoader):
 
 
 class DataGenerator(DataLoader):
+    # TODO: MotherlistGenerator as a child
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
         if dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100']:
             super(DataGenerator, self).__init__(dataset_name=dataset_name,
                                                 out_shape=out_shape,
                                                 **kwargs)
         self._batch = batch
-        self._val_split = split
         if shuffle_seed is None or shuffle_seed < 0:
             seed(randint(2**31))
         elif shuffle_seed:
             seed(shuffle_seed)
-
-    def _generator(self, validation=False):
         # 1. prepare data list to be shuffled - changes with dataset
         # 1a. (optional) split the list between train and val data
+
+
+    def _generator(self, validation=False):
         # 1b. (optional) the same generator, only generates validation data
         # 2. actually shuffle and load the data
         while True:
             yield self._batch
+
+    @staticmethod
+    def _split_data(x_data, y_data, split=0.1):
+        if split == 0:
+            return x_data, y_data
+        cutoff = (1 - split) * x_data.shape[0]
+        return x_data[:cutoff], y_data[:cutoff], x_data[cutoff:], y_data[cutoff:]
 
     @property
     def generator(self):
@@ -177,6 +185,7 @@ class DataGenerator(DataLoader):
 
     @property
     def validation_generator(self):
+        # implicit, just to make no mistakes
         return self._generator(validation=True)
 
 
