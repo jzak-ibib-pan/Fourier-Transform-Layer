@@ -1,5 +1,4 @@
-from numpy import logical_or, zeros, expand_dims, pad, repeat, array, uint8, arange, float32, save, load, squeeze
-from numpy.random import seed, randint
+import numpy as np
 from sklearn.utils import shuffle
 from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
@@ -54,10 +53,12 @@ class DataLoader:
     def _preprocess_data(self, data):
         # resize if necessary
         result = self._resize_data(data, self._data_shape)
-        # pad if necessary
+        # np.pad if necessary
         result = self._pad_data_to_32(result)
         # expand dimentions if necessary
         result = self._expand_dims(result, channels=self._channels)
+        if type(result) == np.uint8:
+            print(0)
         return result
 
     @staticmethod
@@ -65,21 +66,21 @@ class DataLoader:
         _data = data.copy()
         # single image
         if len(_data.shape) == 2:
-            _data = expand_dims(_data, axis=0)
+            _data = np.expand_dims(_data, axis=0)
         # collection of images
         if len(_data.shape) == 3:
-            _data = expand_dims(_data, axis=-1)
+            _data = np.expand_dims(_data, axis=-1)
         # do not perform resize if unnecessary
         if _data.shape[1:] == new_shape:
             return data
         # iterate over every image
-        result = zeros((_data.shape[0], *new_shape))
+        result = np.zeros((_data.shape[0], *new_shape))
         for it, image in enumerate(data):
             result[it] = resize(image, new_shape)
         # resize removes trailing (1) shapes anyway
-        return squeeze(result)
+        return np.squeeze(result)
 
-    # pad to at least 32x32
+    # np.pad to at least 32x32
     @staticmethod
     def _pad_data_to_32(data):
         index_shape = 1
@@ -87,13 +88,13 @@ class DataLoader:
             index_shape = 0
         if all([sh >= 32 for sh in data.shape[index_shape : index_shape + 2]]):
             return data
-        pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
-        return pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
+        np.pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
+        return np.pad(data, [[0, 0], [np.pads[0], np.pads[0]], [np.pads[1], np.pads[1]]])
 
     @staticmethod
     def _expand_dims(data, channels=1):
         if len(data.shape) < 4:
-            return repeat(expand_dims(data, axis=-1), repeats=channels, axis=-1)
+            return np.repeat(np.expand_dims(data, axis=-1), repeats=channels, axis=-1)
         return data
 
     @staticmethod
@@ -104,7 +105,7 @@ class DataLoader:
         assert all([type(t) is int for t in targets]), 'Must provide a list of ints.'
         y_chosen = [False for _ in data_y]
         for target_01 in targets:
-            y_chosen = logical_or(y_chosen, data_y == target_01)
+            y_chosen = np.logical_or(y_chosen, data_y == target_01)
             if len(targets) <= 1:
                 continue
             for target_02 in targets:
@@ -123,7 +124,7 @@ class DataLoader:
 class DatasetLoader(DataLoader):
     @property
     def x_train(self):
-        return self._x_train / 255
+        return self._x_train
 
     @property
     def y_train(self):
@@ -131,7 +132,7 @@ class DatasetLoader(DataLoader):
 
     @property
     def x_test(self):
-        return self._x_test / 255
+        return self._x_test
 
     @property
     def y_test(self):
@@ -139,15 +140,15 @@ class DatasetLoader(DataLoader):
 
     @property
     def train_data(self):
-        return self.x_train / 255, self.y_train
+        return self.x_train, self.y_train
 
     @property
     def test_data(self):
-        return self.x_test / 255, self.y_test
+        return self.x_test, self.y_test
 
     @property
     def full_data(self):
-        return self.x_train / 255, self.y_train, self.x_test / 255, self.y_test
+        return self.x_train, self.y_train, self.x_test, self.y_test
 
 
 class DatasetGenerator(DataLoader):
@@ -158,7 +159,7 @@ class DatasetGenerator(DataLoader):
                                                out_shape=out_shape,
                                                **kwargs)
         self._batch = batch
-        self._shuffle_seed = randint(2**31)
+        self._shuffle_seed = np.randint(2**31)
         if shuffle_seed is not None and shuffle_seed >= 0:
             self._shuffle_seed = shuffle_seed
         self._flag_validation = split > 0
@@ -178,8 +179,8 @@ class DatasetGenerator(DataLoader):
         x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
         index_data = 0
         while True:
-            X = zeros((self._batch, *x_data.shape[1:]))
-            Y = zeros((self._batch, *y_data.shape[1:]))
+            X = np.zeros((self._batch, *x_data.shape[1:]))
+            Y = np.zeros((self._batch, *y_data.shape[1:]))
             # this will "eat" the end of dataset without loading, but shuffling should smooth the errors
             if index_data + self._batch >= x_data.shape[0]:
                 x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
@@ -211,5 +212,9 @@ class DatasetGenerator(DataLoader):
 
 
 if __name__ == '__main__':
+    from matplotlib import pyplot as plt
     generator = DatasetGenerator().generator
-    print(next(generator))
+    X, Y = next(generator)
+    print(Y)
+    plt.imshow(np.squeeze(X[0]))
+    plt.show()
