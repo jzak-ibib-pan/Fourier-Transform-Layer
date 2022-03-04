@@ -27,6 +27,31 @@ class DataLoader:
         if _targets is not None:
             self._x_train, self._y_train = self._select_data_by_target(self._x_train, self._y_train, _targets)
             self._x_test, self._y_test = self._select_data_by_target(self._x_test, self._y_test, _targets)
+        self._flags = {'shift' : {},
+                       'noise': {},
+                       'rotation': {},
+                       }
+        self._flag_shift = False
+        if 'shift' in kwargs.keys() and kwargs['shift']:
+            assert type(kwargs['shift']) is bool, 'Shift must be a boolean.'
+            self._flag_shift = kwargs['shift']
+            self._flags['shift'].update({'threshold': 0.5})
+        self._flag_noise = False
+        if 'noise' in kwargs.keys() and kwargs['noise']:
+            assert kwargs['noise'] in self._VARIANCES, \
+                f'Wrong variance value. Input one of the following {self._VARIANCES}.'
+            self._flag_noise = True
+            var = kwargs['noise']
+            mean = 0
+            sigma = var ** 0.5
+            self._flags['noise'].update({'threshold': 0.5, 'mean': mean, 'sigma': sigma})
+        self._flag_rotation = False
+        if 'rotation' in kwargs.keys() and kwargs['rotation']:
+            assert kwargs['rotation'] in self._ROTATIONS, \
+                f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
+            self._flag_rotation = True
+            self._rot_angle = kwargs['rotation']
+            self._flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -53,8 +78,9 @@ class DataLoader:
         return self._load_data()
 
     def _preprocess_data(self, data):
+        result = self._augment_data(data)
         # resize if necessary
-        result = self._resize_data(data, self._data_shape)
+        result = self._resize_data(result, self._data_shape)
         # np.pad if necessary
         result = self._pad_data_to_32(result)
         # expand dimentions if necessary
@@ -132,6 +158,41 @@ class DataLoader:
         if shuffle_seed is not None and shuffle_seed >= 0:
             return shuffle_seed
         return np.random.randint(2**31)
+
+    # Augmentation methods
+    def _augment_data(self, data):
+        _data = data.copy()
+        if self._flags['shift'] and np.random.rand() > self._flags['shift']['threshold']:
+            _data = self._augment_shift(_data)
+        if self._flags['rotation'] and np.random.rand() > self._flags['rotation']['threshold']:
+            _data = self._augment_rotate(_data, self._flags['rotation']['angle'])
+        if self._flags['noise'] and np.random.rand() > self._flags['noise']['threshold']:
+            _data = self._augment_noise(_data, self._flags['noise'])
+        return _data
+
+    # placeholder
+    @staticmethod
+    def _augment_shift(data):
+        # TODO: implementation
+        _data = data.copy()
+        return _data
+
+    @staticmethod
+    def _augment_rotate(data, angle):
+        _data = data.copy()
+        shape = [sh // 2 for sh in _data.shape[:2]]
+        xy = ndimage.rotate(_data, angle)
+        shx, shy = [sh // 2 for sh in xy.shape[:2]]
+        return xy[shx - shape[0] // 2 : shx + shape[0] // 2, shy - shape[1] // 2 : shy + shape[1] // 2]
+
+    @staticmethod
+    def _augment_noise(data, flag):
+        _data = data.copy()
+        r, c, ch = _data.shape
+        gausss = np.random.normal(flag['mean'], flag['sigma'], (r, c, ch))
+        gausss = gausss.reshape(r, c, ch)
+        _data = _data + gausss
+        return _data
 
 
 class DatasetLoader(DataLoader):
@@ -238,6 +299,7 @@ class DataGenerator(DataLoader):
         _Y = np.zeros((self._batch,))
         for rep in range(self._batch):
             _X[rep], _Y[rep] = self._generate_data(self._out_shape)
+            _X[rep] = self._preprocess_data(_X[rep])
         yield _X, to_categorical(_Y, self._noof_classes)
 
     @property
@@ -252,24 +314,6 @@ class FringeGenerator(DataGenerator):
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = [25, 45, 135, 170]
         self._WARNING_FLAGS = 'Both noise and rotation are used. Not recommended for experiments.'
-        self._flag_shift = False
-        if 'shift' in kwargs.keys() and kwargs['shift']:
-            assert type(kwargs['shift']) is bool, 'Shift must be a boolean.'
-            self._flag_shift = kwargs['shift']
-        self._flag_noise = False
-        if 'noise' in kwargs.keys() and kwargs['noise']:
-            assert kwargs['noise'] in self._VARIANCES, \
-                f'Wrong variance value. Input one of the following {self._VARIANCES}.'
-            self._flag_noise = True
-            var = kwargs['noise']
-            self._mean = 0
-            self._sigma = var ** 0.5
-        self._flag_rotation = False
-        if 'rotation' in kwargs.keys() and kwargs['rotation']:
-            assert kwargs['rotation'] in self._ROTATIONS, \
-                f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
-            self._flag_rotation = True
-            self._rot_angle = kwargs['rotation']
         if self._flag_noise and self._flag_rotation:
             warn(self._WARNING_FLAGS)
         self._flag_test = False
@@ -309,7 +353,7 @@ class FringeGenerator(DataGenerator):
                 y = 32.0 + (31.0 * np.sin(x * 2))
                 y = np.uint8(y)
                 xy = np.tile(y, (self._out_shape[1] * 2, 1))  # pionowe prążki
-                xy = self._rotate_by_scipy(xy, self._rot_angle)
+                xy = self._augment_rotate(xy, self._rot_angle)
             target = 1
         else:
             xy = np.tile(y, (self._out_shape[1], 1))  # poziome prążki
@@ -329,20 +373,7 @@ class FringeGenerator(DataGenerator):
         x_t = xy / 100
         x_t = np.expand_dims(x_t, axis=-1)
 
-        if self._flag_noise:
-            r, c, ch = x_t.shape
-            gausss = np.random.normal(self._mean, self._sigma, (r, c, ch))
-            gausss = gausss.reshape(r, c, ch)
-            x_t = x_t + gausss
-
         return x_t, target
-
-    @staticmethod
-    def _rotate_by_scipy(x, angle=45):
-        shape = [sh // 2 for sh in x.shape[:2]]
-        xy = ndimage.rotate(x, angle)
-        shx, shy = [sh // 2 for sh in xy.shape[:2]]
-        return xy[shx - shape[0] // 2 : shx + shape[0] // 2, shy - shape[1] // 2 : shy + shape[1] // 2]
 
 
 if __name__ == '__main__':
