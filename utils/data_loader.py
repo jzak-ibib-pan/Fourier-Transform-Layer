@@ -125,6 +125,12 @@ class DataLoader:
         y = to_categorical(y_cat)
         return x, y
 
+    @staticmethod
+    def _process_seed(shuffle_seed):
+        if shuffle_seed is not None and shuffle_seed >= 0:
+            return shuffle_seed
+        return np.random.randint(2**31)
+
 
 class DatasetLoader(DataLoader):
     @property
@@ -156,18 +162,15 @@ class DatasetLoader(DataLoader):
         return self.x_train, self.y_train, self.x_test, self.y_test
 
 
-# a class for generating data when the classes are as separate variable
+# a class for generating data when targets are separate variables
 class DatasetGenerator(DataLoader):
-    # TODO: MotherlistGenerator, DataGenerator as children
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
         assert dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100'], 'Other datasets not supported.'
         super(DatasetGenerator, self).__init__(dataset_name=dataset_name,
                                                out_shape=out_shape,
                                                **kwargs)
         self._batch = batch
-        self._shuffle_seed = np.random.randint(2**31)
-        if shuffle_seed is not None and shuffle_seed >= 0:
-            self._shuffle_seed = shuffle_seed
+        self._seed = self._process_seed(shuffle_seed)
         self._flag_validation = split > 0
         # 1. prepare data list to be shuffled - changes with dataset - already loaded from DataLoader
         # 1a. (optional) split the list between train and val data
@@ -180,14 +183,14 @@ class DatasetGenerator(DataLoader):
         if validation:
             x_data, y_data = self._x_val, self._y_val
         # 2. actually shuffle and load the data
-        x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
+        x_data, y_data = shuffle(x_data, y_data, random_state=self._seed)
         index_data = 0
         while True:
             _X = np.zeros((self._batch, *x_data.shape[1:]))
             _Y = np.zeros((self._batch, *y_data.shape[1:]))
             # this will "eat" the end of dataset without loading, but shuffling should smooth the errors
             if index_data + self._batch >= x_data.shape[0]:
-                x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
+                x_data, y_data = shuffle(x_data, y_data, random_state=self._seed)
                 index_data = 0
                 continue
             for rep in range(self._batch):
@@ -213,6 +216,14 @@ class DatasetGenerator(DataLoader):
         assert self._flag_validation, 'Must have validation data to generate it.'
         # implicit, just to make no mistakes
         return self._generator(validation=True)
+
+
+class DataGenerator(DataLoader):
+    # TODO: MotherlistGenerator as a child
+    def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
+        self._batch = batch
+        self._seed = self._process_seed(shuffle_seed)
+
 
 
 if __name__ == '__main__':
