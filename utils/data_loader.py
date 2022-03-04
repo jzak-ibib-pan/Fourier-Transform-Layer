@@ -15,18 +15,8 @@ class DataLoader:
     # split is redundant here, since keras will split the data during training on a whole dataset
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
-        self._data_shape = out_shape[:2]
-        self._channels = 1
-        if len(out_shape) >= 3:
-            self._channels = out_shape[-1]
-        self.dataset = dataset_name
-        self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
-        _targets = None
-        if 'targets' in kwargs.keys():
-            _targets = kwargs['targets']
-        if _targets is not None:
-            self._x_train, self._y_train = self._select_data_by_target(self._x_train, self._y_train, _targets)
-            self._x_test, self._y_test = self._select_data_by_target(self._x_test, self._y_test, _targets)
+        self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
+        self._ROTATIONS = np.arange(180)
         self._flags = {'shift' : {},
                        'noise': {},
                        'rotation': {},
@@ -51,7 +41,19 @@ class DataLoader:
                 f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
             self._flag_rotation = True
             self._rot_angle = kwargs['rotation']
-            self._flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
+            self._flags['rotation'].update({'threshold': 0, 'angle': self._rot_angle})
+        self._data_shape = out_shape[:2]
+        self._channels = 1
+        if len(out_shape) >= 3:
+            self._channels = out_shape[-1]
+        self.dataset = dataset_name
+        self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
+        _targets = None
+        if 'targets' in kwargs.keys():
+            _targets = kwargs['targets']
+        if _targets is not None:
+            self._x_train, self._y_train = self._select_data_by_target(self._x_train, self._y_train, _targets)
+            self._x_test, self._y_test = self._select_data_by_target(self._x_test, self._y_test, _targets)
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -257,7 +259,7 @@ class DatasetGenerator(DataLoader):
                 index_data = 0
                 continue
             for rep in range(self._batch):
-                _X[rep] = x_data[index_data]
+                _X[rep] = self._preprocess_data(x_data[index_data])
                 _Y[rep] = y_data[index_data]
                 index_data += 1
             yield _X, _Y
@@ -308,6 +310,7 @@ class DataGenerator(DataLoader):
 
 
 class FringeGenerator(DataGenerator):
+    # TODO: updated to DataLoader flags
     def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
         super(FringeGenerator, self).__init__(out_shape, batch, shuffle_seed)
         self._noof_classes = 2
@@ -378,7 +381,7 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
-    generator = FringeGenerator().generator
+    generator = DatasetGenerator(rotation=15).generator
     X, Y = next(generator)
     print(Y)
     plt.imshow(np.squeeze(X[0]))
