@@ -105,7 +105,7 @@ class DataLoader:
         if len(_data.shape) == 2:
             _data = np.expand_dims(_data, axis=0)
         # collection of images
-        if len(_data.shape) == 3 and _data.shape[2] not in [1, 3]:
+        elif len(_data.shape) == 3 and _data.shape[2] not in [1, 3]:
             _data = np.expand_dims(_data, axis=-1)
         # do not perform resize if unnecessary
         if _data.shape[1:] == new_shape:
