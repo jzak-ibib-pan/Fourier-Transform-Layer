@@ -83,10 +83,10 @@ class DataLoader:
         result = data.copy()
         if augmentation:
             result = self._augment_data(result)
-        # resize if necessary
-        result = self._resize_data(result, self._data_shape)
         # np.pad if necessary
         result = self._pad_data_to_32(result)
+        # resize if necessary
+        result = self._resize_data(result, self._data_shape)
         # expand dimentions if necessary
         result = self._expand_dims(result, channels=self._channels)
         # 255 - written this way to keep the same writing style
@@ -172,7 +172,7 @@ class DataLoader:
             _data = self._augment_rotate(_data, self._flags['rotation']['angle'])
         if self._flags['noise'] and np.random.rand() > self._flags['noise']['threshold']:
             _data = self._augment_noise(_data, self._flags['noise'])
-        return _data
+        return np.squeeze(_data)
 
     # placeholder
     @staticmethod
@@ -187,7 +187,9 @@ class DataLoader:
         shape = [sh // 2 for sh in _data.shape[:2]]
         xy = ndimage.rotate(_data, angle)
         shx, shy = [sh // 2 for sh in xy.shape[:2]]
-        return xy[shx - shape[0] // 2 : shx + shape[0] // 2, shy - shape[1] // 2 : shy + shape[1] // 2]
+        # this returned half an image
+        # return xy[shx - shape[0] // 2 : shx + shape[0] // 2, shy - shape[1] // 2 : shy + shape[1] // 2]
+        return xy
 
     @staticmethod
     def _augment_noise(data, flag):
