@@ -113,7 +113,7 @@ class DataLoader:
         # iterate over every image
         result = np.zeros((_data.shape[0], *new_shape))
         for it, image in enumerate(data):
-            # TODO: solve index out of bounds for axis
+            # SOLVED: solve index out of bounds for axis
             result[it] = resize(image, new_shape)
         # resize removes trailing (1) shapes anyway
         return np.squeeze(result)
