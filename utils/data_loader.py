@@ -156,6 +156,7 @@ class DatasetLoader(DataLoader):
         return self.x_train, self.y_train, self.x_test, self.y_test
 
 
+# a class for generating data when the classes are as separate variable
 class DatasetGenerator(DataLoader):
     # TODO: MotherlistGenerator, DataGenerator as children
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
@@ -174,8 +175,6 @@ class DatasetGenerator(DataLoader):
                                                                                 self._y_train,
                                                                                 split=split)
 
-
-
     def _generator(self, validation=False):
         x_data, y_data = self._x_train, self._y_train
         if validation:
@@ -184,18 +183,18 @@ class DatasetGenerator(DataLoader):
         x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
         index_data = 0
         while True:
-            X = np.zeros((self._batch, *x_data.shape[1:]))
-            Y = np.zeros((self._batch, *y_data.shape[1:]))
+            _X = np.zeros((self._batch, *x_data.shape[1:]))
+            _Y = np.zeros((self._batch, *y_data.shape[1:]))
             # this will "eat" the end of dataset without loading, but shuffling should smooth the errors
             if index_data + self._batch >= x_data.shape[0]:
                 x_data, y_data = shuffle(x_data, y_data, random_state=self._shuffle_seed)
                 index_data = 0
                 continue
             for rep in range(self._batch):
-                X[rep] = x_data[index_data]
-                Y[rep] = y_data[index_data]
+                _X[rep] = x_data[index_data]
+                _Y[rep] = y_data[index_data]
                 index_data += 1
-            yield X, Y
+            yield _X, _Y
 
     @staticmethod
     def _split_data(x_data, y_data, split=0.1):
