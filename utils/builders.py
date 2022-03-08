@@ -659,6 +659,10 @@ class ModelBuilder:
     def filename(self):
         return self._filename
 
+    @property
+    def filepath(self):
+        return self._filepath
+
 
 # Custom model builder - can build any model (including hybrid), based on layer information
 class CustomBuilder(ModelBuilder):
