@@ -89,10 +89,11 @@ class DataLoader:
     def __expand_dims_for_eumeration(data):
         # single image
         if len(data.shape) == 2:
-            return np.expand_dims(data, axis=0)
+            _data = np.expand_dims(data, axis=0)
         # collection of images
         elif len(data.shape) == 3 and data.shape[2] not in [1, 3]:
-            return np.expand_dims(data, axis=-1)
+            _data = np.expand_dims(data, axis=-1)
+        return _data
 
     def _resize_data(self, data, new_shape):
         _data = self.__expand_dims_for_eumeration(data)
