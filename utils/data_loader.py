@@ -203,6 +203,7 @@ class DataLoader:
     def _augment_rotate(data, angle):
         _data = data.copy()
         shape = [sh // 2 for sh in _data.shape[:2]]
+        # make sure angle is not 0
         _angle = np.random.randint(angle - 1) + 1
         xy = ndimage.rotate(_data, _angle)
         shx, shy = [sh // 2 for sh in xy.shape[:2]]
