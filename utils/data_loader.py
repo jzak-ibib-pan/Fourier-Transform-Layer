@@ -68,8 +68,11 @@ class DataLoader:
 
     def _preprocess_data(self, data):
         result = data.copy()
+        # TODO: add grayscale as first preprocessing step
         if any([_flag != {} for _flag in self._flags]):
             result = self._augment_data(result)
+        # should split padding and resizing, but probably won't be using many small images 4 pixel border is
+        # acceptable
         # np.pad if necessary
         result = self._pad_data_to_32(result)
         # resize if necessary
@@ -98,10 +101,13 @@ class DataLoader:
     def _resize_data(self, data, new_shape):
         _data = self.__expand_dims_for_eumeration(data)
         # do not perform resize if unnecessary
-        if _data.shape[1:] == (new_shape, self._channels):
+        if _data.shape[1:3] == new_shape:
             return data
-        # iterate over every image
+        # iterate over every image - do not need channels, as resize removes the trailing channel if == 1
         result = np.zeros((_data.shape[0], *new_shape))
+        # for cifar and other colored images - now needs channels
+        if self._channels > 1:
+            result = np.zeros((_data.shape[0], *new_shape, self._channels))
         # SOLVED: solve index out of bounds for axis - caused by iterating over data, not _data
         for it, image in enumerate(_data):
             result[it] = resize(image, new_shape)
