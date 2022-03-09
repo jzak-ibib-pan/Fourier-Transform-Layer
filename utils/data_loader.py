@@ -25,39 +25,31 @@ class DataLoader:
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = np.arange(181)
         self._FLIPS = ['up', 'down', 'ud', 'left', 'right', 'lr']
-        self._flags = {'augmentation': False,
-                       'shift' : {},
+        self._flags = {'shift' : {},
                        'noise': {},
                        'rotation': {},
                        'flip': {},
                        }
+        self._flag_augment = False
         if 'augmentation' in kwargs.keys():
-            self._flags['augmentation'] = kwargs['augmentation']
-        self._flag_shift = False
+            self._flag_augment = kwargs['augmentation']
         if 'shift' in kwargs.keys() and kwargs['shift']:
             assert type(kwargs['shift']) is int, 'Shift must be an integer.'
-            self._flag_shift = True
             self._flags['shift'].update({'threshold': 0, 'value': kwargs['shift']})
-        self._flag_noise = False
         if 'noise' in kwargs.keys() and kwargs['noise']:
             assert kwargs['noise'] in self._VARIANCES, \
                 f'Wrong variance value. Input one of the following {self._VARIANCES}.'
-            self._flag_noise = True
             var = kwargs['noise']
             mean = 0
             sigma = var ** 0.5
             self._flags['noise'].update({'threshold': 0.5, 'mean': mean, 'sigma': sigma})
-        self._flag_rotation = False
         if 'rotation' in kwargs.keys() and kwargs['rotation']:
             assert kwargs['rotation'] in self._ROTATIONS, \
                 f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
-            self._flag_rotation = True
             self._rot_angle = kwargs['rotation']
             self._flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
-        self._flag_flip = False
         if 'flip' in kwargs.keys() and kwargs['flip']:
             assert kwargs['flip'] in self._FLIPS, f'Wrong flip value. Input one of the following {self._FLIPS}.'
-            self._flag_flip = True
             _flip_direction = 'lr'
             if kwargs['flip'] in self._FLIPS[:3]:
                 _flip_direction = 'ud'
