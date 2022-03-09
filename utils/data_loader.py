@@ -15,14 +15,24 @@ class DataLoader:
     # split is redundant here, since keras will split the data during training on a whole dataset
     def __init__(self, out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
+        self._data_shape = out_shape[:2]
+        self._channels = 1
+        if len(out_shape) >= 3:
+            self._channels = out_shape[-1]
+        self.dataset = str(None)
+        self._noof_classes = 0
+        # kwargs
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = np.arange(181)
         self._FLIPS = ['up', 'down', 'ud', 'left', 'right', 'lr']
-        self._flags = {'shift' : {},
+        self._flags = {'augmentation': False,
+                       'shift' : {},
                        'noise': {},
                        'rotation': {},
                        'flip': {},
                        }
+        if 'augmentation' in kwargs.keys():
+            self._flags['augmentation'] = kwargs['augmentation']
         self._flag_shift = False
         if 'shift' in kwargs.keys() and kwargs['shift']:
             assert type(kwargs['shift']) is int, 'Shift must be an integer.'
@@ -52,12 +62,6 @@ class DataLoader:
             if kwargs['flip'] in self._FLIPS[:3]:
                 _flip_direction = 'ud'
             self._flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
-        self._data_shape = out_shape
-        self._channels = 1
-        if len(out_shape) >= 3:
-            self._channels = out_shape[-1]
-        self.dataset = str(None)
-        self._noof_classes = 0
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -69,7 +73,7 @@ class DataLoader:
     def _preprocess_data(self, data):
         result = data.copy()
         # TODO: add grayscale as first preprocessing step
-        if any([_flag != {} for _flag in self._flags]):
+        if any([_flag != {} for _flag in self._flags]) and self._flags['augmentation']:
             result = self._augment_data(result)
         # should split padding and resizing, but probably won't be using many small images 4 pixel border is
         # acceptable
@@ -212,8 +216,6 @@ class DataLoader:
     @staticmethod
     def _augment_rotate(data, angle):
         _data = data.copy()
-        if len(_data.shape) <= 2:
-            _data = np.expand_dims(_data, axis=-1)
         shape = [sh // 2 for sh in _data.shape[:2]]
         # make sure angle is not 0
         _angle = np.random.randint(angle - 1) + 1
@@ -279,10 +281,13 @@ class DatasetLoader(DataLoader):
             noof_classes = 100
         y_train = to_categorical(y_train, noof_classes)
         y_test = to_categorical(y_test, noof_classes)
-        x_train = self._preprocess_data(x_train)
-        x_test = self._preprocess_data(x_test)
+        x_train = self._preprocess_dataset(x_train)
+        x_test = self._preprocess_dataset(x_test)
         self._noof_classes = noof_classes
         return x_train, y_train, x_test, y_test
+
+    def _preprocess_dataset(self, data):
+        return self._preprocess_data(data)
 
     @property
     def x_train(self):
