@@ -176,9 +176,11 @@ class DataLoader:
 
     @staticmethod
     def _determine_if_augment(flag, method):
-        if flag[method] and np.random.rand() > flag[method]['threshold']:
-            return True
-        return False
+        if not flag[method]:
+            return False
+        if np.random.rand() < flag[method]['threshold']:
+            return False
+        return True
 
     # Augmentation methods
     # SOLVED: rotation in range
