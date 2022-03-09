@@ -10,16 +10,18 @@ from warnings import warn
 
 
 class DataLoader:
-    # TODO: add augmentation methods
+    # SOLVED: add augmentation methods
     # TODO: saving data processing to .npy
     # split is redundant here, since keras will split the data during training on a whole dataset
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = np.arange(181)
+        self._FLIPS = ['up', 'down', 'ud', 'left', 'right', 'lr']
         self._flags = {'shift' : {},
                        'noise': {},
                        'rotation': {},
+                       'flip': {},
                        }
         self._flag_shift = False
         if 'shift' in kwargs.keys() and kwargs['shift']:
@@ -42,6 +44,14 @@ class DataLoader:
             self._flag_rotation = True
             self._rot_angle = kwargs['rotation']
             self._flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
+        self._flag_flip = False
+        if 'flip' in kwargs.keys() and kwargs['flip']:
+            assert kwargs['flip'] in self._FLIPS, f'Wrong flip value. Input one of the following {self._FLIPS}.'
+            self._flag_flip = True
+            _flip_direction = 'lr'
+            if kwargs['flip'] in self._FLIPS[:3]:
+                _flip_direction = 'ud'
+            self._flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
         self._data_shape = out_shape[:2]
         self._channels = 1
         if len(out_shape) >= 3:
@@ -164,19 +174,26 @@ class DataLoader:
             return shuffle_seed
         return np.random.randint(2**31)
 
+    @staticmethod
+    def _determine_if_augment(flag, method):
+        if flag[method] and np.random.rand() > flag[method]['threshold']:
+            return True
+        return False
+
     # Augmentation methods
-    # TODO: rotation in range
+    # SOLVED: rotation in range
     def _augment_data(self, data):
         _data = data.copy()
-        if self._flags['shift'] and np.random.rand() > self._flags['shift']['threshold']:
+        if self._determine_if_augment(self._flags, 'flip'):
+            _data = self._augment_flip(_data, self._flags['flip']['direction'])
+        if self._determine_if_augment(self._flags, 'shift'):
             _data = self._augment_shift(_data, self._flags['shift']['value'])
-        if self._flags['rotation'] and np.random.rand() > self._flags['rotation']['threshold']:
+        if self._determine_if_augment(self._flags, 'rotation'):
             _data = self._augment_rotate(_data, self._flags['rotation']['angle'])
-        if self._flags['noise'] and np.random.rand() > self._flags['noise']['threshold']:
+        if self._determine_if_augment(self._flags, 'noise'):
             _data = self._augment_noise(_data, self._flags['noise'])
         return np.squeeze(_data)
 
-    # placeholder
     @staticmethod
     def _augment_shift(data, shift_value):
         # SOLVED: implementation
@@ -217,6 +234,16 @@ class DataLoader:
         gausss = np.random.normal(flag['mean'], flag['sigma'], (r, c, ch))
         gausss = gausss.reshape(r, c, ch)
         _data = _data + gausss
+        return _data
+
+    @staticmethod
+    def _augment_flip(data, direction):
+        _data = data.copy()
+        if direction == 'ud':
+            return np.flipud(_data)
+        elif direction == 'lr':
+            return np.fliplr(_data)
+        # just to make sure the method returns
         return _data
 
 
