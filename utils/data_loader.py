@@ -9,7 +9,6 @@ from os.path import join, isfile
 from warnings import warn
 
 
-# TODO: add augmentation control to Generator classes
 class DataLoader:
     # SOLVED: add augmentation methods
     # TODO: saving data processing to .npy
@@ -57,6 +56,8 @@ class DataLoader:
         self._channels = 1
         if len(out_shape) >= 3:
             self._channels = out_shape[-1]
+        self.dataset = str(None)
+        self._noof_classes = 0
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -224,6 +225,10 @@ class DataLoader:
         # just to make sure the method returns
         return _data
 
+    @property
+    def noof_classes(self):
+        return self._noof_classes
+
 
 class DatasetLoader(DataLoader):
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
@@ -235,8 +240,8 @@ class DatasetLoader(DataLoader):
         if 'targets' in kwargs.keys():
             _targets = kwargs['targets']
         if _targets is not None:
-            self._x_train, self._y_train = self._select_data_by_target(self._x_train, self._y_train, _targets)
-            self._x_test, self._y_test = self._select_data_by_target(self._x_test, self._y_test, _targets)
+            self._x_train, self._y_train = self._select_data_by_target(self.x_train, self.y_train, _targets)
+            self._x_test, self._y_test = self._select_data_by_target(self.x_test, self.y_test, _targets)
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -257,6 +262,7 @@ class DatasetLoader(DataLoader):
         y_test = to_categorical(y_test, noof_classes)
         x_train = self._preprocess_data(x_train)
         x_test = self._preprocess_data(x_test)
+        self._noof_classes = noof_classes
         return x_train, y_train, x_test, y_test
 
     @property
@@ -288,6 +294,7 @@ class DatasetLoader(DataLoader):
         return self.x_train, self.y_train, self.x_test, self.y_test
 
 
+# SOLVED: add augmentation control to Generator classes
 # a class for generating data when targets are separate variables
 class DatasetGenerator(DatasetLoader):
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
@@ -299,8 +306,8 @@ class DatasetGenerator(DatasetLoader):
         self._flag_validation = split > 0
         # 1. prepare data list to be shuffled - changes with dataset - already loaded from DataLoader
         # 1a. (optional) split the list between train and val data
-        self._x_train, self._y_train, self._x_val, self._y_val = self._split_data(self._x_train,
-                                                                                  self._y_train,
+        self._x_train, self._y_train, self._x_val, self._y_val = self._split_data(self.x_train,
+                                                                                  self.y_train,
                                                                                   split=split)
 
     def _generator(self, validation=False):
@@ -347,6 +354,7 @@ class DatasetGenerator(DatasetLoader):
 class DataGenerator(DataLoader):
     # TODO: MotherlistGenerator as a child
     def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
+        super(DataGenerator, self).__init__(out_shape=out_shape, **kwargs)
         self._batch = batch
         self._seed = self._process_seed(shuffle_seed)
         self._out_shape = out_shape
@@ -370,8 +378,9 @@ class DataGenerator(DataLoader):
 
 
 class FringeGenerator(DataGenerator):
-    # TODO: updated to DataLoader flags
     def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
+        # no kwargs here - not expecting to perform additional augmentations
+        # SOLVED: updated to DataLoader flags - unnecessary
         super(FringeGenerator, self).__init__(out_shape, batch, shuffle_seed)
         self._noof_classes = 2
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
