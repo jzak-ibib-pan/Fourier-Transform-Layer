@@ -87,12 +87,15 @@ class DataLoader:
 
     @staticmethod
     def __expand_dims_for_eumeration(data):
-        # single image
+        # single image with no channels
         if len(data.shape) == 2:
             return np.expand_dims(data, axis=0)
-        # collection of images
-        elif len(data.shape) == 3 and data.shape[2] not in [1, 3]:
-            return np.expand_dims(data, axis=-1)
+        elif len(data.shape) == 3:
+            # collection of images
+            if data.shape[2] not in [1, 3]:
+                return np.expand_dims(data, axis=-1)
+            # single image with channels
+            return np.expand_dims(data, axis=0)
         return data
 
     def _resize_data(self, data, new_shape):
@@ -350,7 +353,7 @@ class DatasetGenerator(DatasetLoader):
                 index_data = 0
                 continue
             for rep in range(self._batch):
-                _X[rep] = self._preprocess_data(np.squeeze(x_data[index_data]))
+                _X[rep] = self._preprocess_data(x_data[index_data])
                 _Y[rep] = y_data[index_data]
                 index_data += 1
             yield _X, _Y
