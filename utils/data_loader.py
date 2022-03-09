@@ -127,6 +127,8 @@ class DataLoader:
 
     @staticmethod
     def _expand_dims(data, channels=1):
+        if data.shape[-1] == channels:
+            return data
         if len(data.shape) < 4:
             return np.repeat(np.expand_dims(data, axis=-1), repeats=channels, axis=-1)
         return data
@@ -477,21 +479,21 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
-    for dataset in ['cifar10', 'fmnist']:
+    for dataset in ['cifar10']:
         # TODO: check on cifar10
-        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, noise=1e-3).generator
+        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, noise=1e-3).generator
         X, Y = next(generator)
         print('Noise OK.')
-        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, flip='ud').generator
+        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, flip='ud').generator
         X, Y = next(generator)
         print('Flip OK.')
-        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, shift=5).generator
+        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, shift=5).generator
         X, Y = next(generator)
         print('Shift OK.')
-        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, rotation=45).generator
+        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, rotation=45).generator
         X, Y = next(generator)
         print('Rotation OK.')
-        X, Y = DatasetLoader(dataset_name=dataset, augmentation=True, noise=1e-3, flip='up', shift=5, rotation=45).train_data
+        X, Y = DatasetLoader(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, noise=1e-3, flip='up', shift=5, rotation=45).train_data
         print('Loader OK')
     print(Y[0])
     plt.imshow(np.squeeze(X[0]))
