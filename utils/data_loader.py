@@ -52,7 +52,7 @@ class DataLoader:
             if kwargs['flip'] in self._FLIPS[:3]:
                 _flip_direction = 'ud'
             self._flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
-        self._data_shape = out_shape[:2]
+        self._data_shape = out_shape
         self._channels = 1
         if len(out_shape) >= 3:
             self._channels = out_shape[-1]
@@ -89,16 +89,16 @@ class DataLoader:
     def __expand_dims_for_eumeration(data):
         # single image
         if len(data.shape) == 2:
-            _data = np.expand_dims(data, axis=0)
+            return np.expand_dims(data, axis=0)
         # collection of images
         elif len(data.shape) == 3 and data.shape[2] not in [1, 3]:
-            _data = np.expand_dims(data, axis=-1)
-        return _data
+            return np.expand_dims(data, axis=-1)
+        return data
 
     def _resize_data(self, data, new_shape):
         _data = self.__expand_dims_for_eumeration(data)
         # do not perform resize if unnecessary
-        if _data.shape[1:] == new_shape:
+        if _data.shape[1:] == (new_shape, self._channels):
             return data
         # iterate over every image
         result = np.zeros((_data.shape[0], *new_shape))
@@ -201,11 +201,13 @@ class DataLoader:
                     shift_shape[0] // 2 + sx // 2]
         y_return = [shift_shape[1] // 2 - sy // 2,
                     shift_shape[1] // 2 + sy // 2]
-        return np.squeeze(_data[x_return[0] : x_return[-1], y_return[0] : y_return[-1]])
+        return _data[x_return[0] : x_return[-1], y_return[0] : y_return[-1]]
 
     @staticmethod
     def _augment_rotate(data, angle):
         _data = data.copy()
+        if len(_data.shape) <= 2:
+            _data = np.expand_dims(_data, axis=-1)
         shape = [sh // 2 for sh in _data.shape[:2]]
         # make sure angle is not 0
         _angle = np.random.randint(angle - 1) + 1
@@ -218,7 +220,7 @@ class DataLoader:
     def _augment_noise(data, flag):
         _data = data.copy()
         # otherwise summing may cause errors
-        if len(_data.shape) > 2:
+        if len(_data.shape) <= 2:
             _data = np.expand_dims(_data, axis=-1)
         r, c, ch = _data.shape
         gausss = np.random.normal(flag['mean'], flag['sigma'], (r, c, ch))
@@ -461,14 +463,19 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
-    generator = DatasetGenerator(rotation=45).generator
-    X, Y = next(generator)
+    # TODO: check on cifar10
     generator = DatasetGenerator(noise=1e-3).generator
     X, Y = next(generator)
+    print('Noise OK.')
     generator = DatasetGenerator(flip='ud').generator
     X, Y = next(generator)
+    print('Flip OK.')
     generator = DatasetGenerator(shift=5).generator
     X, Y = next(generator)
+    print('Shift OK.')
+    generator = DatasetGenerator(rotation=45).generator
+    X, Y = next(generator)
+    print('Rotation OK.')
     print(Y)
     plt.imshow(np.squeeze(X[0]))
     plt.show()
