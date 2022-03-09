@@ -479,8 +479,7 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
-    for dataset in ['cifar10']:
-        # TODO: check on cifar10
+    for dataset in ['cifar10', 'fmnist', 'mnist']:
         generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, noise=1e-3).generator
         X, Y = next(generator)
         print('Noise OK.')
