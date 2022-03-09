@@ -65,7 +65,8 @@ class DataLoader:
     def _preprocess_data(self, data):
         result = data.copy()
         # TODO: add grayscale as first preprocessing step
-        if any([_flag != {} for _flag in self._flags]) and self._flags['augmentation']:
+        # TODO: default augmentation methods
+        if self._flag_augment and any([_flag != {} for _flag in self._flags]):
             result = self._augment_data(result)
         # should split padding and resizing, but probably won't be using many small images 4 pixel border is
         # acceptable
@@ -273,13 +274,10 @@ class DatasetLoader(DataLoader):
             noof_classes = 100
         y_train = to_categorical(y_train, noof_classes)
         y_test = to_categorical(y_test, noof_classes)
-        x_train = self._preprocess_dataset(x_train)
-        x_test = self._preprocess_dataset(x_test)
+        x_train = self._preprocess_data(x_train)
+        x_test = self._preprocess_data(x_test)
         self._noof_classes = noof_classes
         return x_train, y_train, x_test, y_test
-
-    def _preprocess_dataset(self, data):
-        return self._preprocess_data(data)
 
     @property
     def x_train(self):
@@ -314,9 +312,16 @@ class DatasetLoader(DataLoader):
 # a class for generating data when targets are separate variables
 class DatasetGenerator(DatasetLoader):
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
+        # load data without augmentations, but process the flags
+        kwargs_no_aug = {}
+        for key, value in zip(kwargs.keys(), kwargs.values()):
+            if key == 'augmentation':
+                continue
+            kwargs_no_aug.update({key : value})
+        # default - no augmentation
         super(DatasetGenerator, self).__init__(dataset_name=dataset_name,
                                                out_shape=out_shape,
-                                               **kwargs)
+                                               **kwargs_no_aug)
         self._batch = batch
         self._seed = self._process_seed(shuffle_seed)
         self._flag_validation = split > 0
@@ -325,6 +330,9 @@ class DatasetGenerator(DatasetLoader):
         self._x_train, self._y_train, self._x_val, self._y_val = self._split_data(self.x_train,
                                                                                   self.y_train,
                                                                                   split=split)
+        # kwargs
+        if 'augmentation' in kwargs.keys():
+            self._flag_augment = kwargs['augmentation']
 
     def _generator(self, validation=False):
         x_data, y_data = self._x_train, self._y_train
@@ -342,7 +350,7 @@ class DatasetGenerator(DatasetLoader):
                 index_data = 0
                 continue
             for rep in range(self._batch):
-                _X[rep] = self._preprocess_data(x_data[index_data])
+                _X[rep] = self._preprocess_data(np.squeeze(x_data[index_data]))
                 _Y[rep] = y_data[index_data]
                 index_data += 1
             yield _X, _Y
@@ -467,16 +475,16 @@ class FringeGenerator(DataGenerator):
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
     # TODO: check on cifar10
-    generator = DatasetGenerator(noise=1e-3).generator
+    generator = DatasetGenerator(augmentation=True, noise=1e-3).generator
     X, Y = next(generator)
     print('Noise OK.')
-    generator = DatasetGenerator(flip='ud').generator
+    generator = DatasetGenerator(augmentation=True, flip='ud').generator
     X, Y = next(generator)
     print('Flip OK.')
-    generator = DatasetGenerator(shift=5).generator
+    generator = DatasetGenerator(augmentation=True, shift=5).generator
     X, Y = next(generator)
     print('Shift OK.')
-    generator = DatasetGenerator(rotation=45).generator
+    generator = DatasetGenerator(augmentation=True, rotation=45).generator
     X, Y = next(generator)
     print('Rotation OK.')
     print(Y)
