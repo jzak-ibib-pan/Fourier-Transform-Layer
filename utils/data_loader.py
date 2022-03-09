@@ -86,6 +86,12 @@ class DataLoader:
         return result
 
     @staticmethod
+    def _get_data_shape_index(data):
+        if len(data) < 4:
+            return 0
+        return 1
+
+    @staticmethod
     def _resize_data(data, new_shape):
         _data = data.copy()
         # single image
@@ -450,6 +456,12 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
+    generator = DatasetGenerator(rotation=45).generator
+    X, Y = next(generator)
+    generator = DatasetGenerator(noise=1e-3).generator
+    X, Y = next(generator)
+    generator = DatasetGenerator(flip='ud').generator
+    X, Y = next(generator)
     generator = DatasetGenerator(shift=5).generator
     X, Y = next(generator)
     print(Y)
