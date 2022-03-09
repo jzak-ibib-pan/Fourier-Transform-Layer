@@ -23,7 +23,7 @@ class DataLoader:
                        }
         self._flag_shift = False
         if 'shift' in kwargs.keys() and kwargs['shift']:
-            assert type(kwargs['shift']) is int, 'Shift must be a boolean.'
+            assert type(kwargs['shift']) is int, 'Shift must be an integer.'
             self._flag_shift = True
             self._flags['shift'].update({'threshold': 0, 'value': kwargs['shift']})
         self._flag_noise = False
@@ -203,7 +203,8 @@ class DataLoader:
     def _augment_rotate(data, angle):
         _data = data.copy()
         shape = [sh // 2 for sh in _data.shape[:2]]
-        xy = ndimage.rotate(_data, angle)
+        _angle = np.random.randint(angle - 1) + 1
+        xy = ndimage.rotate(_data, _angle)
         shx, shy = [sh // 2 for sh in xy.shape[:2]]
         # this returned half an image
         return xy[shx - shape[0] : shx + shape[0], shy - shape[1] : shy + shape[1]]
