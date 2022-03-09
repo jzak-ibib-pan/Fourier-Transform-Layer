@@ -115,15 +115,15 @@ class DataLoader:
         return np.squeeze(result)
 
     # np.pad to at least 32x32
-    @staticmethod
-    def _pad_data_to_32(data):
-        index_shape = 1
-        if len(data) < 4:
-            index_shape = 0
-        if all([sh >= 32 for sh in data.shape[index_shape : index_shape + 2]]):
+    def _pad_data_to_32(self, data):
+        _data = self.__expand_dims_for_eumeration(data)
+        if all([sh >= 32 for sh in _data.shape[1:3]]):
             return data
-        pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
-        return np.pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
+        pads = [(32 - sh) // 2 for sh in _data.shape[1:3]]
+        # assumption - always has first channel
+        if len(data.shape) == 3:
+            return np.pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
+        return np.pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]], [0, 0]])
 
     @staticmethod
     def _expand_dims(data, channels=1):
@@ -477,19 +477,22 @@ class FringeGenerator(DataGenerator):
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
-    # TODO: check on cifar10
-    generator = DatasetGenerator(augmentation=True, noise=1e-3).generator
-    X, Y = next(generator)
-    print('Noise OK.')
-    generator = DatasetGenerator(augmentation=True, flip='ud').generator
-    X, Y = next(generator)
-    print('Flip OK.')
-    generator = DatasetGenerator(augmentation=True, shift=5).generator
-    X, Y = next(generator)
-    print('Shift OK.')
-    generator = DatasetGenerator(augmentation=True, rotation=45).generator
-    X, Y = next(generator)
-    print('Rotation OK.')
-    print(Y)
+    for dataset in ['cifar10', 'fmnist']:
+        # TODO: check on cifar10
+        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, noise=1e-3).generator
+        X, Y = next(generator)
+        print('Noise OK.')
+        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, flip='ud').generator
+        X, Y = next(generator)
+        print('Flip OK.')
+        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, shift=5).generator
+        X, Y = next(generator)
+        print('Shift OK.')
+        generator = DatasetGenerator(dataset_name=dataset, augmentation=True, rotation=45).generator
+        X, Y = next(generator)
+        print('Rotation OK.')
+        X, Y = DatasetLoader(dataset_name=dataset, augmentation=True, noise=1e-3, flip='up', shift=5, rotation=45).train_data
+        print('Loader OK')
+    print(Y[0])
     plt.imshow(np.squeeze(X[0]))
     plt.show()
