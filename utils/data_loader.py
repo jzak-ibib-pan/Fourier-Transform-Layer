@@ -9,6 +9,7 @@ from os.path import join, isfile
 from warnings import warn
 
 
+# TODO: add augmentation control to Generator classes
 class DataLoader:
     # SOLVED: add augmentation methods
     # TODO: saving data processing to .npy
