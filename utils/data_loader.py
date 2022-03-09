@@ -113,8 +113,8 @@ class DataLoader:
             index_shape = 0
         if all([sh >= 32 for sh in data.shape[index_shape : index_shape + 2]]):
             return data
-        np.pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
-        return np.pad(data, [[0, 0], [np.pads[0], np.pads[0]], [np.pads[1], np.pads[1]]])
+        pads = [(32 - sh) // 2 for sh in data.shape[index_shape : index_shape + 2]]
+        return np.pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
 
     @staticmethod
     def _expand_dims(data, channels=1):
