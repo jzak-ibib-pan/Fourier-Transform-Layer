@@ -14,7 +14,7 @@ class DataLoader:
     # SOLVED: add augmentation methods
     # TODO: saving data processing to .npy
     # split is redundant here, since keras will split the data during training on a whole dataset
-    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
+    def __init__(self, out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = np.arange(181)
@@ -57,42 +57,17 @@ class DataLoader:
         self._channels = 1
         if len(out_shape) >= 3:
             self._channels = out_shape[-1]
-        self.dataset = dataset_name
-        self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
-        _targets = None
-        if 'targets' in kwargs.keys():
-            _targets = kwargs['targets']
-        if _targets is not None:
-            self._x_train, self._y_train = self._select_data_by_target(self._x_train, self._y_train, _targets)
-            self._x_test, self._y_test = self._select_data_by_target(self._x_test, self._y_test, _targets)
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
-        noof_classes = 1
-        if self.dataset.lower() == 'mnist':
-            (x_train, y_train), (x_test, y_test) = mnist.load_data()
-            noof_classes = 10
-        if self.dataset.lower() == 'fmnist':
-            (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
-            noof_classes = 10
-        if self.dataset.lower() == 'cifar10':
-            (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-            noof_classes = 10
-        if self.dataset.lower() == 'cifar100':
-            (x_train, y_train), (x_test, y_test) = cifar100.load_data()
-            noof_classes = 100
-        y_train = to_categorical(y_train, noof_classes)
-        y_test = to_categorical(y_test, noof_classes)
-        x_train = self._preprocess_data(x_train, augmentation=False)
-        x_test = self._preprocess_data(x_test, augmentation=False)
         return x_train, y_train, x_test, y_test
 
     def load_data(self):
         return self._load_data()
 
-    def _preprocess_data(self, data, augmentation=True):
+    def _preprocess_data(self, data):
         result = data.copy()
-        if augmentation:
+        if any([_flag != {} for _flag in self._flags]):
             result = self._augment_data(result)
         # np.pad if necessary
         result = self._pad_data_to_32(result)
@@ -175,14 +150,6 @@ class DataLoader:
             return shuffle_seed
         return np.random.randint(2**31)
 
-    @staticmethod
-    def _determine_if_augment(flag, method):
-        if not flag[method]:
-            return False
-        if np.random.rand() < flag[method]['threshold']:
-            return False
-        return True
-
     # Augmentation methods
     # SOLVED: rotation in range
     def _augment_data(self, data):
@@ -196,6 +163,14 @@ class DataLoader:
         if self._determine_if_augment(self._flags, 'noise'):
             _data = self._augment_noise(_data, self._flags['noise'])
         return np.squeeze(_data)
+
+    @staticmethod
+    def _determine_if_augment(flag, method):
+        if not flag[method]:
+            return False
+        if np.random.rand() < flag[method]['threshold']:
+            return False
+        return True
 
     @staticmethod
     def _augment_shift(data, shift_value):
@@ -251,6 +226,39 @@ class DataLoader:
 
 
 class DatasetLoader(DataLoader):
+    def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
+        assert dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100'], 'Other datasets not supported.'
+        super(DatasetLoader, self).__init__(out_shape=out_shape, **kwargs)
+        self.dataset = dataset_name
+        self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
+        _targets = None
+        if 'targets' in kwargs.keys():
+            _targets = kwargs['targets']
+        if _targets is not None:
+            self._x_train, self._y_train = self._select_data_by_target(self._x_train, self._y_train, _targets)
+            self._x_test, self._y_test = self._select_data_by_target(self._x_test, self._y_test, _targets)
+
+    def _load_data(self):
+        x_train, y_train, x_test, y_test = (0, 0, 0, 0)
+        noof_classes = 1
+        if self.dataset.lower() == 'mnist':
+            (x_train, y_train), (x_test, y_test) = mnist.load_data()
+            noof_classes = 10
+        if self.dataset.lower() == 'fmnist':
+            (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+            noof_classes = 10
+        if self.dataset.lower() == 'cifar10':
+            (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+            noof_classes = 10
+        if self.dataset.lower() == 'cifar100':
+            (x_train, y_train), (x_test, y_test) = cifar100.load_data()
+            noof_classes = 100
+        y_train = to_categorical(y_train, noof_classes)
+        y_test = to_categorical(y_test, noof_classes)
+        x_train = self._preprocess_data(x_train)
+        x_test = self._preprocess_data(x_test)
+        return x_train, y_train, x_test, y_test
+
     @property
     def x_train(self):
         return self._x_train
@@ -281,9 +289,8 @@ class DatasetLoader(DataLoader):
 
 
 # a class for generating data when targets are separate variables
-class DatasetGenerator(DataLoader):
+class DatasetGenerator(DatasetLoader):
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
-        assert dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100'], 'Other datasets not supported.'
         super(DatasetGenerator, self).__init__(dataset_name=dataset_name,
                                                out_shape=out_shape,
                                                **kwargs)
@@ -293,8 +300,8 @@ class DatasetGenerator(DataLoader):
         # 1. prepare data list to be shuffled - changes with dataset - already loaded from DataLoader
         # 1a. (optional) split the list between train and val data
         self._x_train, self._y_train, self._x_val, self._y_val = self._split_data(self._x_train,
-                                                                                self._y_train,
-                                                                                split=split)
+                                                                                  self._y_train,
+                                                                                  split=split)
 
     def _generator(self, validation=False):
         x_data, y_data = self._x_train, self._y_train
