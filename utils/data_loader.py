@@ -86,20 +86,16 @@ class DataLoader:
         return result
 
     @staticmethod
-    def _get_data_shape_index(data):
-        if len(data) < 4:
-            return 0
-        return 1
-
-    @staticmethod
-    def _resize_data(data, new_shape):
-        _data = data.copy()
+    def __expand_dims_for_eumeration(data):
         # single image
-        if len(_data.shape) == 2:
-            _data = np.expand_dims(_data, axis=0)
+        if len(data.shape) == 2:
+            return np.expand_dims(data, axis=0)
         # collection of images
-        elif len(_data.shape) == 3 and _data.shape[2] not in [1, 3]:
-            _data = np.expand_dims(_data, axis=-1)
+        elif len(data.shape) == 3 and data.shape[2] not in [1, 3]:
+            return np.expand_dims(data, axis=-1)
+
+    def _resize_data(self, data, new_shape):
+        _data = self.__expand_dims_for_eumeration(data)
         # do not perform resize if unnecessary
         if _data.shape[1:] == new_shape:
             return data
@@ -160,15 +156,18 @@ class DataLoader:
     # Augmentation methods
     # SOLVED: rotation in range
     def _augment_data(self, data):
-        _data = data.copy()
-        if self._determine_if_augment(self._flags, 'flip'):
-            _data = self._augment_flip(_data, self._flags['flip']['direction'])
-        if self._determine_if_augment(self._flags, 'shift'):
-            _data = self._augment_shift(_data, self._flags['shift']['value'])
-        if self._determine_if_augment(self._flags, 'rotation'):
-            _data = self._augment_rotate(_data, self._flags['rotation']['angle'])
-        if self._determine_if_augment(self._flags, 'noise'):
-            _data = self._augment_noise(_data, self._flags['noise'])
+        _data = self.__expand_dims_for_eumeration(data)
+        # datapoint - single image
+        for it, _point in enumerate(_data):
+            if self._determine_if_augment(self._flags, 'flip'):
+                _point = self._augment_flip(_point, self._flags['flip']['direction'])
+            if self._determine_if_augment(self._flags, 'shift'):
+                _point = self._augment_shift(_point, self._flags['shift']['value'])
+            if self._determine_if_augment(self._flags, 'rotation'):
+                _point = self._augment_rotate(_point, self._flags['rotation']['angle'])
+            if self._determine_if_augment(self._flags, 'noise'):
+                _point = self._augment_noise(_point, self._flags['noise'])
+            _data[it] = _point
         return np.squeeze(_data)
 
     @staticmethod
@@ -193,13 +192,15 @@ class DataLoader:
                    shift_shape[0] // 2 + sx // 2 + sign[randx] * shift_x]
         y_range = [shift_shape[1] // 2 - sy // 2 + sign[randy] * shift_y,
                    shift_shape[1] // 2 + sy // 2 + sign[randy] * shift_y]
-        if len(data.shape) == 3:
-            _data = np.zeros((*shift_shape, data.shape[2]))
-            _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1], :] = data
-            return _data
-        _data = np.zeros(shift_shape)
-        _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1]] = data
-        return _data
+        if len(data.shape) == 2:
+            _data = np.expand_dims(data, axis=-1)
+        _data = np.zeros((*shift_shape, data.shape[2]))
+        _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1], :] = data
+        x_return = [shift_shape[0] // 2 - sx // 2,
+                    shift_shape[0] // 2 + sx // 2]
+        y_return = [shift_shape[1] // 2 - sy // 2,
+                    shift_shape[1] // 2 + sy // 2]
+        return np.squeeze(_data[x_return[0] : x_return[-1], y_return[0] : y_return[-1]])
 
     @staticmethod
     def _augment_rotate(data, angle):
@@ -215,6 +216,9 @@ class DataLoader:
     @staticmethod
     def _augment_noise(data, flag):
         _data = data.copy()
+        # otherwise summing may cause errors
+        if len(_data.shape) > 2:
+            _data = np.expand_dims(_data, axis=-1)
         r, c, ch = _data.shape
         gausss = np.random.normal(flag['mean'], flag['sigma'], (r, c, ch))
         gausss = gausss.reshape(r, c, ch)
