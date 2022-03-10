@@ -912,6 +912,7 @@ class FourierBuilder(CustomBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
         # just to be safe
         layers = self.__define_default_layers(model_type)
+        # impossible to streamline in current implementation
         if 'layers' in kwargs.keys():
             layers = self._verify_arguments(layers, layers=kwargs['layers'])
         super(FourierBuilder, self).__init__(model_type=model_type,
