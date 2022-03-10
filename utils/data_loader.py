@@ -9,6 +9,7 @@ from os.path import join, isfile
 from warnings import warn
 
 
+# TODO: for imread remember to switch channels to keep RGB2GRAY working as expected
 class DataLoader:
     # SOLVED: add augmentation methods
     # TODO: saving data processing to .npy
@@ -65,6 +66,7 @@ class DataLoader:
     def _preprocess_data(self, data):
         result = data.copy()
         # TODO: add grayscale as first preprocessing step
+        result = self._convert_to_grayscale(result)
         # TODO: default augmentation methods
         if self._flag_augment and any([_flag != {} for _flag in self._flags]):
             result = self._augment_data(result)
@@ -98,6 +100,31 @@ class DataLoader:
             return np.expand_dims(data, axis=0)
         return data
 
+    def _convert_to_grayscale(self, data):
+        _data = self.__expand_dims_for_eumeration(data)
+        if len(_data.shape) == 3:
+            # no channels
+            return _data
+        # must check 4th dimension
+        if _data.shape[-1] == 1 or _data.shape[-1] <= self._channels:
+            return _data
+        result = np.zeros((_data.shape[:3]))
+        for it, _point in enumerate(_data):
+            result[it] = cvtColor(_point, COLOR_RGB2GRAY)
+        return np.squeeze(result)
+
+    # np.pad to at least 32x32
+    def _pad_data_to_32(self, data):
+        _data = self.__expand_dims_for_eumeration(data)
+        if all([sh >= 32 for sh in _data.shape[1:3]]):
+            return data
+        pads = [(32 - sh) // 2 for sh in _data.shape[1:3]]
+        # assumption - always has first channel
+        if len(_data.shape) == 3:
+            # no channels
+            return np.pad(_data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
+        return np.pad(_data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]], [0, 0]])
+
     def _resize_data(self, data, new_shape):
         _data = self.__expand_dims_for_eumeration(data)
         # do not perform resize if unnecessary
@@ -113,17 +140,6 @@ class DataLoader:
             result[it] = resize(image, new_shape)
         # resize removes trailing (1) shapes anyway
         return np.squeeze(result)
-
-    # np.pad to at least 32x32
-    def _pad_data_to_32(self, data):
-        _data = self.__expand_dims_for_eumeration(data)
-        if all([sh >= 32 for sh in _data.shape[1:3]]):
-            return data
-        pads = [(32 - sh) // 2 for sh in _data.shape[1:3]]
-        # assumption - always has first channel
-        if len(data.shape) == 3:
-            return np.pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
-        return np.pad(data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]], [0, 0]])
 
     @staticmethod
     def _expand_dims(data, channels=1):
@@ -347,7 +363,7 @@ class DatasetGenerator(DatasetLoader):
         x_data, y_data = shuffle(x_data, y_data, random_state=self._seed)
         index_data = 0
         while True:
-            _X = np.zeros((self._batch, *x_data.shape[1:]))
+            _X = np.zeros((self._batch, *x_data.shape[1:3], self._channels))
             _Y = np.zeros((self._batch, *y_data.shape[1:]))
             # this will "eat" the end of dataset without loading, but shuffling should smooth the errors
             if index_data + self._batch >= x_data.shape[0]:
@@ -480,20 +496,21 @@ class FringeGenerator(DataGenerator):
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
     for dataset in ['cifar10', 'fmnist', 'mnist']:
-        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, noise=1e-3).generator
-        X, Y = next(generator)
-        print('Noise OK.')
-        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, flip='ud').generator
-        X, Y = next(generator)
-        print('Flip OK.')
-        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, shift=5).generator
-        X, Y = next(generator)
-        print('Shift OK.')
-        generator = DatasetGenerator(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, rotation=45).generator
-        X, Y = next(generator)
-        print('Rotation OK.')
-        X, Y = DatasetLoader(out_shape=(32, 32, 3), dataset_name=dataset, augmentation=True, noise=1e-3, flip='up', shift=5, rotation=45).train_data
-        print('Loader OK')
+        for target_shape in [(32, 32, 1), (32, 32, 3)]:
+            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, noise=1e-3).generator
+            X, Y = next(generator)
+            print('Noise OK.')
+            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, flip='ud').generator
+            X, Y = next(generator)
+            print('Flip OK.')
+            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, shift=5).generator
+            X, Y = next(generator)
+            print('Shift OK.')
+            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, rotation=45).generator
+            X, Y = next(generator)
+            print('Rotation OK.')
+            X, Y = DatasetLoader(out_shape=target_shape, dataset_name=dataset, augmentation=True, noise=1e-3, flip='up', shift=5, rotation=45).train_data
+            print('Loader OK')
     print(Y[0])
     plt.imshow(np.squeeze(X[0]))
     plt.show()
