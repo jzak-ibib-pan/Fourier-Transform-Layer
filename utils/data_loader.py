@@ -18,9 +18,7 @@ class DataLoader:
     def __init__(self, out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
         self._data_shape = out_shape[:2]
-        self._channels = 1
-        if len(out_shape) >= 3:
-            self._channels = out_shape[-1]
+        self._channels = [1 if len(out_shape) < 3 else out_shape[-1]][0]
         self.dataset = str(None)
         self._noof_classes = 0
         # kwargs
