@@ -283,7 +283,8 @@ class DataLoader:
         gausss = np.random.normal(flag['mean'], flag['sigma'], (r, c, ch))
         gausss = gausss.reshape(r, c, ch)
         _data = _data + gausss
-        _data = _data - np.min(_data)
+        if np.min(_data) < 0:
+            _data = _data - np.min(_data)
         return _data
 
     @staticmethod
