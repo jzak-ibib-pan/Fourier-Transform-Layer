@@ -398,9 +398,7 @@ class ModelBuilder:
             summary = self._SUMMARIES['default']
         if 'summary' in kwargs.keys():
             summary = kwargs['summary']
-        format_used = extension
-        if len(format_used) < 1:
-            format_used = '.txt'
+        format_used = ['.txt' if len(extension) < 1 else extension][0]
         if '.' not in format_used:
             format_used = '.' + format_used
         with open(join(self._filepath, self._filename + format_used), 'w') as fil:
@@ -433,12 +431,8 @@ class ModelBuilder:
                     self._model.summary()
 
     def _layer_weight_summary(self, layers, **kwargs):
-        _arguments = [None for _ in layers]
-        if 'arguments' in kwargs.keys():
-            _arguments = kwargs['arguments']
-        summary = False
-        if 'summary' in kwargs.keys():
-            summary = kwargs['summary']
+        _arguments = [[None for _ in layers] if 'arguments' not in kwargs.keys() else [kwargs['arguments']]][0]
+        summary = [False if 'summary' not in kwargs.keys() else kwargs['summary']]
         result = ''
         for layer_got, layer_args in zip(layers, _arguments):
             weight = layer_got.weights
@@ -476,12 +470,8 @@ class ModelBuilder:
         return text_build
 
     def _prepare_paired_text(self, *args):
-        left = "#" * self._length
-        right = "X" * self._length
-        if len(args) > 0:
-            left = str(args[0])
-        if len(args) > 1:
-            right = str(args[1])
+        left = ["#" * self._length if len(args) == 0 else str(args[0])][0]
+        right = ["X" * self._length if len(args) == 1 else str(args[1])][0]
         overwrite = max([len(left) - self._length, 0])
         return f'\t{left:{self._length}} - {right.rjust(self._length - overwrite)}\n'
 
@@ -528,10 +518,7 @@ class ModelBuilder:
         for metric in metrics:
             suffix = metric.split('_')
             _suffix = metric.split('-')
-            if length > 0:
-                length_used = length
-            else:
-                length_used = self._determine_text_width(metric, _WIDTHS)
+            length_used = [length if length > 0 else self._determine_text_width(metric, _WIDTHS)][0]
             result.update({metric: sign.join([s[:length_used] for s in suffix])})
             if len(_suffix) <= 1:
                 continue
@@ -554,9 +541,7 @@ class ModelBuilder:
         text_result = ''
         text_result += 'epochs'.center(15) + ' -- '
         for key in history[0].keys():
-            key_str = key
-            if suffixes:
-                key_str = suffixes[key]
+            key_str = [key if not suffixes else suffixes[key]][0]
             width = self._determine_text_width(key, _MAX_WIDTHS)
             text_result += str(key_str).center(max([len(key_str), width])) +' || '
         text_result += '\n'
@@ -568,12 +553,8 @@ class ModelBuilder:
             # do not expect more than 10k training epochs
             text_result += ('Epoch ' + epoch_str).center(15) +' -- '
             for key, value in zip(history[epoch].keys(), history[epoch].values()):
-                key_str = key
-                if suffixes:
-                    key_str = suffixes[key]
-                value_used = value
-                if type(value) is list:
-                    value_used = value[0]
+                key_str = [key if not suffixes else suffixes[key]][0]
+                value_used = [value if type(value) is not list else value[0]]
                 width = self._determine_text_width(key, _MAX_WIDTHS)
                 trail = self._determine_text_width(key, _MAX_TRAILS)
                 text_result += f'{value_used:{max([len(key_str), width])}.{trail}f} || '
