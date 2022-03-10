@@ -380,9 +380,7 @@ class DatasetGenerator(DatasetLoader):
                                                                                   split=split)
 
     def _generator(self, validation=False, augment=True):
-        x_data, y_data = self._x_train, self._y_train
-        if validation:
-            x_data, y_data = self._x_val, self._y_val
+        x_data, y_data = [self._x_train, self._y_train if not validation else self._x_val, self._y_val][0]
         # 2. actually shuffle and load the data
         x_data, y_data = shuffle(x_data, y_data, random_state=self._seed)
         index_data = 0
