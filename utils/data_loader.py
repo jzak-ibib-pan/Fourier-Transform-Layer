@@ -37,7 +37,7 @@ class DataLoader:
             self._flag_augment = kwargs['augmentation']
         if 'shift' in kwargs.keys() and kwargs['shift']:
             assert type(kwargs['shift']) is int, 'Shift must be an integer.'
-            self._flags['shift'].update({'threshold': 0, 'value': kwargs['shift']})
+            self._flags['shift'].update({'threshold': 0.5, 'value': kwargs['shift']})
         if 'noise' in kwargs.keys() and kwargs['noise']:
             assert kwargs['noise'] in self._VARIANCES, \
                 f'Wrong variance value. Input one of the following {self._VARIANCES}.'
