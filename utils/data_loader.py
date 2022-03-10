@@ -380,7 +380,7 @@ class DatasetGenerator(DatasetLoader):
                                                                                   split=split)
 
     def _generator(self, validation=False, augment=True):
-        x_data, y_data = [self._x_train, self._y_train if not validation else self._x_val, self._y_val][0]
+        x_data, y_data = [[self._x_train, self._y_train] if not validation else [self._x_val, self._y_val]][0]
         # 2. actually shuffle and load the data
         x_data, y_data = shuffle(x_data, y_data, random_state=self._seed)
         index_data = 0
@@ -471,9 +471,7 @@ class FringeGenerator(DataGenerator):
 
     # generate data must be a function
     def _generate_data(self, *args):
-        rand = np.random.randint(1, 3)
-        if self._flag_test:
-            rand = 1 + self._test_class
+        rand_num = [np.random.randint(1, 3) if not self._flag_test else 1 + self._test_class][0]
         # no shifting fringes
         shift = 0
         if self._flag_shift:
@@ -488,7 +486,7 @@ class FringeGenerator(DataGenerator):
         y = 32.0 + (31.0 * np.sin(x * multiplier))
         y = np.uint8(y)
 
-        if rand % 2 == 0:
+        if rand_num % 2 == 0:
             xy = np.tile(y, (self._out_shape[1], 1))  # pionowe prążki
             if self._flag_rotation:
                 # 5 zamiast 2 - więcej prążków po obrocie
