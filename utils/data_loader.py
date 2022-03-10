@@ -56,6 +56,9 @@ class DataLoader:
             if kwargs['flip'] in self._FLIPS[:3]:
                 _flip_direction = 'ud'
             self._flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
+        self._empty_aug_flags = all([_flag == {} for _flag in self._flags])
+        if not self._flag_augment and not self._empty_aug_flags:
+            warn('User did not provide augmentation=True and set augmentation parameters. Ensure this is not a problem.')
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
