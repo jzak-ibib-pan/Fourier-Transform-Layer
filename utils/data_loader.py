@@ -504,7 +504,7 @@ class FringeGenerator(DataGenerator):
             xy[xy >= 0.5] = 1
             xy[xy < 1] = 0
 
-        # dalsze próby
+        # further tries
         x_t = xy / 100
         x_t = np.expand_dims(x_t, axis=-1)
 

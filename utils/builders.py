@@ -25,18 +25,15 @@ class ModelBuilder:
         self._allowed_kwargs = self._get_allowed_kwargs()
         # placeholder
         # kwargs = self._check_allowed_kwargs(allowed, kwargs)
-        filepath = '../temp'
-        if 'filepath' in kwargs.keys():
-            filepath = kwargs['filepath']
-        filename = 'dummy'
-        if 'filename' in kwargs.keys():
-            filename = kwargs['filename']
+        filepath = ['../temp' if 'filepath' not in kwargs.keys() else kwargs['filepath']][0]
+        filename = ['dummy' if 'filename' not in kwargs.keys() else kwargs['filename']][0]
         if not isdir(filepath):
             mkdir(filepath)
             mkdir(join(filepath, 'checkpoints'))
         self._filename_original = filename
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
+        # self methods cannot be streamlined (?)
         defaults = self._get_default_arguments(filepath, self._filename)
         if 'defaults' in kwargs.keys():
             defaults = self._update_build_defaults(defaults, kwargs['defaults'])
@@ -188,9 +185,7 @@ class ModelBuilder:
         self._compile_model(**self._arguments['compile'])
 
     def _compile_model(self, optimizer, loss, **kwargs):
-        _loss = loss
-        if loss == 'ssim':
-            _loss = ssim
+        _loss = [loss if loss != 'ssim' else ssim][0]
         metrics = []
         if 'metrics' not in kwargs.keys():
             self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
