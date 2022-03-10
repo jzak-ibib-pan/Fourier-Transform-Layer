@@ -366,16 +366,10 @@ class DatasetLoader(DataLoader):
 # a class for generating data when targets are separate variables
 class DatasetGenerator(DatasetLoader):
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
-        # load data without augmentations, but process the flags
-        kwargs_no_aug = {}
-        for key, value in zip(kwargs.keys(), kwargs.values()):
-            if key == 'augmentation':
-                continue
-            kwargs_no_aug.update({key : value})
         # default - no augmentation
         super(DatasetGenerator, self).__init__(dataset_name=dataset_name,
                                                out_shape=out_shape,
-                                               **kwargs_no_aug)
+                                               **kwargs)
         self._batch = batch
         self._seed = self._process_seed(shuffle_seed)
         self._flag_validation = split > 0
