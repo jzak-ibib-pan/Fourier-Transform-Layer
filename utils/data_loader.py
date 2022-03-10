@@ -274,8 +274,7 @@ class DataLoader:
     def _augment_noise(data, flag):
         _data = data.copy()
         # otherwise summing may cause errors
-        if len(_data.shape) <= 2:
-            _data = np.expand_dims(_data, axis=-1)
+        _data = [_data if len(_data.shape) > 2 else np.expand_dims(_data, axis=-1)][0]
         r, c, ch = _data.shape
         gausss = np.random.normal(flag['mean'], flag['sigma'], (r, c, ch))
         gausss = gausss.reshape(r, c, ch)
