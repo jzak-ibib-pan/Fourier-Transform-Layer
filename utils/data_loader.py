@@ -64,8 +64,9 @@ class DataLoader:
         return self._load_data()
 
     def _preprocess_data(self, data):
+        # TODO: merge with private __expand and sort order of actions
         result = data.copy()
-        # TODO: add grayscale as first preprocessing step
+        # SOLVED: add grayscale as first preprocessing step
         result = self._convert_to_grayscale(result)
         # TODO: default augmentation methods
         if self._flag_augment and any([_flag != {} for _flag in self._flags]):
@@ -431,6 +432,9 @@ class FringeGenerator(DataGenerator):
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = [25, 45, 135, 170]
         self._WARNING_FLAGS = 'Both noise and rotation are used. Not recommended for experiments.'
+        self._flag_shift = self._flags['shift'] != {}
+        self._flag_noise = self._flags['noise'] != {}
+        self._flag_rotation = self._flags['rotation'] != {}
         if self._flag_noise and self._flag_rotation:
             warn(self._WARNING_FLAGS)
         self._flag_test = False
