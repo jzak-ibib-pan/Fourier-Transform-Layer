@@ -76,16 +76,20 @@ class DataLoader:
         # iterative methods
         for it, _point in enumerate(_data):
             # SOLVED: add grayscale as first preprocessing step
-            result[it] = self._convert_to_grayscale(_point, self._channels)
+            _point = self._convert_to_grayscale(_point, self._channels)
             # resize if necessary
-            result[it] = self._resize_data(_point, self._data_shape)
+            _point = self._resize_data(_point, self._data_shape)
             # TODO: default augmentation methods
-            if (not augment) or (not self._flag_augment) or all([_flag == {} for _flag in self._flags]):
-                continue
-            result[it] = self._augment_data(result)
+            if augment and self._flag_augment and any([_flag != {} for _flag in self._flags]):
+                _point = self._augment_data(_point)
+            # any of the three methods (convert, resize, augment) remove the trailing dimensions
+            if len(_point.shape) == 2:
+                _point = np.expand_dims(_point, axis=-1)
+            result[it] = _point
         # expand dimentions if necessary
         result = self._expand_dims(result, channels=self._channels)
         # 255 - written this way to keep the same writing style
+        # TODO: remove the second condition; may be unmet
         if type(result) == np.uint8 and np.max(result) == 2**8 - 1:
             result = result / (2**8 - 1)
         elif type(result) == np.uint16 and np.max(result) == 2**16 - 1:
@@ -129,20 +133,16 @@ class DataLoader:
         # must check last (3rd) dimension
         if datapoint.shape[-1] == 1 or datapoint.shape[-1] <= channels:
             return datapoint
-        # expand dims, because it is known that the cvtColor removes trailing 1s and result expects trailing 1
-        return np.expand_dims(cvtColor(datapoint, COLOR_RGB2GRAY), axis=-1)
+        # it is known that the cvtColor removes trailing 1s and result expects trailing 1
+        return cvtColor(datapoint, COLOR_RGB2GRAY)
 
     @staticmethod
     def _resize_data(datapoint, new_shape):
         # do not perform resize if unnecessary
         if datapoint.shape[1:3] == new_shape:
             return datapoint
-        result = resize(datapoint, new_shape)
-        # expand dims, because it is known that the resize removes trailing 1s and result expects trailing 1
-        if len(result.shape) == 2:
-            return np.expand_dims(result, axis=-1)
-        # unless there are more than 1 channel
-        return result
+        # it is known that the resize removes trailing 1s and result expects trailing 1
+        return resize(datapoint, new_shape)
 
     @staticmethod
     def _expand_dims(data, channels=1):
@@ -183,20 +183,18 @@ class DataLoader:
 
     # Augmentation methods
     # SOLVED: rotation in range
-    def _augment_data(self, data):
-        _data = self.__expand_dims_for_eumeration(data)
+    def _augment_data(self, datapoint):
         # datapoint - single image
-        for it, _point in enumerate(_data):
-            if self._determine_if_augment(self._flags, 'flip'):
-                _point = self._augment_flip(_point, self._flags['flip']['direction'])
-            if self._determine_if_augment(self._flags, 'shift'):
-                _point = self._augment_shift(_point, self._flags['shift']['value'])
-            if self._determine_if_augment(self._flags, 'rotation'):
-                _point = self._augment_rotate(_point, self._flags['rotation']['angle'])
-            if self._determine_if_augment(self._flags, 'noise'):
-                _point = self._augment_noise(_point, self._flags['noise'])
-            _data[it] = _point
-        return np.squeeze(_data)
+        _point = datapoint.copy()
+        if self._determine_if_augment(self._flags, 'flip'):
+            _point = self._augment_flip(_point, self._flags['flip']['direction'])
+        if self._determine_if_augment(self._flags, 'shift'):
+            _point = self._augment_shift(_point, self._flags['shift']['value'])
+        if self._determine_if_augment(self._flags, 'rotation'):
+            _point = self._augment_rotate(_point, self._flags['rotation']['angle'])
+        if self._determine_if_augment(self._flags, 'noise'):
+            _point = self._augment_noise(_point, self._flags['noise'])
+        return np.squeeze(_point)
 
     @staticmethod
     def _determine_if_augment(flag, method):
@@ -220,10 +218,12 @@ class DataLoader:
                    shift_shape[0] // 2 + sx // 2 + sign[randx] * shift_x]
         y_range = [shift_shape[1] // 2 - sy // 2 + sign[randy] * shift_y,
                    shift_shape[1] // 2 + sy // 2 + sign[randy] * shift_y]
-        if len(data.shape) == 2:
-            _data = np.expand_dims(data, axis=-1)
-        _data = np.zeros((*shift_shape, data.shape[2]))
-        _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1], :] = data
+        if len(data.shape) <= 2:
+            _data = np.zeros(shift_shape)
+            _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1]] = data
+        else:
+            _data = np.zeros((*shift_shape, data.shape[2]))
+            _data[x_range[0] : x_range[-1], y_range[0] : y_range[-1], :] = data
         x_return = [shift_shape[0] // 2 - sx // 2,
                     shift_shape[0] // 2 + sx // 2]
         y_return = [shift_shape[1] // 2 - sy // 2,
@@ -500,23 +500,4 @@ class FringeGenerator(DataGenerator):
 
 
 if __name__ == '__main__':
-    from matplotlib import pyplot as plt
-    for dataset in ['cifar10', 'fmnist', 'mnist']:
-        for target_shape in [(32, 32, 1), (32, 32, 3)]:
-            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, noise=1e-3).generator
-            X, Y = next(generator)
-            print('Noise OK.')
-            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, flip='ud').generator
-            X, Y = next(generator)
-            print('Flip OK.')
-            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, shift=5).generator
-            X, Y = next(generator)
-            print('Shift OK.')
-            generator = DatasetGenerator(out_shape=target_shape, dataset_name=dataset, augmentation=True, rotation=45).generator
-            X, Y = next(generator)
-            print('Rotation OK.')
-            X, Y = DatasetLoader(out_shape=target_shape, dataset_name=dataset, augmentation=True, noise=1e-3, flip='up', shift=5, rotation=45).train_data
-            print('Loader OK')
-    print(Y[0])
-    plt.imshow(np.squeeze(X[0]))
-    plt.show()
+    loader = DatasetLoader()
