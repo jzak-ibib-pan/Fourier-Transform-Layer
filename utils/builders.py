@@ -868,23 +868,32 @@ class CNNBuilder(ModelBuilder):
 
     def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
         model_type_low = model_type.lower()
+        # could be streamlined but would lower readability
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
                 # load Mobilenet
-                backbone = apps.mobilenet.MobileNet(input_shape=input_shape, weights=weights, include_top=False)
+                _backbone = apps.mobilenet.MobileNet
             else:
                 # load Mobilenetv2
-                backbone = apps.mobilenet_v2.MobileNetV2(input_shape=input_shape, weights=weights, include_top=False)
+                _backbone = apps.mobilenet_v2.MobileNetV2
         elif 'vgg' in model_type_low:
             if '16' in model_type_low:
-                backbone = apps.vgg16.VGG16(input_shape=input_shape, weights=weights, include_top=False)
+                # load VGG16
+                _backbone = apps.vgg16.VGG16
             elif '19' in model_type_low:
-                backbone = apps.vgg19.VGG19(input_shape=input_shape, weights=weights, include_top=False)
+                # load VGG19
+                _backbone = apps.vgg19.VGG19
         elif 'resnet' in model_type_low:
             if '50' in model_type_low:
-                backbone = apps.resnet_v2.ResNet50V2(input_shape=input_shape, weights=weights, include_top=False)
+                # load resnet50
+                _backbone = apps.resnet_v2.ResNet50V2
             elif '101' in model_type_low:
-                backbone = apps.resnet_v2.ResNet101V2(input_shape=input_shape, weights=weights, include_top=False)
+                # load resnet101
+                _backbone = apps.resnet_v2.ResNet101V2
+        # default
+        else:
+            _backbone = []
+        backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
         # update BatchNormalization momentum - otherwise several models (MobilenetV2, VGG16) do not work
         for layer in backbone.layers:
             if type(layer) != type(BatchNormalization):
@@ -893,9 +902,7 @@ class CNNBuilder(ModelBuilder):
         architecture = backbone.output
         # Classify
         flat = Flatten()(architecture)
-        act = 'softmax'
-        if noof_classes == 1:
-            act = 'sigmoid'
+        act = ['softmax' if noof_classes > 1 else 'sigmoid']
         out = Dense(noof_classes, activation=act)(flat)
         return Model(inputs=[backbone.input], outputs=[out])
 
