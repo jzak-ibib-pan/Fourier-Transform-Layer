@@ -110,8 +110,7 @@ class DataLoader:
             if augment and not self._flag_empty_aug:
                 _point = self._augment_data(_point)
             # any of the three methods (convert, resize, augment) remove the trailing dimensions
-            if len(_point.shape) == 2:
-                _point = np.expand_dims(_point, axis=-1)
+            _point = [_point if len(_point.shape) > 2 else np.expand_dims(_point, axis=-1)][0]
             result[it] = _point
         # expand dimentions if necessary
         result = self._expand_dims(result, channels=self._channels)
