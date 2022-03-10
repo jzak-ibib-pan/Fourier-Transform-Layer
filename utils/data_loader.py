@@ -472,12 +472,8 @@ class FringeGenerator(DataGenerator):
     # generate data must be a function
     def _generate_data(self, *args):
         rand_num = [np.random.randint(1, 3) if not self._flag_test else 1 + self._test_class][0]
-        # no shifting fringes
-        shift = 0
-        if self._flag_shift:
-            # added shifting fringes
-            shift = np.pi * np.random.randn() / 2
-            # shift = np.pi * np.random.choice([0, 0.25, 0.5], 1)[0]
+        # no shifting fringes - shifting fringes
+        shift = [0 if not self._flag_shift else np.pi * np.random.randn() / 2][0]
         x = np.linspace(shift, shift + 2 * np.pi, self._out_shape[0])
         # 2 - two fringe tops
         multiplier = 3
