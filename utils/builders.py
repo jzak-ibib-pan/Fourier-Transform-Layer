@@ -33,7 +33,7 @@ class ModelBuilder:
         self._filename_original = filename
         self._filename = self._expand_filename(filename, filepath)
         self._filepath = filepath
-        # self methods cannot be streamlined (?)
+        # here update received defaults as input - not possible to streamline
         defaults = self._get_default_arguments(filepath, self._filename)
         if 'defaults' in kwargs.keys():
             defaults = self._update_build_defaults(defaults, kwargs['defaults'])
@@ -782,9 +782,7 @@ class CustomBuilder(ModelBuilder):
         shape_new = arguments_sampled['input_shape']
         model_weights = self._model.get_weights()
         model_layers = self._model.layers
-        replace_value = self._REPLACE_VALUE
-        if 'replace_value' in kwargs.keys():
-            replace_value = kwargs['replace_value']
+        replace_value = [self._REPLACE_VALUE if 'replace_value' not in kwargs.keys() else kwargs['replace_value']][0]
         weights_result = []
         size_new = shape_new[0] * shape_new[1] * shape_new[2]
         if 'weights' in kwargs.keys():
