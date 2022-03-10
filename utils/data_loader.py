@@ -89,14 +89,17 @@ class DataLoader:
         # expand dimentions if necessary
         result = self._expand_dims(result, channels=self._channels)
         # 255 - written this way to keep the same writing style
-        # TODO: remove the second condition; may be unmet
-        if type(result) == np.uint8 and np.max(result) == 2**8 - 1:
+        # SOLVED: remove the second condition; may be unmet
+        if type(result) == np.uint8:
+            #  and np.max(result) == 2**8 - 1
             result = result / (2**8 - 1)
-        elif type(result) == np.uint16 and np.max(result) == 2**16 - 1:
+        elif type(result) == np.uint16:
+            #  and np.max(result) == 2**16 - 1
             result = result / (2**16 - 1)
         elif np.max(result) > 1:
             result = result / (2**8 - 1)
-        return result
+        # TODO: float16 support
+        return np.float32(result)
 
     @staticmethod
     def __expand_dims_for_eumeration(data):
