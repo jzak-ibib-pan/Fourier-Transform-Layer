@@ -12,6 +12,7 @@ from warnings import warn
 # TODO: for imread remember to switch channels to keep RGB2GRAY working as expected
 class DataLoader:
     # SOLVED: add augmentation methods
+    # TODO: threshold reading
     # TODO: saving data processing to .npy
     # split is redundant here, since keras will split the data during training on a whole dataset
     def __init__(self, out_shape=(32, 32, 1), **kwargs):
@@ -63,20 +64,25 @@ class DataLoader:
     def load_data(self):
         return self._load_data()
 
-    def _preprocess_data(self, data):
+    # augment variable to prevent test data augmentation
+    def _preprocess_data(self, data, augment=True):
         # TODO: merge with private __expand and sort order of actions
-        result = data.copy()
-        # SOLVED: add grayscale as first preprocessing step
-        result = self._convert_to_grayscale(result)
-        # TODO: default augmentation methods
-        if self._flag_augment and any([_flag != {} for _flag in self._flags]):
-            result = self._augment_data(result)
+        _data = self.__expand_dims_for_eumeration(data)
+        result = np.zeros((*_data.shape[:3], self._channels))
         # should split padding and resizing, but probably won't be using many small images 4 pixel border is
         # acceptable
         # np.pad if necessary
         result = self._pad_data_to_32(result)
-        # resize if necessary
-        result = self._resize_data(result, self._data_shape)
+        # iterative methods
+        for it, _point in enumerate(_data):
+            # SOLVED: add grayscale as first preprocessing step
+            result[it] = self._convert_to_grayscale(_point, self._channels)
+            # resize if necessary
+            result[it] = self._resize_data(_point, self._data_shape)
+            # TODO: default augmentation methods
+            if (not augment) or (not self._flag_augment) or all([_flag == {} for _flag in self._flags]):
+                continue
+            result[it] = self._augment_data(result)
         # expand dimentions if necessary
         result = self._expand_dims(result, channels=self._channels)
         # 255 - written this way to keep the same writing style
@@ -101,22 +107,11 @@ class DataLoader:
             return np.expand_dims(data, axis=0)
         return data
 
-    def _convert_to_grayscale(self, data):
-        _data = self.__expand_dims_for_eumeration(data)
-        if len(_data.shape) == 3:
-            # no channels
-            return _data
-        # must check 4th dimension
-        if _data.shape[-1] == 1 or _data.shape[-1] <= self._channels:
-            return _data
-        result = np.zeros((_data.shape[:3]))
-        for it, _point in enumerate(_data):
-            result[it] = cvtColor(_point, COLOR_RGB2GRAY)
-        return np.squeeze(result)
-
     # np.pad to at least 32x32
-    def _pad_data_to_32(self, data):
-        _data = self.__expand_dims_for_eumeration(data)
+    @staticmethod
+    def _pad_data_to_32(data):
+        # made sure its at least [1, X, Y, C] in preprocessing method
+        _data = data.copy()
         if all([sh >= 32 for sh in _data.shape[1:3]]):
             return data
         pads = [(32 - sh) // 2 for sh in _data.shape[1:3]]
@@ -126,21 +121,28 @@ class DataLoader:
             return np.pad(_data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]]])
         return np.pad(_data, [[0, 0], [pads[0], pads[0]], [pads[1], pads[1]], [0, 0]])
 
-    def _resize_data(self, data, new_shape):
-        _data = self.__expand_dims_for_eumeration(data)
+    @staticmethod
+    def _convert_to_grayscale(datapoint, channels=1):
+        if len(datapoint.shape) == 2:
+            # no channels
+            return datapoint
+        # must check last (3rd) dimension
+        if datapoint.shape[-1] == 1 or datapoint.shape[-1] <= channels:
+            return datapoint
+        # expand dims, because it is known that the cvtColor removes trailing 1s and result expects trailing 1
+        return np.expand_dims(cvtColor(datapoint, COLOR_RGB2GRAY), axis=-1)
+
+    @staticmethod
+    def _resize_data(datapoint, new_shape):
         # do not perform resize if unnecessary
-        if _data.shape[1:3] == new_shape:
-            return data
-        # iterate over every image - do not need channels, as resize removes the trailing channel if == 1
-        result = np.zeros((_data.shape[0], *new_shape))
-        # for cifar and other colored images - now needs channels
-        if self._channels > 1:
-            result = np.zeros((_data.shape[0], *new_shape, self._channels))
-        # SOLVED: solve index out of bounds for axis - caused by iterating over data, not _data
-        for it, image in enumerate(_data):
-            result[it] = resize(image, new_shape)
-        # resize removes trailing (1) shapes anyway
-        return np.squeeze(result)
+        if datapoint.shape[1:3] == new_shape:
+            return datapoint
+        result = resize(datapoint, new_shape)
+        # expand dims, because it is known that the resize removes trailing 1s and result expects trailing 1
+        if len(result.shape) == 2:
+            return np.expand_dims(result, axis=-1)
+        # unless there are more than 1 channel
+        return result
 
     @staticmethod
     def _expand_dims(data, channels=1):
@@ -297,7 +299,7 @@ class DatasetLoader(DataLoader):
         y_train = to_categorical(y_train, noof_classes)
         y_test = to_categorical(y_test, noof_classes)
         x_train = self._preprocess_data(x_train)
-        x_test = self._preprocess_data(x_test)
+        x_test = self._preprocess_data(x_test, augment=False)
         self._noof_classes = noof_classes
         return x_train, y_train, x_test, y_test
 
@@ -356,7 +358,7 @@ class DatasetGenerator(DatasetLoader):
         if 'augmentation' in kwargs.keys():
             self._flag_augment = kwargs['augmentation']
 
-    def _generator(self, validation=False):
+    def _generator(self, validation=False, augment=True):
         x_data, y_data = self._x_train, self._y_train
         if validation:
             x_data, y_data = self._x_val, self._y_val
@@ -372,7 +374,7 @@ class DatasetGenerator(DatasetLoader):
                 index_data = 0
                 continue
             for rep in range(self._batch):
-                _X[rep] = self._preprocess_data(x_data[index_data])
+                _X[rep] = self._preprocess_data(x_data[index_data], augment=augment)
                 _Y[rep] = y_data[index_data]
                 index_data += 1
             yield _X, _Y
