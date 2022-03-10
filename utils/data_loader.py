@@ -69,7 +69,7 @@ class DataLoader:
 
     # augment variable to prevent test data augmentation
     def _preprocess_data(self, data, augment=True):
-        # TODO: merge with private __expand and sort order of actions
+        # SOLVED: merge with private __expand and sort order of actions
         _data = self.__expand_dims_for_eumeration(data)
         result = np.zeros((*_data.shape[:3], self._channels))
         # should split padding and resizing, but probably won't be using many small images 4 pixel border is
