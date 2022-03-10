@@ -217,9 +217,7 @@ class ModelBuilder:
         # full set or generator
         flag_full_set = False
         # TODO: save_memory implementation
-        flag_save_memory = False
-        if 'save_memory' in kwargs.keys():
-            flag_save_memory = kwargs['save_memory']
+        flag_save_memory = [False if 'save_memory' not in kwargs.keys() else kwargs['save_memory']][0]
         split = 0
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
             x_train = kwargs['x_data']
@@ -270,13 +268,9 @@ class ModelBuilder:
             flag_checkpoint_best = self._arguments['train']['call_checkpoint_kwargs']['save_best_only']
 
         # other train arguments
-        batch = 8
-        if any([f in ['batch', 'batch_size'] for f in kwargs.keys()]):
-            batch = kwargs['batch']
-
-        verbosity = 1
-        if 'verbose' in kwargs.keys():
-            verbosity = kwargs['verbose']
+        batch = [8 if 'batch' not in kwargs.keys() else kwargs['batch']][0]
+        batch = [batch if 'batch_size' not in kwargs.keys() else kwargs['batch_size']][0]
+        verbosity = [1 if 'verbose' not in kwargs.keys() else kwargs['verbose']][0]
 
         hist = []
         tims = []
