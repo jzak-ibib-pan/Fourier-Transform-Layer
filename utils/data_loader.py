@@ -476,9 +476,7 @@ class FringeGenerator(DataGenerator):
         shift = [0 if not self._flag_shift else np.pi * np.random.randn() / 2][0]
         x = np.linspace(shift, shift + 2 * np.pi, self._out_shape[0])
         # 2 - two fringe tops
-        multiplier = 3
-        if self._flag_discrete:
-            multiplier = 8
+        multiplier = [3 if not self._flag_discrete else 8][0]
         y = 32.0 + (31.0 * np.sin(x * multiplier))
         y = np.uint8(y)
 
