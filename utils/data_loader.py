@@ -32,33 +32,14 @@ class DataLoader:
                            'rotation': {},
                            'flip': {},
                            }
-        if 'shift' in kwargs.keys() and kwargs['shift']:
-            assert type(kwargs['shift']) is int, 'Shift must be an integer.'
-            self._aug_flags['shift'].update({'threshold': 0.5, 'value': kwargs['shift']})
-        if 'noise' in kwargs.keys() and kwargs['noise']:
-            assert kwargs['noise'] in self._VARIANCES, \
-                f'Wrong variance value. Input one of the following {self._VARIANCES}.'
-            var = kwargs['noise']
-            mean = 0
-            sigma = var ** 0.5
-            self._aug_flags['noise'].update({'threshold': 0.5, 'mean': mean, 'sigma': sigma})
-        if 'rotation' in kwargs.keys() and kwargs['rotation']:
-            assert kwargs['rotation'] in self._ROTATIONS, \
-                f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
-            self._rot_angle = kwargs['rotation']
-            self._aug_flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
-        if 'flip' in kwargs.keys() and kwargs['flip']:
-            assert kwargs['flip'] in self._FLIPS, f'Wrong flip value. Input one of the following {self._FLIPS}.'
-            _flip_direction = 'lr'
-            if kwargs['flip'] in self._FLIPS[:3]:
-                _flip_direction = 'ud'
-            self._aug_flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
+        self._aug_flags = self._determine_augmentations(**kwargs)
         self._flag_empty_aug = all([_flag == {} for _flag in self._aug_flags])
         self._flag_augment = False
         if 'augmentation' in kwargs.keys():
             self._flag_augment = kwargs['augmentation']
         elif not self._flag_empty_aug:
-            warn('User did not provide augmentation=True and set augmentation parameters. Ensure this is not a problem.')
+            warn('User did not provide augmentation=True and set augmentation parameters. Ensure this is not a problem.',
+                 action='once')
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -66,6 +47,57 @@ class DataLoader:
 
     def load_data(self):
         return self._load_data()
+
+    def _determine_augmentations(self, **kwargs):
+        _names = {'shift': 'value',
+                  'rotation': 'angle',
+                  'flip': 'direction',
+                  }
+        result_aug_flags = self._aug_flags.copy()
+        for key in result_aug_flags.keys():
+            if key not in kwargs.keys():
+                continue
+            if not kwargs[key]:
+                continue
+            augmentation = kwargs[key]
+            if type(augmentation) is not list:
+                augmentation = [augmentation]
+            if not self._assert_augmentations(key, augmentation[0]):
+                continue
+            threshold = self._determine_threshold(augmentation)
+            if key == 'noise':
+                # TODO: mean as input
+                var = augmentation[0]
+                mean = 0
+                sigma = var ** 0.5
+                result_aug_flags[key].update({'threshold': threshold,
+                                              'mean': mean, 'sigma': sigma})
+                continue
+            result_aug_flags[key].update({'threshold': threshold,
+                                          _names[key]: augmentation[0]})
+        return result_aug_flags
+
+    def _assert_augmentations(self, key, augmentation_value):
+        if key == 'shift':
+            assert type(augmentation_value) is int, 'Shift must be an integer.'
+            return True
+        if key == 'noise':
+            assert augmentation_value in self._VARIANCES, \
+                f'Wrong variance value. Input one of the following {self._VARIANCES}.'
+            return True
+        if key == 'rotation':
+            assert augmentation_value in self._ROTATIONS, \
+                f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
+            return True
+        if key == 'flip':
+            assert augmentation_value in self._FLIPS, f'Wrong flip value. Input one of the following {self._FLIPS}.'
+            return True
+        # default
+        return False
+
+    @staticmethod
+    def _determine_threshold(augmentation):
+        return [0.5 if len(augmentation) == 1 else augmentation[1]][0]
 
     # augment variable to prevent test data augmentation
     def _preprocess_data(self, data, augment=True):
@@ -482,7 +514,7 @@ class FringeGenerator(DataGenerator):
                 y = 32.0 + (31.0 * np.sin(x * 2))
                 y = np.uint8(y)
                 xy = np.tile(y, (self._out_shape[1] * 2, 1))  # pionowe prążki
-                xy = self._augment_rotate(xy, self._rot_angle)
+                xy = self._augment_rotate(xy, self._aug_flags['rotation']['angle'])
             target = 1
         else:
             xy = np.tile(y, (self._out_shape[1], 1))  # poziome prążki
