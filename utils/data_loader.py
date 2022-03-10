@@ -304,9 +304,7 @@ class DatasetLoader(DataLoader):
         super(DatasetLoader, self).__init__(out_shape=out_shape, **kwargs)
         self.dataset = dataset_name
         self._x_train, self._y_train, self._x_test, self._y_test = self.load_data()
-        _targets = None
-        if 'targets' in kwargs.keys():
-            _targets = kwargs['targets']
+        _targets = [None if 'targets' not in kwargs.keys() else kwargs['targets']][0]
         if _targets is not None:
             self._x_train, self._y_train = self._select_data_by_target(self.x_train, self.y_train, _targets)
             self._x_test, self._y_test = self._select_data_by_target(self.x_test, self.y_test, _targets)
