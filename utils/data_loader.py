@@ -27,37 +27,37 @@ class DataLoader:
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = np.arange(181)
         self._FLIPS = ['up', 'down', 'ud', 'left', 'right', 'lr']
-        self._flags = {'shift' : {},
-                       'noise': {},
-                       'rotation': {},
-                       'flip': {},
-                       }
+        self._aug_flags = {'shift' : {},
+                           'noise': {},
+                           'rotation': {},
+                           'flip': {},
+                           }
         if 'shift' in kwargs.keys() and kwargs['shift']:
             assert type(kwargs['shift']) is int, 'Shift must be an integer.'
-            self._flags['shift'].update({'threshold': 0.5, 'value': kwargs['shift']})
+            self._aug_flags['shift'].update({'threshold': 0.5, 'value': kwargs['shift']})
         if 'noise' in kwargs.keys() and kwargs['noise']:
             assert kwargs['noise'] in self._VARIANCES, \
                 f'Wrong variance value. Input one of the following {self._VARIANCES}.'
             var = kwargs['noise']
             mean = 0
             sigma = var ** 0.5
-            self._flags['noise'].update({'threshold': 0.5, 'mean': mean, 'sigma': sigma})
+            self._aug_flags['noise'].update({'threshold': 0.5, 'mean': mean, 'sigma': sigma})
         if 'rotation' in kwargs.keys() and kwargs['rotation']:
             assert kwargs['rotation'] in self._ROTATIONS, \
                 f'Wrong rotation value. Input one of the following {self._ROTATIONS}.'
             self._rot_angle = kwargs['rotation']
-            self._flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
+            self._aug_flags['rotation'].update({'threshold': 0.5, 'angle': self._rot_angle})
         if 'flip' in kwargs.keys() and kwargs['flip']:
             assert kwargs['flip'] in self._FLIPS, f'Wrong flip value. Input one of the following {self._FLIPS}.'
             _flip_direction = 'lr'
             if kwargs['flip'] in self._FLIPS[:3]:
                 _flip_direction = 'ud'
-            self._flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
-        self._empty_aug_flags = all([_flag == {} for _flag in self._flags])
+            self._aug_flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
+        self._flag_empty_aug = all([_flag == {} for _flag in self._aug_flags])
         self._flag_augment = False
         if 'augmentation' in kwargs.keys():
             self._flag_augment = kwargs['augmentation']
-        elif not self._empty_aug_flags:
+        elif not self._flag_empty_aug:
             warn('User did not provide augmentation=True and set augmentation parameters. Ensure this is not a problem.')
 
     def _load_data(self):
@@ -83,7 +83,7 @@ class DataLoader:
             # resize if necessary
             _point = self._resize_data(_point, self._data_shape)
             # TODO: default augmentation methods
-            if augment and self._flag_augment and any([_flag != {} for _flag in self._flags]):
+            if augment and self._flag_augment and not self._flag_empty_aug:
                 _point = self._augment_data(_point)
             # any of the three methods (convert, resize, augment) remove the trailing dimensions
             if len(_point.shape) == 2:
@@ -192,14 +192,14 @@ class DataLoader:
     def _augment_data(self, datapoint):
         # datapoint - single image
         _point = datapoint.copy()
-        if self._determine_if_augment(self._flags, 'flip'):
-            _point = self._augment_flip(_point, self._flags['flip']['direction'])
-        if self._determine_if_augment(self._flags, 'shift'):
-            _point = self._augment_shift(_point, self._flags['shift']['value'])
-        if self._determine_if_augment(self._flags, 'rotation'):
-            _point = self._augment_rotate(_point, self._flags['rotation']['angle'])
-        if self._determine_if_augment(self._flags, 'noise'):
-            _point = self._augment_noise(_point, self._flags['noise'])
+        if self._determine_if_augment(self._aug_flags, 'flip'):
+            _point = self._augment_flip(_point, self._aug_flags['flip']['direction'])
+        if self._determine_if_augment(self._aug_flags, 'shift'):
+            _point = self._augment_shift(_point, self._aug_flags['shift']['value'])
+        if self._determine_if_augment(self._aug_flags, 'rotation'):
+            _point = self._augment_rotate(_point, self._aug_flags['rotation']['angle'])
+        if self._determine_if_augment(self._aug_flags, 'noise'):
+            _point = self._augment_noise(_point, self._aug_flags['noise'])
         return np.squeeze(_point)
 
     @staticmethod
@@ -440,9 +440,9 @@ class FringeGenerator(DataGenerator):
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = [25, 45, 135, 170]
         self._WARNING_FLAGS = 'Both noise and rotation are used. Not recommended for experiments.'
-        self._flag_shift = self._flags['shift'] != {}
-        self._flag_noise = self._flags['noise'] != {}
-        self._flag_rotation = self._flags['rotation'] != {}
+        self._flag_shift = self._aug_flags['shift'] != {}
+        self._flag_noise = self._aug_flags['noise'] != {}
+        self._flag_rotation = self._aug_flags['rotation'] != {}
         if self._flag_noise and self._flag_rotation:
             warn(self._WARNING_FLAGS)
         self._flag_test = False
