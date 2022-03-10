@@ -147,10 +147,9 @@ class ModelBuilder:
     # SOLVED: make freeze more generic
     @staticmethod
     def _freeze_model(model, freeze):
-        result = model.copy()
-        for layer in result.layers[1 : freeze + 1]:
+        for layer in model.layers[1 : freeze + 1]:
             layer.trainable = False
-        return result
+        return model
 
     # previous version caused not setting the weights, thus causing unexpected results for sampling
     # wrapper to build with parameters and freeze
@@ -159,7 +158,7 @@ class ModelBuilder:
         model = self._build_model(**self._arguments['build'])
         # set the weights
         # this way ensures no key error
-        if 'weights' in kwargs.keys() and kwargs['weights'] is not None:
+        if 'weights' in kwargs.keys() and kwargs['weights'] is not None and type(kwargs['weights']) is list:
             model.set_weights(kwargs['weights'])
         # freeze the model
         if 'freeze' in kwargs.keys() and kwargs['freeze'] != 0:
@@ -431,7 +430,8 @@ class ModelBuilder:
                     self._model.summary()
 
     def _layer_weight_summary(self, layers, **kwargs):
-        _arguments = [[None for _ in layers] if 'arguments' not in kwargs.keys() else [kwargs['arguments']]][0]
+        # TODO: implement to work with Fourier or CNN Builders
+        _arguments = [[None for _ in layers] if 'arguments' not in kwargs.keys() else kwargs['arguments']][0]
         summary = [False if 'summary' not in kwargs.keys() else kwargs['summary']]
         result = ''
         for layer_got, layer_args in zip(layers, _arguments):
@@ -470,8 +470,8 @@ class ModelBuilder:
         return text_build
 
     def _prepare_paired_text(self, *args):
-        left = ["#" * self._length if len(args) == 0 else str(args[0])][0]
-        right = ["X" * self._length if len(args) == 1 else str(args[1])][0]
+        left = ["#" * self._length if len(args) <= 0 else str(args[0])][0]
+        right = ["X" * self._length if len(args) <= 1 else str(args[1])][0]
         overwrite = max([len(left) - self._length, 0])
         return f'\t{left:{self._length}} - {right.rjust(self._length - overwrite)}\n'
 
@@ -546,18 +546,19 @@ class ModelBuilder:
             text_result += str(key_str).center(max([len(key_str), width])) +' || '
         text_result += '\n'
         for epoch in range(len(history)):
-            epoch_str = str(epoch)
-            # may be possible to use {epoch:0xd}
-            while len(epoch_str) < len(str(len(history))):
-                epoch_str = '0' + epoch_str
+            # epoch_str = str(epoch)
+            # # may be possible to use {epoch:0xd}
+            # while len(epoch_str) < len(str(len(history))):
+            #     epoch_str = '0' + epoch_str
             # do not expect more than 10k training epochs
-            text_result += ('Epoch ' + epoch_str).center(15) +' -- '
+            # text_result += ('Epoch ' + epoch_str).center(15) +' -- '
+            text_result +=  f'Epoch {epoch:0{len(str(len(history)))}d}'.center(15) +' -- '
             for key, value in zip(history[epoch].keys(), history[epoch].values()):
                 key_str = [key if not suffixes else suffixes[key]][0]
-                value_used = [value if type(value) is not list else value[0]]
-                width = self._determine_text_width(key, _MAX_WIDTHS)
+                value_used = [value if type(value) is not list else value[0]][0]
+                width = max([len(key_str), self._determine_text_width(key, _MAX_WIDTHS)])
                 trail = self._determine_text_width(key, _MAX_TRAILS)
-                text_result += f'{value_used:{max([len(key_str), width])}.{trail}f} || '
+                text_result += f'{value_used:{width}.{trail}f} || '
             text_result += '\n'
         return text_result
 
@@ -902,7 +903,7 @@ class CNNBuilder(ModelBuilder):
         architecture = backbone.output
         # Classify
         flat = Flatten()(architecture)
-        act = ['softmax' if noof_classes > 1 else 'sigmoid']
+        act = ['softmax' if noof_classes > 1 else 'sigmoid'][0]
         out = Dense(noof_classes, activation=act)(flat)
         return Model(inputs=[backbone.input], outputs=[out])
 
