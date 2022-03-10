@@ -32,9 +32,6 @@ class DataLoader:
                        'rotation': {},
                        'flip': {},
                        }
-        self._flag_augment = False
-        if 'augmentation' in kwargs.keys():
-            self._flag_augment = kwargs['augmentation']
         if 'shift' in kwargs.keys() and kwargs['shift']:
             assert type(kwargs['shift']) is int, 'Shift must be an integer.'
             self._flags['shift'].update({'threshold': 0.5, 'value': kwargs['shift']})
@@ -57,7 +54,10 @@ class DataLoader:
                 _flip_direction = 'ud'
             self._flags['flip'].update({'threshold': 0.5, 'direction': _flip_direction})
         self._empty_aug_flags = all([_flag == {} for _flag in self._flags])
-        if not self._flag_augment and not self._empty_aug_flags:
+        self._flag_augment = False
+        if 'augmentation' in kwargs.keys():
+            self._flag_augment = kwargs['augmentation']
+        elif not self._empty_aug_flags:
             warn('User did not provide augmentation=True and set augmentation parameters. Ensure this is not a problem.')
 
     def _load_data(self):
