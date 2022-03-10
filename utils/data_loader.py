@@ -34,12 +34,6 @@ class DataLoader:
                            }
         self._aug_flags = self._determine_augmentations(**kwargs)
         self._flag_empty_aug = all([_flag == {} for _flag in self._aug_flags])
-        self._flag_augment = False
-        if 'augmentation' in kwargs.keys():
-            self._flag_augment = kwargs['augmentation']
-        elif not self._flag_empty_aug:
-            warn('User did not provide augmentation=True and set augmentation parameters. Ensure this is not a problem.',
-                 action='once')
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -93,7 +87,7 @@ class DataLoader:
             assert augmentation_value in self._FLIPS, f'Wrong flip value. Input one of the following {self._FLIPS}.'
             return True
         # default
-        return False
+        return True
 
     @staticmethod
     def _determine_threshold(augmentation):
@@ -115,7 +109,7 @@ class DataLoader:
             # resize if necessary
             _point = self._resize_data(_point, self._data_shape)
             # TODO: default augmentation methods
-            if augment and self._flag_augment and not self._flag_empty_aug:
+            if augment and not self._flag_empty_aug:
                 _point = self._augment_data(_point)
             # any of the three methods (convert, resize, augment) remove the trailing dimensions
             if len(_point.shape) == 2:
@@ -337,6 +331,7 @@ class DatasetLoader(DataLoader):
         y_train = to_categorical(y_train, noof_classes)
         y_test = to_categorical(y_test, noof_classes)
         x_train = self._preprocess_data(x_train)
+        # implicit to avoid bugs
         x_test = self._preprocess_data(x_test, augment=False)
         self._noof_classes = noof_classes
         return x_train, y_train, x_test, y_test
@@ -370,6 +365,7 @@ class DatasetLoader(DataLoader):
         return self.x_train, self.y_train, self.x_test, self.y_test
 
 
+# TODO: add test dataset generator or return whole subset
 # SOLVED: add augmentation control to Generator classes
 # a class for generating data when targets are separate variables
 class DatasetGenerator(DatasetLoader):
@@ -392,9 +388,6 @@ class DatasetGenerator(DatasetLoader):
         self._x_train, self._y_train, self._x_val, self._y_val = self._split_data(self.x_train,
                                                                                   self.y_train,
                                                                                   split=split)
-        # kwargs
-        if 'augmentation' in kwargs.keys():
-            self._flag_augment = kwargs['augmentation']
 
     def _generator(self, validation=False, augment=True):
         x_data, y_data = self._x_train, self._y_train
@@ -465,6 +458,7 @@ class DataGenerator(DataLoader):
 
 class FringeGenerator(DataGenerator):
     def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
+        # TODO: make VARIANCES and ROTATIONS relevant in init
         # no kwargs here - not expecting to perform additional augmentations
         # SOLVED: updated to DataLoader flags - unnecessary
         super(FringeGenerator, self).__init__(out_shape, batch, shuffle_seed)
