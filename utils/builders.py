@@ -232,6 +232,7 @@ class ModelBuilder:
             data_gen = kwargs['generator']
             self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                             dataset='generator')
+            validation_data = None
             if 'validation' in kwargs.keys():
                 split = 1
                 validation_data = kwargs['validation']
@@ -313,6 +314,7 @@ class ModelBuilder:
         self._evaluation = self._evaluate_model(**kwargs)
 
     def _evaluate_model(self, **kwargs):
+        # TODO: on generator implicit args and kwargs
         return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
 
     # placeholder
@@ -570,6 +572,7 @@ class ModelBuilder:
         except ValueError:
             return widths['default']
 
+    # TODO: change the formatting to more than 3 - 4 or 5, for HPO
     @staticmethod
     def _expand_filename(filename, filepath=''):
         # List OF
