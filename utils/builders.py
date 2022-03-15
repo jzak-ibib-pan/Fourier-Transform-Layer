@@ -704,7 +704,7 @@ class CustomBuilder(ModelBuilder):
                                     },
                     'ftl': {'activation': None,
                             'kernel_initializer': 'he_normal',
-                            'use_imaginary': True,
+                            'train_imaginary': True,
                             'inverse': False,
                             'use_bias': False,
                             'bias_initializer': 'zeros',
@@ -928,7 +928,7 @@ class FourierBuilder(CustomBuilder):
 
     @staticmethod
     def __define_default_layers(model_type):
-        structure = [{'ftl': {'use_imaginary': True,
+        structure = [{'ftl': {'train_imaginary': True,
                               'inverse': 'inverse' in model_type,
                               }},
                      {'flatten': {}},
