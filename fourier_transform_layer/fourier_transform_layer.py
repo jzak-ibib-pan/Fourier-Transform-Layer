@@ -8,13 +8,12 @@ from utils.sampling import DIRECTIONS, sampling_calculation
 # TODO: get_config implementation
 # TODO: move bias initializer to kwargs, depending on use_bias - to consider
 class FTL(Layer):
-    def __init__(self, activation=None, kernel_initializer='he_normal', use_imaginary=True, inverse=False,
+    def __init__(self, activation=None, kernel_initializer='he_normal', train_imaginary=True, inverse=False,
                  use_bias=False, bias_initializer='zeros', calculate_abs=True, normalize_to_image_shape=False,
                  **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
-        assert not (inverse is True and use_imaginary is False), 'Cannot inverse FFT without imaginary part.'
         self._kernel_shape_0 = {True: 2,
                                 False: 1,
                                 }
@@ -33,7 +32,7 @@ class FTL(Layer):
             self._activation = selu
         self._kernel_initializer = kernel_initializer
         self._flag_inverse = inverse
-        self._flag_use_imaginary = use_imaginary
+        self._flag_train_imaginary = train_imaginary
         self._flag_normalize = normalize_to_image_shape
         self._bias_initializer = 'zeros'
         self._flag_use_bias = use_bias
@@ -42,12 +41,12 @@ class FTL(Layer):
 
     def build(self, input_shape):
         self._kernel = self.add_weight(name='kernel',
-                                      shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
+                                      shape=(self._kernel_shape_0[self._flag_train_imaginary], *input_shape[1:]),
                                       initializer=self._kernel_initializer,
                                       trainable=True)
         if self._flag_use_bias:
             self._bias = self.add_weight(name='bias',
-                                        shape=(self._kernel_shape_0[self._flag_use_imaginary], *input_shape[1:]),
+                                        shape=(self._kernel_shape_0[self._flag_train_imaginary], *input_shape[1:]),
                                         initializer=self._bias_initializer,
                                         trainable=True)
 
@@ -77,21 +76,21 @@ class FTL(Layer):
         if self._flag_use_bias:
             _real = tf.add(_real, self._bias[0])
 
-        if not self._flag_use_imaginary:
-            if self._activation is not None:
-                return self._activation(_real)
-            return _real
+        if self._flag_train_imaginary:
+            _imag = tf.multiply(imag, self._kernel[1])
+            if self._flag_use_bias:
+                _imag = tf.add(_imag, self._bias[1])
+            x = tf.cast(tf.dtypes.complex(_real, _imag), tf.complex64)
+        else:
+            # use original imaginary part
+            x = tf.cast(tf.dtypes.complex(_real, imag), tf.complex64)
 
-        _imag = tf.multiply(imag, self._kernel[1])
-        if self._flag_use_bias:
-            _imag = tf.add(_imag, self._bias[1])
-
-        x = tf.cast(tf.dtypes.complex(_real, _imag), tf.complex64)
         if self._flag_inverse:
             x = tf.signal.ifft3d(x)
 
         if self._flag_calculate_abs:
             x = tf.math.abs(x)
+            # TODO: to separate method (?)
             if self._activation is not None:
                 return self._activation(x)
             return x

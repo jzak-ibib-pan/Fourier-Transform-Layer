@@ -299,6 +299,7 @@ class DataLoader:
         return self._noof_classes
 
 
+# TODO: out_shape as None (?)
 class DatasetLoader(DataLoader):
     def __init__(self, dataset_name='mnist', out_shape=(32, 32, 1), **kwargs):
         assert dataset_name in ['mnist', 'fmnist', 'cifar10', 'cifar100'], 'Other datasets not supported.'
