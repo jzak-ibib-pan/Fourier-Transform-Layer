@@ -584,14 +584,14 @@ class ModelBuilder:
         while not _stop and it < len(loof_iterators):
             # extract only number string
             extracted = loof_iterators[it]
-            compared = f'{it:03d}'
+            compared = f'{it:04d}'
             it += 1
             if compared == extracted:
                 continue
             it -= 1
             _stop = True
         date = dt.now().strftime('%Y-%m-%d_%H_%M_%S')
-        filename_expanded = f'{filename}_{date}_{it:03d}'
+        filename_expanded = f'{filename}_{date}_{it:04d}'
         return filename_expanded
 
     @staticmethod
