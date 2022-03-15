@@ -16,7 +16,7 @@ class DataLoader:
     # TODO: saving data processing to .npy
     # split is redundant here, since keras will split the data during training on a whole dataset
     def __init__(self, out_shape=(32, 32, 1), **kwargs):
-        assert all([sh >= 32 for sh in out_shape[:2]]), 'Must provide shapes larger than (32, 32).'
+        assert all([sh >= 1 for sh in out_shape[:2]]), 'Must provide shapes larger than (1, 1).'
         self._data_shape = out_shape[:2]
         self._channels = [1 if len(out_shape) < 3 else out_shape[-1]][0]
         self.dataset = str(None)
@@ -99,7 +99,7 @@ class DataLoader:
         # should split padding and resizing, but probably won't be using many small images 4 pixel border is
         # acceptable
         # np.pad if necessary
-        result = self._pad_data_to_32(result)
+        # result = self._pad_data_to_32(result)
         # iterative methods
         for it, _point in enumerate(_data):
             # SOLVED: add grayscale as first preprocessing step
