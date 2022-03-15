@@ -15,6 +15,7 @@ class DataLoader:
     # TODO: threshold reading
     # TODO: saving data processing to .npy
     # split is redundant here, since keras will split the data during training on a whole dataset
+    # TODO: resize or pad to required shape
     def __init__(self, out_shape=(32, 32, 1), **kwargs):
         assert all([sh >= 1 for sh in out_shape[:2]]), 'Must provide shapes larger than (1, 1).'
         self._data_shape = out_shape[:2]
@@ -95,7 +96,7 @@ class DataLoader:
     def _preprocess_data(self, data, augment=True):
         # SOLVED: merge with private __expand and sort order of actions
         _data = self.__expand_dims_for_eumeration(data)
-        result = np.zeros((*_data.shape[:3], self._channels))
+        result = np.zeros((_data.shape[0], *self._data_shape, self._channels))
         # should split padding and resizing, but probably won't be using many small images 4 pixel border is
         # acceptable
         # np.pad if necessary

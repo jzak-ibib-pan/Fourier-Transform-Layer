@@ -16,6 +16,7 @@ from utils.sampling import DIRECTIONS, sampling_calculation
 from utils.losses import ssim
 
 
+# TODO: parameters to kwargs
 # Generic builder
 class ModelBuilder:
     # TODO: allowed kwargs
