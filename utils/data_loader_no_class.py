@@ -170,5 +170,27 @@ def prepare_data_for_sampling(dataset, **kwargs):
     return (x_train, y_train), (x_test, y_test), (x_tr, x_ts)
 
 
+def flower():
+    from tensorflow.keras.preprocessing import image_dataset_from_directory
+    directory = join('Y://', 'FCNN', 'archive_natural_scenes', 'seg_train')
+    dataset = image_dataset_from_directory(directory,
+                                           labels="inferred",
+                                           label_mode="categorical",
+                                           class_names=None,
+                                           color_mode="rgb",
+                                           batch_size=4,
+                                           image_size=(256, 256),
+                                           shuffle=True,
+                                           seed=None,
+                                           validation_split=None,
+                                           subset=None,
+                                           interpolation="bilinear",
+                                           follow_links=False)
+    for x_train, y_train in dataset.as_numpy_iterator():
+        print(x_train.shape)
+        print(y_train)
+    return dataset
+
+
 if __name__ == '__main__':
-    print(0)
+    print(flower())
