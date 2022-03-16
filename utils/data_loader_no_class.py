@@ -179,17 +179,17 @@ def flower():
                                            class_names=None,
                                            color_mode="rgb",
                                            batch_size=4,
-                                           image_size=(256, 256),
+                                           image_size=(100, 100),
                                            shuffle=True,
                                            seed=None,
                                            validation_split=None,
                                            subset=None,
-                                           interpolation="bilinear",
+                                           interpolation="bicubic",
                                            follow_links=False)
-    for x_train, y_train in dataset.as_numpy_iterator():
-        print(x_train.shape)
-        print(y_train)
-    return dataset
+    while True:
+        X, Y = next(dataset.as_numpy_iterator())
+        print(X.shape)
+    return True
 
 
 if __name__ == '__main__':

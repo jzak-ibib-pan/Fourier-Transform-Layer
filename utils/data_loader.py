@@ -377,6 +377,7 @@ class DatasetGenerator(DatasetLoader):
         self._flag_validation = split > 0
         # 1. prepare data list to be shuffled - changes with dataset - already loaded from DataLoader
         # 1a. (optional) split the list between train and val data
+        # TODO: flower as another option; split by dataset_name or path - make sure validation generator will work
         self._x_train, self._y_train, self._x_val, self._y_val = self._split_data(self.x_train,
                                                                                   self.y_train,
                                                                                   split=split)
