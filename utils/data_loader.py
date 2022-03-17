@@ -33,7 +33,7 @@ class DataLoader:
                            'flip': {},
                            }
         self._aug_flags = self._determine_augmentations(**kwargs)
-        self._flag_empty_aug = all([_flag == {} for _flag in self._aug_flags])
+        self._flag_empty_aug = all([_flag == {} for _flag in self._aug_flags.values()])
 
     def _load_data(self):
         x_train, y_train, x_test, y_test = (0, 0, 0, 0)
@@ -383,7 +383,7 @@ class DatasetGenerator(DatasetLoader):
                                                                                   self.y_train,
                                                                                   split=split)
 
-    def _generator(self, validation=False):
+    def _generator(self, validation=False, augment=True):
         x_data, y_data = [[self._x_train, self._y_train] if not validation else [self._x_val, self._y_val]][0]
         # 2. actually shuffle and load the data
         x_data, y_data = shuffle(x_data, y_data, random_state=self._seed)
@@ -397,7 +397,7 @@ class DatasetGenerator(DatasetLoader):
                 index_data = 0
                 continue
             for rep in range(self._batch):
-                _X[rep] = self._preprocess_data(x_data[index_data])
+                _X[rep] = self._preprocess_data(x_data[index_data], augment)
                 _Y[rep] = y_data[index_data]
                 index_data += 1
             yield _X, _Y
@@ -418,6 +418,7 @@ class DatasetGenerator(DatasetLoader):
     def validation_generator(self):
         assert self._flag_validation, 'Must have validation data to generate it.'
         # implicit, just to make no mistakes
+        # TODO: augment=False (?)
         return self._generator(validation=True)
 
 
@@ -453,6 +454,7 @@ class DatasetFlower(DataGenerator):
     def __init__(self, path, split=0, **kwargs):
         super(DatasetFlower, self).__init__(**kwargs)
         self._path =  path
+        self._targets = [None if 'targets' not in kwargs.keys() else kwargs['targets']][0]
         self._dataset = None
         self._dataset = self._prepare_flower(split).as_numpy_iterator()
         self._dataset_val = None
@@ -470,7 +472,7 @@ class DatasetFlower(DataGenerator):
         return image_dataset_from_directory(self._path,
                                             labels="inferred",
                                             label_mode="categorical",
-                                            class_names=None,
+                                            class_names=self._targets,
                                             color_mode=["rgb" if self._channels > 1 else 'grayscale'][0],
                                             batch_size=self._batch,
                                             image_size=self._data_shape,
@@ -487,13 +489,13 @@ class DatasetFlower(DataGenerator):
     def _generate_data(dataset):
         return next(dataset)
 
-    def _generator(self, validation=False):
+    def _generator(self, validation=False, augment=True):
         if validation:
             _X, _Y = self._generate_data(self._dataset_val)
         else:
             _X, _Y = self._generate_data(self._dataset)
         for rep in range(self._batch):
-            _X[rep] = self._preprocess_data(_X[rep])
+            _X[rep] = self._preprocess_data(_X[rep], augment)
         yield _X, _Y
 
     @property
