@@ -453,7 +453,7 @@ class DataGenerator(DataLoader):
 class DatasetFlower(DataGenerator):
     def __init__(self, path, split=0, **kwargs):
         super(DatasetFlower, self).__init__(**kwargs)
-        self._path =  path
+        self._path = path
         self._targets = [None if 'targets' not in kwargs.keys() else kwargs['targets']][0]
         self._dataset = None
         self._dataset = self._prepare_flower(split).as_numpy_iterator()
