@@ -237,6 +237,7 @@ class ModelBuilder:
             if 'validation' in kwargs.keys():
                 split = 1
                 validation_data = kwargs['validation']
+                # TODO: make sure that validation_data has shape
                 self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                                 validation_size=validation_data.shape[0])
         # callbacks

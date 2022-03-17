@@ -490,13 +490,14 @@ class DatasetFlower(DataGenerator):
         return next(dataset)
 
     def _generator(self, validation=False, augment=True):
-        if validation:
-            _X, _Y = self._generate_data(self._dataset_val)
-        else:
-            _X, _Y = self._generate_data(self._dataset)
-        for rep in range(self._batch):
-            _X[rep] = self._preprocess_data(_X[rep], augment)
-        yield _X, _Y
+        while True:
+            if validation:
+                _X, _Y = self._generate_data(self._dataset_val)
+            else:
+                _X, _Y = self._generate_data(self._dataset)
+            for rep in range(self._batch):
+                _X[rep] = self._preprocess_data(_X[rep], augment)
+            yield _X, _Y
 
     @property
     def generator(self):
