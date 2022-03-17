@@ -4,6 +4,7 @@ from scipy import ndimage
 from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing import image_dataset_from_directory
 from os import listdir
 from os.path import join, isfile
 from warnings import warn
@@ -445,6 +446,64 @@ class DataGenerator(DataLoader):
     @property
     def generator(self):
         return self._generator()
+
+
+# Class for data flowing from directory
+class DatasetFlower(DataGenerator):
+    def __init__(self, path, split=0, **kwargs):
+        super(DatasetFlower, self).__init__(**kwargs)
+        self._path =  path
+        self._dataset = None
+        self._dataset = self._prepare_flower(split).as_numpy_iterator()
+        self._dataset_val = None
+        if split > 0:
+            self._dataset_val = self._prepare_flower(split, validation=True).as_numpy_iterator()
+
+    def _prepare_flower(self, split=0, validation=False):
+        _subset = None
+        _split = None
+        if split != 0:
+            _subset = 'training'
+            _split = split
+            if validation:
+                _subset = 'validation'
+        return image_dataset_from_directory(self._path,
+                                            labels="inferred",
+                                            label_mode="categorical",
+                                            class_names=None,
+                                            color_mode=["rgb" if self._channels > 1 else 'grayscale'][0],
+                                            batch_size=self._batch,
+                                            image_size=self._data_shape,
+                                            shuffle=True,
+                                            seed=self._seed,
+                                            # SOLVED: check validation split is working - must use subset as either
+                                            # "training" or "validation"
+                                            validation_split=_split,
+                                            subset=_subset,
+                                            interpolation="bicubic",
+                                            follow_links=False)
+
+    @staticmethod
+    def _generate_data(dataset):
+        return next(dataset)
+
+    def _generator(self, validation=False):
+        if validation:
+            _X, _Y = self._generate_data(self._dataset_val)
+        else:
+            _X, _Y = self._generate_data(self._dataset)
+        for rep in range(self._batch):
+            _X[rep] = self._preprocess_data(_X[rep])
+        yield _X, _Y
+
+    @property
+    def generator(self):
+        return self._generator(validation=False)
+
+    @property
+    def validation_generator(self):
+        assert self._dataset_val is not None, 'Must have validation data to generate it.'
+        return self._generator(validation=True)
 
 
 class FringeGenerator(DataGenerator):
