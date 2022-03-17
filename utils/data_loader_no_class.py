@@ -182,16 +182,19 @@ def flower():
                                            image_size=(100, 100),
                                            shuffle=True,
                                            seed=None,
-                                           # TODO: check validation split is working
-                                           validation_split=None,
+                                           # SOLVED: check validation split is working - must use subset as either
+                                           # "training" or "validation"
+                                           validation_split=0.1,
                                            subset=None,
                                            interpolation="bicubic",
                                            follow_links=False)
-    # TODO: check for possible error in iteration
+    # SOLVED: check for possible error in iteration - iteration is infinite
+    b = 0
     while True:
         X, Y = next(dataset.as_numpy_iterator())
         print(X.shape)
-    return True
+        b += 4
+        print(b)
 
 
 if __name__ == '__main__':

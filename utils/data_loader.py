@@ -382,7 +382,7 @@ class DatasetGenerator(DatasetLoader):
                                                                                   self.y_train,
                                                                                   split=split)
 
-    def _generator(self, validation=False, augment=True):
+    def _generator(self, validation=False):
         x_data, y_data = [[self._x_train, self._y_train] if not validation else [self._x_val, self._y_val]][0]
         # 2. actually shuffle and load the data
         x_data, y_data = shuffle(x_data, y_data, random_state=self._seed)
@@ -396,7 +396,7 @@ class DatasetGenerator(DatasetLoader):
                 index_data = 0
                 continue
             for rep in range(self._batch):
-                _X[rep] = self._preprocess_data(x_data[index_data], augment=augment)
+                _X[rep] = self._preprocess_data(x_data[index_data])
                 _Y[rep] = y_data[index_data]
                 index_data += 1
             yield _X, _Y
