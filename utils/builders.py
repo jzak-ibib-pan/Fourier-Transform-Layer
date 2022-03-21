@@ -325,8 +325,11 @@ class ModelBuilder:
         self._evaluation = self._evaluate_model(**kwargs)
 
     def _evaluate_model(self, **kwargs):
-        # TODO: on generator implicit args and kwargs
-        return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
+        if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
+            # TODO: on generator implicit args and kwargs
+            return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
+        elif 'generator' in kwargs.keys():
+            return self._model.evaluate(x=kwargs['generator'], return_dict=True, verbose=2)
 
     # placeholder
     def prepare_model_from_info(self):
