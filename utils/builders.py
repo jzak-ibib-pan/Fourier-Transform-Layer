@@ -292,7 +292,7 @@ class ModelBuilder:
 
         if not flag_full_set:
             # train on generator
-            hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, steps_per_epoch=step,
+            hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, steps_per_epoch=steps,
                                         shuffle=False, verbose=verbosity,
                                         validation_data=validation_data, callbacks=callbacks).history)
             if flag_time:
