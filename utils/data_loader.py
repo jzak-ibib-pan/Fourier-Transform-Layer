@@ -495,7 +495,7 @@ class DatasetFlower(DataGenerator):
                 _X, _Y = self._generate_data(self._dataset_val)
             else:
                 _X, _Y = self._generate_data(self._dataset)
-            for rep in range(self._batch):
+            for rep in range(_X.shape[0]):
                 _X[rep] = self._preprocess_data(_X[rep], augment)
             yield _X, _Y
 

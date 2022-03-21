@@ -8,7 +8,7 @@ import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
 from tensorflow import data as tfdata
-from numpy import squeeze, ones, pad
+from numpy import squeeze, ones, pad, array
 from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL, FTLSuperResolution
@@ -232,17 +232,22 @@ class ModelBuilder:
             flag_full_set = True
         if 'generator' in kwargs.keys():
             data_gen = kwargs['generator']
+            if type(data_gen) == tfdata.Dataset:
+                steps = data_gen.cardinality().numpy()
+            else:
+                steps = 1000
             self._arguments['train'] = self._update_arguments(self._arguments['train'],
-                                                            dataset='generator')
+                                                              dataset='generator')
             validation_data = None
             if 'validation' in kwargs.keys():
                 # split = 1, because generator and validation are two different datasets
                 split = 1
                 validation_data = kwargs['validation']
                 # TODO: make sure that validation_data has shape
+                validation_size = -1
                 if type(validation_data) == tfdata.Dataset:
                     validation_size = validation_data.cardinality().numpy()
-                else:
+                elif type(validation_data) == array:
                     validation_size = validation_data.shape[0]
                 self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                                   validation_size=validation_size)
@@ -287,7 +292,8 @@ class ModelBuilder:
 
         if not flag_full_set:
             # train on generator
-            hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
+            hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, steps_per_epoch=step,
+                                        shuffle=False, verbose=verbosity,
                                         validation_data=validation_data, callbacks=callbacks).history)
             if flag_time:
                 # time callback will always be before stop callback if flag time is True, thus 0
@@ -326,8 +332,8 @@ class ModelBuilder:
 
     def _evaluate_model(self, **kwargs):
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
-            # TODO: on generator implicit args and kwargs
             return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
+        # TODO: on generator implicit args and kwargs
         elif 'generator' in kwargs.keys():
             return self._model.evaluate(x=kwargs['generator'], return_dict=True, verbose=2)
 
