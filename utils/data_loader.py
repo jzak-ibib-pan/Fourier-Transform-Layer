@@ -456,10 +456,10 @@ class DatasetFlower(DataGenerator):
         self._path = path
         self._targets = [None if 'targets' not in kwargs.keys() else kwargs['targets']][0]
         self._dataset = None
-        self._dataset = self._prepare_flower(split).as_numpy_iterator()
+        self._dataset = self._prepare_flower(split)
         self._dataset_val = None
         if split > 0:
-            self._dataset_val = self._prepare_flower(split, validation=True).as_numpy_iterator()
+            self._dataset_val = self._prepare_flower(split, validation=True)
 
     def _prepare_flower(self, split=0, validation=False):
         _subset = None
@@ -487,19 +487,31 @@ class DatasetFlower(DataGenerator):
 
     @staticmethod
     def _generate_data(dataset):
-        while True:
-            for it in dataset:
-                yield it
+        for data in dataset.as_numpy_iterator():
+            yield data
+
+    def _reset_dataset(self, validation=False):
+        if validation:
+            return self._generate_data(self._dataset_val)
+        else:
+            return self._generate_data(self._dataset)
+
+    def _yield_data(self, generator, augment=True):
+        X, Y = next(generator)
+        for rep in range(X.shape[0]):
+            X[rep] = self._preprocess_data(X[rep], augment)
+        return X, Y
 
     def _generator(self, validation=False, augment=True):
+        _gen = self._reset_dataset(validation=validation)
         while True:
-            if validation:
-                _X, _Y = self._generate_data(self._dataset_val)
-            else:
-                _X, _Y = self._generate_data(self._dataset)
-            for rep in range(_X.shape[0]):
-                _X[rep] = self._preprocess_data(_X[rep], augment)
-            yield _X, _Y
+            try:
+                yield self._yield_data(_gen, augment=augment)
+            except StopIteration:
+                # reset the generators
+                _gen = self._reset_dataset(validation=validation)
+                # must yield
+                yield self._yield_data(_gen, augment=augment)
 
     @property
     def generator(self):
