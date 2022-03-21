@@ -457,9 +457,12 @@ class DatasetFlower(DataGenerator):
         self._targets = [None if 'targets' not in kwargs.keys() else kwargs['targets']][0]
         self._dataset = None
         self._dataset = self._prepare_flower(split)
+        self._len = self._dataset.cardinality().numpy()
         self._dataset_val = None
+        self._len_val = None
         if split > 0:
             self._dataset_val = self._prepare_flower(split, validation=True)
+            self._len_val = self._dataset_val.cardinality().numpy()
 
     def _prepare_flower(self, split=0, validation=False):
         _subset = None
@@ -521,6 +524,15 @@ class DatasetFlower(DataGenerator):
     def validation_generator(self):
         assert self._dataset_val is not None, 'Must have validation data to generate it.'
         return self._generator(validation=True)
+
+    @property
+    def length(self):
+        return self._len
+
+    @property
+    def length_val(self):
+        assert self._dataset_val is not None, 'Must have validation data to get its length.'
+        return self._len_val
 
 
 class FringeGenerator(DataGenerator):
