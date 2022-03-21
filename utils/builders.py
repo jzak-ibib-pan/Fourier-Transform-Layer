@@ -7,6 +7,7 @@ from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, C
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
+from tensorflow import data as tfdata
 from numpy import squeeze, ones, pad
 from sklearn.utils import shuffle
 # Otherwise FTL cannot be called
@@ -235,11 +236,18 @@ class ModelBuilder:
                                                             dataset='generator')
             validation_data = None
             if 'validation' in kwargs.keys():
+                # split = 1, because generator and validation are two different datasets
                 split = 1
                 validation_data = kwargs['validation']
                 # TODO: make sure that validation_data has shape
+                if type(validation_data) == tfdata.Dataset:
+                    validation_size = validation_data.cardinality().numpy()
+                else:
+                    validation_size = validation_data.shape[0]
                 self._arguments['train'] = self._update_arguments(self._arguments['train'],
-                                                                validation_size=validation_data.shape[0])
+                                                                  validation_size=validation_size)
+
+
         # callbacks
         callbacks = []
         flag_time = False
@@ -278,6 +286,7 @@ class ModelBuilder:
         tims = []
 
         if not flag_full_set:
+            # train on generator
             hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, shuffle=False, verbose=verbosity,
                                         validation_data=validation_data, callbacks=callbacks).history)
             if flag_time:
