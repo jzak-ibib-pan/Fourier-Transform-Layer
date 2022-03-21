@@ -334,11 +334,13 @@ class ModelBuilder:
 
     def _evaluate_model(self, **kwargs):
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
-            return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'], return_dict=True, verbose=2)
+            return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'],
+                                        return_dict=True, verbose=2)
         # TODO: on generator implicit args and kwargs
         elif 'generator' in kwargs.keys():
             assert 'steps' in kwargs.keys(), 'Must provide no. of steps.'
-            return self._model.evaluate(x=kwargs['generator'], return_dict=True, verbose=2, steps=kwargs['steps'])
+            return self._model.evaluate(x=kwargs['generator'], steps=kwargs['steps'],
+                                        return_dict=True, verbose=2)
 
     # placeholder
     def prepare_model_from_info(self):
