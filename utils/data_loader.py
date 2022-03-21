@@ -487,7 +487,9 @@ class DatasetFlower(DataGenerator):
 
     @staticmethod
     def _generate_data(dataset):
-        return next(dataset)
+        while True:
+            for it in dataset:
+                yield it
 
     def _generator(self, validation=False, augment=True):
         while True:
