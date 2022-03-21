@@ -77,8 +77,6 @@ class ModelBuilder:
                                 },
                     'train': {'epochs': 10,
                               'batch': 8,
-                              'steps': 100,
-                              'val_steps': 10,
                               'call_time': True,
                               'call_stop': True,
                               'call_stop_kwargs': {'baseline': 0.80,
@@ -180,7 +178,7 @@ class ModelBuilder:
     # wrapper
     def compile_model(self, optimizer, loss, **kwargs):
         self._arguments['compile'] = self._update_arguments(self._arguments['compile'],
-                                                          optimizer=optimizer, loss=loss, **kwargs)
+                                                            optimizer=optimizer, loss=loss, **kwargs)
         self._compile_model(**self._arguments['compile'])
 
     # placeholder
