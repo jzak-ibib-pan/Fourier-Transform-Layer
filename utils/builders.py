@@ -77,6 +77,8 @@ class ModelBuilder:
                                 },
                     'train': {'epochs': 10,
                               'batch': 8,
+                              'steps': 100,
+                              'val_steps': 10,
                               'call_time': True,
                               'call_stop': True,
                               'call_stop_kwargs': {'baseline': 0.80,
@@ -236,6 +238,7 @@ class ModelBuilder:
                 steps = data_gen.cardinality().numpy()
             else:
                 steps = 1000
+            steps = [steps if 'steps' not in kwargs.keys() else kwargs['steps']][0]
             self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                               dataset='generator')
             validation_data = None
@@ -244,11 +247,11 @@ class ModelBuilder:
                 split = 1
                 validation_data = kwargs['validation']
                 # TODO: make sure that validation_data has shape
-                validation_size = -1
                 if type(validation_data) == tfdata.Dataset:
                     validation_size = validation_data.cardinality().numpy()
                 elif type(validation_data) == array:
                     validation_size = validation_data.shape[0]
+                validation_size = [validation_size if 'val_steps' not in kwargs.keys() else kwargs['val_steps']][0]
                 self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                                   validation_size=validation_size)
 
@@ -294,7 +297,8 @@ class ModelBuilder:
             # train on generator
             hist.append(self._model.fit(data_gen, epochs=epochs, batch_size=batch, steps_per_epoch=steps,
                                         shuffle=False, verbose=verbosity,
-                                        validation_data=validation_data, callbacks=callbacks).history)
+                                        validation_data=validation_data, validation_steps=validation_size,
+                                        callbacks=callbacks).history)
             if flag_time:
                 # time callback will always be before stop callback if flag time is True, thus 0
                 return self._merge_history_and_times(hist, callbacks[0].times)
