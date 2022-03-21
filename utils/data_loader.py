@@ -530,7 +530,7 @@ class DatasetFlower(DataGenerator):
         return self._len
 
     @property
-    def length_val(self):
+    def validation_length(self):
         assert self._dataset_val is not None, 'Must have validation data to get its length.'
         return self._len_val
 
