@@ -335,11 +335,13 @@ class ModelBuilder:
     def _evaluate_model(self, **kwargs):
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
             return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'],
+                                        batch_size=self._arguments['train']['batch'],
                                         return_dict=True, verbose=2)
         # TODO: on generator implicit args and kwargs
         elif 'generator' in kwargs.keys():
             assert 'steps' in kwargs.keys(), 'Must provide no. of steps.'
             return self._model.evaluate(x=kwargs['generator'], steps=kwargs['steps'],
+                                        batch_size=self._arguments['train']['batch'],
                                         return_dict=True, verbose=2)
 
     # placeholder
