@@ -328,9 +328,13 @@ class ModelBuilder:
         return hist
 
     def check_if_final_save(self, train_kwargs):
-         if 'save_final' in train_kwargs.keys() and train_kwargs['save_final']:
-             self._model.save_weights(filepath=f'{self._filepath}/checkpoints/{self._filename}_trained.hdf5',
-                                      overwrite=True)
+        if 'save_final' not in train_kwargs.keys():
+            return False
+        if not train_kwargs['save_final']:
+            return False
+        self._model.save_weights(filepath=f'{self._filepath}/checkpoints/{self._filename}_trained.hdf5',
+                                 overwrite=True)
+        return True
 
     # wrapper
     def evaluate_model(self, **kwargs):
