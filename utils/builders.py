@@ -513,6 +513,7 @@ class ModelBuilder:
         return f'\t{left:{self._length}} - {right.rjust(self._length - overwrite)}\n'
 
     # a method to change the values of argument holders
+    # TODO: generator objects as shorter strings
     def _update_arguments_text(self, arguments, summary=False):
         result = {}
         for key in arguments.keys():
