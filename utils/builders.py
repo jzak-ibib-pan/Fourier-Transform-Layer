@@ -642,11 +642,19 @@ class ModelBuilder:
 
     @staticmethod
     def _merge_history_and_times(history, times):
-        assert len(history) == len(times), 'History and times are not the same length.'
-        history_end = history
+        _history = history.copy()
+        if len(history) == 1 and len(history[0]['loss']) > 1:
+            # history after full training, instead of by 1 epoch
+            _history = []
+            for it in range(len(history[0]['loss'])):
+                _hist = {}
+                for key in history[0].keys():
+                    _hist.update({key: history[0][key][it]})
+                _history.append(_hist)
+        assert len(_history) == len(times), 'History and times are not the same length.'
         for it, time in enumerate(times):
-            history_end[it].update({'time': time})
-        return history_end
+            _history[it].update({'time': time})
+        return _history
 
     # Properties
     @property
