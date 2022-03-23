@@ -15,6 +15,7 @@ from fourier_transform_layer.fourier_transform_layer import FTL, FTLSuperResolut
 from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 from utils.sampling import DIRECTIONS, sampling_calculation
 from utils.losses import ssim
+from types import GeneratorType
 
 
 # TODO: parameters to kwargs
@@ -535,6 +536,9 @@ class ModelBuilder:
                         continue
                     to_update = self._check_for_name(key_interior)
                     result.update({f'{key}-{to_update}': arguments[key][key_interior]})
+                continue
+            if type(arguments[key]) is GeneratorType:
+                result.update({key: 'built-in'})
                 continue
             to_update = self._check_for_name(arguments[key])
             if key in ['x_data', 'y_data']:
