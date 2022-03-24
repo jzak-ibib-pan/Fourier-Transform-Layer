@@ -755,7 +755,7 @@ class CNNBuilder(ModelBuilder):
 
 
 # Custom model builder - can build any model (including hybrid), based on layer information
-class CustomBuilder(ModelBuilder, CNNBuilder):
+class CustomBuilder(CNNBuilder):
     # TODO: default sampling initializations
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
         assert len(layers) > 1, 'CustomBuilder requires at least two layers. May cause problems with FTL layers, ' \
