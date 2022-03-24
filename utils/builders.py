@@ -686,6 +686,68 @@ class ModelBuilder:
         return self._filepath
 
 
+# Standard CNNs for classification
+class CNNBuilder(ModelBuilder):
+    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
+        super(CNNBuilder, self).__init__(model_type=model_type,
+                                         input_shape=input_shape,
+                                         noof_classes=noof_classes, **kwargs)
+
+    @staticmethod
+    def _define_allowed_kwargs():
+        allowed = {'build' : {'model_type': ['mobilenet', 'mobilenet2', 'vgg16', 'vgg19', 'resnet50', 'resnet101'],
+                              },
+                   'compile': {'optimizer': ['adam', 'sgd'],
+                               'loss': ['mse', 'categorical_crossentropy'],
+                               },
+                   }
+        return allowed
+
+    @staticmethod
+    def _get_backbone(model_type):
+        model_type_low = model_type.lower()
+        if 'mobilenet' in model_type_low:
+            if '2' not in model_type_low:
+                # load Mobilenet
+                return apps.mobilenet.MobileNet
+            else:
+                # load Mobilenetv2
+                return apps.mobilenet_v2.MobileNetV2
+        elif 'vgg' in model_type_low:
+            if '16' in model_type_low:
+                # load VGG16
+                return apps.vgg16.VGG16
+            elif '19' in model_type_low:
+                # load VGG19
+                return apps.vgg19.VGG19
+        elif 'resnet' in model_type_low:
+            if '50' in model_type_low:
+                # load resnet50
+                return apps.resnet_v2.ResNet50V2
+            elif '101' in model_type_low:
+                # load resnet101
+                return apps.resnet_v2.ResNet101V2
+        return None
+
+    def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
+        # could be streamlined but would lower readability
+        _backbone = self._get_backbone(model_type)
+        if not _backbone:
+            return None
+        backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
+        # update BatchNormalization momentum - otherwise several models (MobilenetV2, VGG16) do not work
+        for layer in backbone.layers:
+            if type(layer) != type(BatchNormalization):
+                continue
+            layer.momentum=0.9
+        architecture = backbone.output
+        # Classify
+        flat = Flatten()(architecture)
+        act = ['softmax' if noof_classes > 1 else 'sigmoid'][0]
+        out = Dense(noof_classes, activation=act)(flat)
+        return Model(inputs=[backbone.input], outputs=[out])
+
+
 # Custom model builder - can build any model (including hybrid), based on layer information
 class CustomBuilder(ModelBuilder):
     # TODO: default sampling initializations
@@ -899,64 +961,6 @@ class CustomBuilder(ModelBuilder):
     @staticmethod
     def _operation(value, nominator=2, sign='div'):
         return sampling_calculation(value, nominator, sign)
-
-
-# Standard CNNs for classification
-class CNNBuilder(ModelBuilder):
-    def __init__(self, model_type='mobilenet', input_shape=(32, 32, 3), noof_classes=1, **kwargs):
-        super(CNNBuilder, self).__init__(model_type=model_type,
-                                         input_shape=input_shape,
-                                         noof_classes=noof_classes, **kwargs)
-
-    @staticmethod
-    def _define_allowed_kwargs():
-        allowed = {'build' : {'model_type': ['mobilenet', 'mobilenet2', 'vgg16', 'vgg19', 'resnet50', 'resnet101'],
-                              },
-                   'compile': {'optimizer': ['adam', 'sgd'],
-                               'loss': ['mse', 'categorical_crossentropy'],
-                               },
-                   }
-        return allowed
-
-    def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
-        model_type_low = model_type.lower()
-        # could be streamlined but would lower readability
-        if 'mobilenet' in model_type_low:
-            if '2' not in model_type_low:
-                # load Mobilenet
-                _backbone = apps.mobilenet.MobileNet
-            else:
-                # load Mobilenetv2
-                _backbone = apps.mobilenet_v2.MobileNetV2
-        elif 'vgg' in model_type_low:
-            if '16' in model_type_low:
-                # load VGG16
-                _backbone = apps.vgg16.VGG16
-            elif '19' in model_type_low:
-                # load VGG19
-                _backbone = apps.vgg19.VGG19
-        elif 'resnet' in model_type_low:
-            if '50' in model_type_low:
-                # load resnet50
-                _backbone = apps.resnet_v2.ResNet50V2
-            elif '101' in model_type_low:
-                # load resnet101
-                _backbone = apps.resnet_v2.ResNet101V2
-        # default
-        else:
-            _backbone = []
-        backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
-        # update BatchNormalization momentum - otherwise several models (MobilenetV2, VGG16) do not work
-        for layer in backbone.layers:
-            if type(layer) != type(BatchNormalization):
-                continue
-            layer.momentum=0.9
-        architecture = backbone.output
-        # Classify
-        flat = Flatten()(architecture)
-        act = ['softmax' if noof_classes > 1 else 'sigmoid'][0]
-        out = Dense(noof_classes, activation=act)(flat)
-        return Model(inputs=[backbone.input], outputs=[out])
 
 
 # Fourier Model for classification
