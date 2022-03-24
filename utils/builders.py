@@ -703,6 +703,9 @@ class CNNBuilder(ModelBuilder):
                    }
         return allowed
 
+    def _get_allowed_backbones(self):
+        return self._get_allowed_kwargs()['build']['model_type']
+
     @staticmethod
     def _get_backbone(model_type):
         model_type_low = model_type.lower()
@@ -749,7 +752,7 @@ class CNNBuilder(ModelBuilder):
 
 
 # Custom model builder - can build any model (including hybrid), based on layer information
-class CustomBuilder(ModelBuilder):
+class CustomBuilder(ModelBuilder, CNNBuilder):
     # TODO: default sampling initializations
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
         assert len(layers) > 1, 'CustomBuilder requires at least two layers. May cause problems with FTL layers, ' \
@@ -829,6 +832,9 @@ class CustomBuilder(ModelBuilder):
                                              'calculate_abs': True,
                                              'normalize_to_image_shape': False,
                                              },
+                    'mobilenet': {'input_shape': (8, 8, 1),
+                                  'weights': None,
+                                  'include_top': False}
                     }
         return defaults
 
@@ -863,10 +869,11 @@ class CustomBuilder(ModelBuilder):
         arch, flat = self._return_layer(_layer, arch)
         return Model(inp, arch)
 
-    @staticmethod
-    def _return_layer(layer_dict, previous):
+    def _return_layer(self, layer_dict, previous):
         layer_name = list(layer_dict.keys())[0]
         arguments = list(layer_dict.values())[0]
+        if layer_name in self._get_allowed_backbones():
+            return self._get_backbone(layer_name)(**arguments)(previous)
         if 'conv2d' in layer_name:
             return Conv2D(**arguments)(previous), False
         if 'ftl'  in layer_name:
