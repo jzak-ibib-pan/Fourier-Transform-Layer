@@ -476,7 +476,8 @@ class ModelBuilder:
             weight = layer_got.weights
             weight_text = ''
             if type(weight) is list:
-                weight_text += '|'.join([str(w.shape) for w in weight])
+                if len(weight) < 3:
+                    weight_text += '|'.join([str(w.shape) for w in weight])
             else:
                 weight_text = str(layer_got.weights.shape)
             result += self._prepare_paired_text(layer_got.name, weight_text)
@@ -612,7 +613,8 @@ class ModelBuilder:
         except ValueError:
             return widths['default']
 
-    # TODO: change the formatting to more than 3 - 4 or 5, for HPO
+    # SOLVED: change the formatting to more than 3 - 4 or 5, for HPO
+    # TODO: HPO doesn;t increase the numbering now - check and fix
     @staticmethod
     def _expand_filename(filename, filepath=''):
         # List OF
@@ -835,8 +837,8 @@ class CustomBuilder(CNNBuilder):
                                              'calculate_abs': True,
                                              'normalize_to_image_shape': False,
                                              },
-                    'mobilenet': {'input_shape': (8, 8, 1),
-                                  'weights': None,
+                    'mobilenet': {'weights': None,
+                                  # redundant, but just in case
                                   'include_top': False}
                     }
         return defaults
@@ -877,7 +879,8 @@ class CustomBuilder(CNNBuilder):
         arguments = list(layer_dict.values())[0]
         # self. would import 'custom' model name thus causing erroneous behaviour
         if layer_name in CNNBuilder()._get_allowed_backbones():
-            return self._get_backbone(model_type=layer_name, **arguments)(previous), False
+            return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
+                                      **arguments)(previous), False
         if 'conv2d' in layer_name:
             return Conv2D(**arguments)(previous), False
         if 'ftl'  in layer_name:
