@@ -707,34 +707,30 @@ class CNNBuilder(ModelBuilder):
         return self._get_allowed_kwargs()['build']['model_type']
 
     @staticmethod
-    def _get_backbone(model_type):
+    def _get_backbone(model_type, input_shape, weights, **kwargs):
         model_type_low = model_type.lower()
+        _backbone = None
         if 'mobilenet' in model_type_low:
             if '2' not in model_type_low:
                 # load Mobilenet
-                return apps.mobilenet.MobileNet
+                _backbone = apps.mobilenet.MobileNet
             else:
                 # load Mobilenetv2
-                return apps.mobilenet_v2.MobileNetV2
+                _backbone = apps.mobilenet_v2.MobileNetV2
         elif 'vgg' in model_type_low:
             if '16' in model_type_low:
                 # load VGG16
-                return apps.vgg16.VGG16
+                _backbone = apps.vgg16.VGG16
             elif '19' in model_type_low:
                 # load VGG19
-                return apps.vgg19.VGG19
+                _backbone = apps.vgg19.VGG19
         elif 'resnet' in model_type_low:
             if '50' in model_type_low:
                 # load resnet50
-                return apps.resnet_v2.ResNet50V2
+                _backbone = apps.resnet_v2.ResNet50V2
             elif '101' in model_type_low:
                 # load resnet101
-                return apps.resnet_v2.ResNet101V2
-        return None
-
-    def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
-        # could be streamlined but would lower readability
-        _backbone = self._get_backbone(model_type)
+                _backbone = apps.resnet_v2.ResNet101V2
         if not _backbone:
             return None
         backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
@@ -743,6 +739,13 @@ class CNNBuilder(ModelBuilder):
             if type(layer) != type(BatchNormalization):
                 continue
             layer.momentum=0.9
+        return backbone
+
+    def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
+        # could be streamlined but would lower readability
+        backbone = self._get_backbone(model_type, input_shape, weights)
+        if not backbone:
+            return None
         architecture = backbone.output
         # Classify
         flat = Flatten()(architecture)
@@ -873,7 +876,7 @@ class CustomBuilder(ModelBuilder, CNNBuilder):
         layer_name = list(layer_dict.keys())[0]
         arguments = list(layer_dict.values())[0]
         if layer_name in self._get_allowed_backbones():
-            return self._get_backbone(layer_name)(**arguments)(previous)
+            return self._get_backbone(model_type=layer_name, **arguments)(previous), False
         if 'conv2d' in layer_name:
             return Conv2D(**arguments)(previous), False
         if 'ftl'  in layer_name:
