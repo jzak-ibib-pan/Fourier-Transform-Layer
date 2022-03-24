@@ -875,7 +875,8 @@ class CustomBuilder(CNNBuilder):
     def _return_layer(self, layer_dict, previous):
         layer_name = list(layer_dict.keys())[0]
         arguments = list(layer_dict.values())[0]
-        if layer_name in self._get_allowed_backbones():
+        # self. would import 'custom' model name thus causing erroneous behaviour
+        if layer_name in CNNBuilder()._get_allowed_backbones():
             return self._get_backbone(model_type=layer_name, **arguments)(previous), False
         if 'conv2d' in layer_name:
             return Conv2D(**arguments)(previous), False
