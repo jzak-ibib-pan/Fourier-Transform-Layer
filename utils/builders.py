@@ -18,7 +18,7 @@ from utils.losses import ssim
 from types import GeneratorType
 
 
-# TODO: parameters to kwargs
+# SOLVED: parameters to kwargs
 # Generic builder
 class ModelBuilder:
     # TODO: allowed kwargs
