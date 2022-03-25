@@ -999,7 +999,7 @@ class CustomBuilder(CNNBuilder):
         return sampling_calculation(value, nominator, sign)
 
 
-# Fourier Model for classification
+# Fourier Model
 class FourierBuilder(CustomBuilder):
     def __init__(self, model_type='fourier', input_shape=(32, 32, 1), noof_classes=1, **kwargs):
         # just to be safe
