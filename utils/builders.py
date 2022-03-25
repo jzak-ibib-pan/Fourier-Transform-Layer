@@ -837,10 +837,30 @@ class CustomBuilder(CNNBuilder):
                                              'calculate_abs': True,
                                              'normalize_to_image_shape': False,
                                              },
-                    'mobilenet': {'weights': None,
-                                  # redundant, but just in case
-                                  'include_top': False}
+                    # https://keras.io/api/layers/convolution_layers/convolution2d_transpose/
+                    'conv2dtranspose' : {'filters': 1,
+                                         'kernel_size': 1,
+                                         'strides': (1, 1),
+                                         'padding': "valid",
+                                         'output_padding': None,
+                                         'data_format': None,
+                                         'dilation_rate': (1, 1),
+                                         'activation': None,
+                                         'use_bias': True,
+                                         'kernel_initializer': "glorot_uniform",
+                                         'bias_initializer': "zeros",
+                                         'kernel_regularizer': None,
+                                         'bias_regularizer': None,
+                                         'activity_regularizer': None,
+                                         'kernel_constraint': None,
+                                         'bias_constraint': None,
+                                         },
                     }
+        for back in CNNBuilder()._get_allowed_backbones():
+            defaults.update({back: {'weights': None,
+                                    # redundant, but just in case
+                                    'include_top': False},
+                             })
         return defaults
 
     # placeholder
