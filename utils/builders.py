@@ -3,7 +3,7 @@ from os import listdir, mkdir
 from os.path import join, isdir
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate
+from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate, Conv2DTranspose
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
@@ -901,17 +901,19 @@ class CustomBuilder(CNNBuilder):
         if layer_name in CNNBuilder()._get_allowed_backbones():
             return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
                                       **arguments)(previous), False
-        if 'conv2d' in layer_name:
+        if layer_name in ['conv2d']:
             return Conv2D(**arguments)(previous), False
-        if 'ftl'  in layer_name:
+        if layer_name in ['conv2dtranspose']:
+            return Conv2DTranspose(**arguments)(previous), False
+        if layer_name in ['ftl']:
             if 'super_resolution' in layer_name:
                 return FTLSuperResolution(**arguments)(previous), False
             return FTL(**arguments)(previous), False
-        if 'flatten' in layer_name:
+        if layer_name in ['flatten']:
             return Flatten()(previous), True
-        if 'concatenate' in layer_name:
+        if layer_name in ['concatenate']:
             return Concatenate(**arguments)(previous), False
-        if 'dense' not in layer_name:
+        if layer_name not in ['dense']:
             return None
         return Dense(**arguments)(previous), True
 
