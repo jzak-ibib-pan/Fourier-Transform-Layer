@@ -170,9 +170,10 @@ class DataLoader:
     @staticmethod
     def _resize_data(datapoint, new_shape):
         # do not perform resize if unnecessary
-        if datapoint.shape[1:3] == new_shape:
+        if datapoint.shape[:2] == new_shape:
             return datapoint
         # it is known that the resize removes trailing 1s and result expects trailing 1
+        # TODO: may cause errors by switching x and y shapes - keep in mind
         return resize(datapoint, new_shape)
 
     @staticmethod

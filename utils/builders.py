@@ -614,7 +614,7 @@ class ModelBuilder:
             return widths['default']
 
     # SOLVED: change the formatting to more than 3 - 4 or 5, for HPO
-    # TODO: HPO doesn;t increase the numbering now - check and fix
+    # TODO: HPO doesn't increase the numbering now - check and fix
     @staticmethod
     def _expand_filename(filename, filepath=''):
         # List OF
