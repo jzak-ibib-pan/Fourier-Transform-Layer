@@ -7,9 +7,11 @@ from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, C
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
+from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
-from numpy import squeeze, ones, pad, array
+from numpy import squeeze, ones, pad, array, argmax
 from sklearn.utils import shuffle
+from sklearn.metrics import roc_auc_score
 # Otherwise FTL cannot be called
 from fourier_transform_layer.fourier_transform_layer import FTL, FTLSuperResolution
 from utils.callbacks import TimeHistory, EarlyStopOnBaseline
@@ -339,19 +341,42 @@ class ModelBuilder:
 
     # wrapper
     def evaluate_model(self, **kwargs):
+        # REMEMBER: first load weights, then compile the model to keep the results consistent with after training
         self._evaluation = self._evaluate_model(**kwargs)
 
     def _evaluate_model(self, **kwargs):
+        evaluation = {}
         if sum([f in ['x_data', 'y_data'] for f in kwargs.keys()]) == 2:
-            return self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'],
+            if 'auc' in kwargs.keys() and kwargs['auc']:
+                y_true = kwargs['y_data']
+                y_pred = self._model.predict(x=kwargs['x_data'],
+                                             batch_size=self._arguments['train']['batch'])
+                y_pred = to_categorical(argmax(y_pred, axis=1),
+                                        num_classes=self._arguments['build']['noof_classes'])
+                mauc = roc_auc_score(y_true=y_true, y_score=y_pred, average='macro', multi_class='ova')
+                wauc = roc_auc_score(y_true=y_true, y_score=y_pred, average='weighted', multi_class='ova')
+            eva = self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'],
                                         batch_size=self._arguments['train']['batch'],
                                         return_dict=True, verbose=2)
         # TODO: on generator implicit args and kwargs
         elif 'generator' in kwargs.keys():
             assert 'steps' in kwargs.keys(), 'Must provide no. of steps.'
-            return self._model.evaluate(x=kwargs['generator'], steps=kwargs['steps'],
-                                        batch_size=self._arguments['train']['batch'],
-                                        return_dict=True, verbose=2)
+            if 'auc' in kwargs.keys() and kwargs['auc']:
+                y_true = kwargs['y_data']
+                y_pred = to_categorical(self._model.predict(x=kwargs['generator'], steps=kwargs['steps'],
+                                                            batch_size=self._arguments['train']['batch'],),
+                                        num_classes=self._arguments['build']['noof_classes'])
+                mauc = roc_auc_score(y_true=y_true, y_score=y_pred, average='macro', multi_class='ova')
+                wauc = roc_auc_score(y_true=y_true, y_score=y_pred, average='weighted', multi_class='ova')
+            eva = self._model.evaluate(x=kwargs['generator'], steps=kwargs['steps'],
+                                       batch_size=self._arguments['train']['batch'],
+                                       return_dict=True, verbose=2)
+        for key in eva.keys():
+            evaluation.update({key: eva[key]})
+        if 'auc' in kwargs.keys() and kwargs['auc']:
+            evaluation.update({'mAUCsci': mauc})
+            evaluation.update({'wAUCsci': wauc})
+        return evaluation
 
     # placeholder
     def prepare_model_from_info(self):
