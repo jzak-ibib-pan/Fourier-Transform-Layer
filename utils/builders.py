@@ -787,7 +787,7 @@ class CustomBuilder(CNNBuilder):
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
         assert len(layers) > 1, 'CustomBuilder requires at least two layers. May cause problems with FTL layers, ' \
                                 'mainly calling build twice.'
-                    # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
+        # copied from keras: https://keras.io/api/layers/convolution_layers/convolution2d/
         defaults = self._define_default_layers()
         self._SAMPLING_DIRECTIONS = DIRECTIONS
         # layers - a list of dicts
@@ -802,9 +802,10 @@ class CustomBuilder(CNNBuilder):
         for layer in layers:
             for key, value in zip(layer.keys(), layer.values()):
                 _layer = self._verify_arguments(defaults[key], **value)
-                _layers.append({key : _layer})
+                _layers.append({key: _layer})
         if 'model_type' not in kwargs.keys():
-            kwargs.update({'model_type' : 'custom'})
+            kwargs.update({'model_type': 'custom'})
+        self._allowed_backbones = CNNBuilder()._get_allowed_backbones()
         super(CustomBuilder, self).__init__(input_shape=input_shape,
                                             noof_classes=noof_classes,
                                             defaults={'layers': _layers},
@@ -891,12 +892,12 @@ class CustomBuilder(CNNBuilder):
     # placeholder
     @staticmethod
     def _define_allowed_kwargs():
-        allowed = {'build' : {'model_type': ['custom'],
-                              },
+        allowed = {'build': {'model_type': ['custom'],
+                             },
                    'compile': {'optimizer': ['adam'],
                                'loss': ['mse'],
                                },
-                   'layers': {'ftl' : {'activation' : [None, 'relu', 'softmax', 'sigmoid', 'tanh', 'selu']},
+                   'layers': {'ftl': {'activation': [None, 'relu', 'softmax', 'sigmoid', 'tanh', 'selu']},
                               },
                    }
         return allowed
@@ -923,7 +924,7 @@ class CustomBuilder(CNNBuilder):
         layer_name = list(layer_dict.keys())[0]
         arguments = list(layer_dict.values())[0]
         # self. would import 'custom' model name thus causing erroneous behaviour
-        if layer_name in CNNBuilder()._get_allowed_backbones():
+        if layer_name in self._allowed_backbones:
             return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
                                       **arguments)(previous), False
         if layer_name in ['conv2d']:
