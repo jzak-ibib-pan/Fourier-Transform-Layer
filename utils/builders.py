@@ -356,8 +356,8 @@ class ModelBuilder:
                 mauc = roc_auc_score(y_true=y_true, y_score=y_pred, average='macro', multi_class='ova')
                 wauc = roc_auc_score(y_true=y_true, y_score=y_pred, average='weighted', multi_class='ova')
             eva = self._model.evaluate(x=kwargs['x_data'], y=kwargs['y_data'],
-                                        batch_size=self._arguments['train']['batch'],
-                                        return_dict=True, verbose=2)
+                                       batch_size=self._arguments['train']['batch'],
+                                       return_dict=True, verbose=1)
         # TODO: on generator implicit args and kwargs
         elif 'generator' in kwargs.keys():
             assert 'steps' in kwargs.keys(), 'Must provide no. of steps.'
@@ -370,7 +370,7 @@ class ModelBuilder:
                 wauc = roc_auc_score(y_true=y_true, y_score=y_pred, average='weighted', multi_class='ova')
             eva = self._model.evaluate(x=kwargs['generator'], steps=kwargs['steps'],
                                        batch_size=self._arguments['train']['batch'],
-                                       return_dict=True, verbose=2)
+                                       return_dict=True, verbose=1)
         for key in eva.keys():
             evaluation.update({key: eva[key]})
         if 'auc' in kwargs.keys() and kwargs['auc']:
