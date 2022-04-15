@@ -503,9 +503,11 @@ class DatasetFlower(DataGenerator):
 
     def _yield_data(self, generator, augment=True):
         X, Y = next(generator)
+        # due to ValueError: assignment destination is read-only; quick workaround
+        Xr = np.zeros_like(X)
         for rep in range(X.shape[0]):
-            X[rep] = self._preprocess_data(X[rep], augment)
-        return X, Y
+            Xr[rep] = self._preprocess_data(X[rep], augment)
+        return Xr, Y
 
     def _generator(self, validation=False, augment=True):
         _gen = self._reset_dataset(validation=validation)
