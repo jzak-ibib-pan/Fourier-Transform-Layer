@@ -951,6 +951,7 @@ class CustomBuilder(CNNBuilder):
 
     def _sample_model(self, **kwargs):
         # SOLVED: finding FTL in the model
+        # TODO: adding Conv2d to layers list causes errors
         arguments_sampled = self._arguments['build'].copy()
         shape = arguments_sampled['input_shape']
         shape_new = shape
@@ -963,10 +964,8 @@ class CustomBuilder(CNNBuilder):
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
-            nominator = kwargs['nominator']
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
-            nominator = shape_new[0] / shape[0]
         arguments_sampled['input_shape'] = (*shape_new, shape[2])
         # final shape
         shape_new = arguments_sampled['input_shape']
