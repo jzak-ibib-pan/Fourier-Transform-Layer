@@ -956,7 +956,6 @@ class CustomBuilder(CNNBuilder):
         shape_new = shape
         # get sampling methods for dense and/or conv2d
         sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
-                           'conv2d': ['resize' if 'conv2d_method' not in kwargs.keys() else kwargs['conv2d_method']][0],
                            }
         # make sure no incorrect methods are provided
         for method in sampling_method.values():
@@ -1011,27 +1010,6 @@ class CustomBuilder(CNNBuilder):
                     weights_result.append(weights_replace)
                 passed_ftl = True
                 continue
-            if 'conv2d' in layer_name:
-                it = 0
-                if shape_new[0] < shape[0] and sampling_method['conv2d'] == 'cut':
-                    weights_result.append(weights[it][:size_new, :])
-                elif sampling_method['conv2d'] == 'resize':
-                    new_conv_shape = [int(w * nominator) for w in weights[it].shape[:2]]
-                    new_conv_shape.extend(weights[it].shape[2:])
-                    weights_conv = resize_array(weights[it], new_conv_shape)
-                    weights_result.append(weights_conv)
-                elif sampling_method['conv2d'] == 'pad':
-                    old_conv_shape = weights[it].shape
-                    new_conv_shape = [int(w * nominator) for w in old_conv_shape[:2]]
-                    new_conv_shape.extend(old_conv_shape[2:])
-                    pads = [[0, int(shn - sh)] for shn, sh in zip(new_conv_shape, old_conv_shape)]
-                    weights_conv = pad(weights[it], pad_width=pads,
-                                       mode='constant', constant_values=replace_value)
-                elif sampling_method['conv2d'] is None:
-                    weights_result.append(weights[it])
-                # add bias
-                weights_result.append(weights[1])
-                continue
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name and passed_ftl:
                 # 0 - kernel, 1 - bias
@@ -1049,7 +1027,7 @@ class CustomBuilder(CNNBuilder):
                 weights_result.append(weights[1])
                 passed_ftl = False
                 continue
-            # other layers which should not be sampled
+            # other layers which should not be sampled (Conv2D, ...)
             weights_result.append(weights)
         arguments_sampled['weights'] = weights_result
         builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
