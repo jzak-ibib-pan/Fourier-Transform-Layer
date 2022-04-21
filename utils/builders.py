@@ -1010,15 +1010,17 @@ class CustomBuilder(CNNBuilder):
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name and passed_ftl:
                 # 0 - kernel, 1 - bias
-                if shape_new[0] < shape[0] and sampling_method['dense'] != 'resize':
-                    weights_result.append(weights[0][:size_new, :])
-                elif sampling_method['dense'] == 'resize':
-                    weights_result.append(resize_image(weights[0], size_new))
-                elif sampling_method['dense'] == 'pad':
-                    pads = [[0, size_new - shape[0] * shape[1] * shape[2]], [0, 0]]
-                    pd = pad(weights[0], pad_width=pads, mode='constant', constant_values=replace_value)
-                    weights_result.append(pd)
-                weights_result.append(weights[1])
+                for it in range(2):
+                    if shape_new[0] < shape[0] and sampling_method['dense'] != 'resize':
+                        weights_result.append(weights[it][:size_new, :])
+                    elif sampling_method['dense'] == 'resize':
+                        weights_result.append(resize_image(weights[it], size_new))
+                    elif sampling_method['dense'] == 'pad':
+                        pads = [[0, size_new - shape[0] * shape[1] * shape[2]], [0, 0]]
+                        pd = pad(weights[it], pad_width=pads, mode='constant', constant_values=replace_value)
+                        weights_result.append(pd)
+                # add bias (?)
+                # weights_result.append(weights[1])
                 passed_ftl = False
                 continue
             # other layers which should not be sampled
