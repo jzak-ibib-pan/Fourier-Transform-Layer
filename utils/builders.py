@@ -6,7 +6,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate, Conv2DTranspose
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy
+from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
 from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
 from numpy import squeeze, ones, pad, array, argmax
@@ -206,6 +206,10 @@ class ModelBuilder:
                 metrics.append(CategoricalAccuracy())
             if metric == 'topk_categorical_accuracy':
                 metrics.append(TopKCategoricalAccuracy(k=5, name='top-5'))
+            if metric == 'mAUC':
+                metrics.append(AUC(multi_label=True, name='mAUC', num_thresholds=1000))
+            if metric == 'mAUC':
+                metrics.append(AUC(multi_label=False, name='uAUC', num_thresholds=1000))
         kwargs['metrics'] = metrics
         self._arguments['compile'] = self._verify_arguments(self._arguments['compile'],
                                                             optimizer=optimizer, loss=_loss, **kwargs)
