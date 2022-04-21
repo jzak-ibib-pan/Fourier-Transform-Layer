@@ -10,6 +10,8 @@ from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategori
 from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
 from numpy import squeeze, ones, pad, array, argmax
+from numpy import resize as resize_array
+from cv2 import resize as resize_image
 from sklearn.utils import shuffle
 from sklearn.metrics import roc_auc_score
 # Otherwise FTL cannot be called
@@ -983,7 +985,6 @@ class CustomBuilder(CNNBuilder):
             else:
                 gathered_weights[name].append(model_weights[it])
         passed_ftl = False
-        passed_conv = False
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
@@ -1009,9 +1010,11 @@ class CustomBuilder(CNNBuilder):
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name and passed_ftl:
                 # 0 - kernel, 1 - bias
-                if shape_new[0] < shape[0]:
+                if shape_new[0] < shape[0] and sampling_method['dense'] != 'resize':
                     weights_result.append(weights[0][:size_new, :])
-                else:
+                elif sampling_method['dense'] == 'resize':
+                    weights_result.append(resize_image(weights[0], size_new))
+                elif sampling_method['dense'] == 'pad':
                     pads = [[0, size_new - shape[0] * shape[1] * shape[2]], [0, 0]]
                     pd = pad(weights[0], pad_width=pads, mode='constant', constant_values=replace_value)
                     weights_result.append(pd)
