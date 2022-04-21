@@ -960,12 +960,14 @@ class CustomBuilder(CNNBuilder):
                            }
         # make sure no incorrect methods are provided
         for method in sampling_method.values():
-            assert method in [None, 'pad', 'resize'], 'Incorrect sampling methods provided.'
+            assert method in [None, 'cut', 'pad', 'resize'], 'Incorrect sampling methods provided.'
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
+            nominator = kwargs['nominator']
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
+            nominator = shape_new[0] / shape[0]
         arguments_sampled['input_shape'] = (*shape_new, shape[2])
         # final shape
         shape_new = arguments_sampled['input_shape']
@@ -1010,11 +1012,31 @@ class CustomBuilder(CNNBuilder):
                 passed_ftl = True
                 continue
             if 'conv2d' in layer_name:
+                it = 0
+                if shape_new[0] < shape[0] and sampling_method['conv2d'] == 'cut':
+                    weights_result.append(weights[it][:size_new, :])
+                elif sampling_method['conv2d'] == 'resize':
+                    new_conv_shape = [int(w * nominator) for w in weights[it].shape[:2]]
+                    new_conv_shape.extend(weights[it].shape[2:])
+                    weights_conv = resize_array(weights[it], new_conv_shape)
+                    weights_result.append(weights_conv)
+                elif sampling_method['conv2d'] == 'pad':
+                    old_conv_shape = weights[it].shape
+                    new_conv_shape = [int(w * nominator) for w in old_conv_shape[:2]]
+                    new_conv_shape.extend(old_conv_shape[2:])
+                    pads = [[0, int(shn - sh)] for shn, sh in zip(new_conv_shape, old_conv_shape)]
+                    weights_conv = pad(weights[it], pad_width=pads,
+                                       mode='constant', constant_values=replace_value)
+                elif sampling_method['conv2d'] is None:
+                    weights_result.append(weights[it])
+                # add bias
+                weights_result.append(weights[1])
                 continue
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name and passed_ftl:
                 # 0 - kernel, 1 - bias
                 it = 0
+                # None and cut are the same here - Dense must be resized
                 if shape_new[0] < shape[0] and sampling_method['dense'] != 'resize':
                     weights_result.append(weights[it][:size_new, :])
                 elif sampling_method['dense'] == 'resize':
