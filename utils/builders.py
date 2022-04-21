@@ -956,7 +956,7 @@ class CustomBuilder(CNNBuilder):
                            }
         # make sure no incorrect methods are provided
         for method in sampling_method.values():
-            assert method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
+            assert method in [None, 'pad', 'resize'], 'Incorrect sampling methods provided.'
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
