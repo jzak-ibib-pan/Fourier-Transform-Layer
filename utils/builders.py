@@ -948,6 +948,13 @@ class CustomBuilder(CNNBuilder):
         arguments_sampled = self._arguments['build'].copy()
         shape = arguments_sampled['input_shape']
         shape_new = shape
+        # get sampling methods for dense and/or conv2d
+        sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
+                           'conv2d': ['resize' if 'conv2d_method' not in kwargs.keys() else kwargs['conv2d_method']][0],
+                           }
+        # make sure no incorrect methods are provided
+        for method in sampling_method.values():
+            assert method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
@@ -976,6 +983,7 @@ class CustomBuilder(CNNBuilder):
             else:
                 gathered_weights[name].append(model_weights[it])
         passed_ftl = False
+        passed_conv = False
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
@@ -996,6 +1004,9 @@ class CustomBuilder(CNNBuilder):
                     weights_result.append(weights_replace)
                 passed_ftl = True
                 continue
+            if 'conv2d' in layer_name:
+                continue
+            # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name and passed_ftl:
                 # 0 - kernel, 1 - bias
                 if shape_new[0] < shape[0]:
