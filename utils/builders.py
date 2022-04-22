@@ -1003,9 +1003,8 @@ class CustomBuilder(CNNBuilder):
                     for rep in range(noof_weights):
                         for ch in range(shape[2]):
                             if sampling_method['ftl'] == 'resize':
-                                weights_replace[rep, :, :, ch] = expand_dims(resize_image(weights_ftl[rep, :, :, ch],
-                                                                                          shape_new),
-                                                                             axis=-1)
+                                weights_replace[rep, :, :, ch] = resize_image(weights_ftl[rep, :, :, ch],
+                                                                              shape_new[:2])
                             elif shape_new[0] < shape[0]:
                                 weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
                             else:
