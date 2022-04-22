@@ -9,7 +9,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
 from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
-from numpy import squeeze, ones, pad, array, argmax
+from numpy import squeeze, ones, pad, array, argmax, expand_dims
 from numpy import resize as resize_array
 from cv2 import resize as resize_image
 from sklearn.utils import shuffle
@@ -957,10 +957,12 @@ class CustomBuilder(CNNBuilder):
         shape_new = shape
         # get sampling methods for dense and/or conv2d
         sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
+                           'ftl': ['pad' if 'ftl_method' not in kwargs.keys() else kwargs['ftl_method']][0],
                            }
         # make sure no incorrect methods are provided
+        # pad - either cut (smaller) or pad (larger) images
         for method in sampling_method.values():
-            assert method in [None, 'cut', 'pad', 'resize'], 'Incorrect sampling methods provided.'
+            assert method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
@@ -1000,7 +1002,11 @@ class CustomBuilder(CNNBuilder):
                     weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
                     for rep in range(noof_weights):
                         for ch in range(shape[2]):
-                            if shape_new[0] < shape[0]:
+                            if sampling_method['ftl'] == 'resize':
+                                weights_replace[rep, :, :, ch] = expand_dims(resize_image(weights_ftl[rep, :, :, ch],
+                                                                                          shape_new),
+                                                                             axis=-1)
+                            elif shape_new[0] < shape[0]:
                                 weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
                             else:
                                 pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
