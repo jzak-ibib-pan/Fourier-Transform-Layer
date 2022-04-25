@@ -439,6 +439,7 @@ class DataGenerator(DataLoader):
     def _generate_data(out_shape):
         return np.zeros(out_shape), 0
 
+    # TODO: while and yield here
     def _generator(self):
         _X = np.zeros((self._batch, *self._out_shape))
         _Y = np.zeros((self._batch,))
@@ -608,6 +609,14 @@ class FringeGenerator(DataGenerator):
         x_t = np.expand_dims(x_t, axis=-1)
 
         return x_t, target
+
+    def _generator(self):
+         while True:
+            try:
+                yield self._generate_data()
+            except StopIteration:
+                # must yield
+                yield self._generate_data()
 
 
 if __name__ == '__main__':
