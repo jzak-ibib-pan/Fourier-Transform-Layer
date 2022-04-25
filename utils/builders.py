@@ -235,7 +235,7 @@ class ModelBuilder:
             if 'validation_split' in kwargs.keys():
                 split = kwargs['validation_split']
             self._arguments['train'] = self._update_arguments(self._arguments['train'],
-                                                            dataset_size=x_train.shape[0], validation_split=split)
+                                                              dataset_size=x_train.shape[0], validation_split=split)
             # self._arguments['train']['call_checkpoint_kwargs']['save_best_only'] = False
 
             flag_full_set = True
@@ -249,6 +249,7 @@ class ModelBuilder:
             self._arguments['train'] = self._update_arguments(self._arguments['train'],
                                                               dataset='generator')
             validation_data = None
+            validation_size = 0
             if 'validation' in kwargs.keys():
                 # split = 1, because generator and validation are two different datasets
                 split = 1
