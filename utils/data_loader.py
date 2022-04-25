@@ -611,12 +611,13 @@ class FringeGenerator(DataGenerator):
         return x_t, target
 
     def _generator(self):
-         while True:
-            try:
-                yield self._generate_data()
-            except StopIteration:
-                # must yield
-                yield self._generate_data()
+        while True:
+            X, Y = [], []
+            for rep in range(self._batch):
+                x, y = self._generate_data()
+                X.append(x)
+                Y.append(y)
+            yield np.array(X), to_categorical(Y, 2)
 
 
 if __name__ == '__main__':
