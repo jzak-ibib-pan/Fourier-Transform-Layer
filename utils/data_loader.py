@@ -577,17 +577,20 @@ class FringeGenerator(DataGenerator):
         y = np.uint8(y)
 
         if rand_num % 2 == 0:
-            xy = np.tile(y, (self._out_shape[1], 1))  # pionowe prążki
+            # vertical fringes
+            xy = np.tile(y, (self._out_shape[1], 1))
             if self._flag_rotation:
-                # 5 zamiast 2 - więcej prążków po obrocie
+                # 5 instead of 2 - more fringes after rotating
                 x = np.linspace(shift, shift + 5 * np.pi, self._out_shape[0] * 2)
                 y = 32.0 + (31.0 * np.sin(x * 2))
                 y = np.uint8(y)
-                xy = np.tile(y, (self._out_shape[1] * 2, 1))  # pionowe prążki
+                # vertical fringes
+                xy = np.tile(y, (self._out_shape[1] * 2, 1))
                 xy = self._augment_rotate(xy, self._aug_flags['rotation']['angle'])
             target = 1
         else:
-            xy = np.tile(y, (self._out_shape[1], 1))  # poziome prążki
+            # horizontal fringes
+            xy = np.tile(y, (self._out_shape[1], 1))
             xy = np.transpose(xy)
             target = 0
 
@@ -600,8 +603,8 @@ class FringeGenerator(DataGenerator):
             xy[xy >= 0.5] = 1
             xy[xy < 1] = 0
 
-        # further tries
-        x_t = xy / 100
+        # further tries - normalization for
+        x_t = xy / np.max(xy)
         x_t = np.expand_dims(x_t, axis=-1)
 
         return x_t, target
