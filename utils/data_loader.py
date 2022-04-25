@@ -11,6 +11,7 @@ from warnings import warn
 
 
 # TODO: for imread remember to switch channels to keep RGB2GRAY working as expected
+# TODO: add sampling somewhere
 class DataLoader:
     # SOLVED: add augmentation methods
     # TODO: threshold reading
