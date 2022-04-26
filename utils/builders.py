@@ -1025,10 +1025,9 @@ class CustomBuilder(CNNBuilder):
                                 weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
                                                                      mode='constant', constant_values=replace_value)
                     weights_result.append(weights_replace)
-                passed_ftl = True
                 continue
             # TODO: make sure passed_ftl is necessary
-            if 'dense' in layer_name and passed_ftl:
+            if 'dense' in layer_name:
                 # 0 - kernel, 1 - bias
                 it = 0
                 size_new = weights_new[it].shape[0]
