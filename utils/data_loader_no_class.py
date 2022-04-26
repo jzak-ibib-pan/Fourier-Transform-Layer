@@ -9,7 +9,7 @@ from os.path import join, isfile
 
 def _select_images_by_target(data_x, data_y, targets):
     # TODO: make sure it works on cifar10
-    assert type(targets) is list, 'Must provide a list of targets.'
+    assert type(targets) is list or type(targets) is tuple, 'Must provide a list of targets.'
     assert len(targets) > 0, 'Must provide at least one target.'
     assert all([type(t) is int for t in targets]), 'Must provide a list of ints.'
     y_chosen = [False for _ in data_y]

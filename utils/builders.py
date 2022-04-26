@@ -9,7 +9,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
 from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
-from numpy import squeeze, ones, pad, array, argmax, expand_dims
+from numpy import squeeze, ones, pad, array, argmax, expand_dims, ones_like
 from numpy import resize as resize_array
 from cv2 import resize as resize_image
 from sklearn.utils import shuffle
@@ -955,6 +955,7 @@ class CustomBuilder(CNNBuilder):
         # TODO: adding Conv2d to layers list causes errors
         arguments_sampled = self._arguments['build'].copy()
         shape = arguments_sampled['input_shape']
+        size_old_orig = shape[0] * shape[1] * shape[2]
         shape_new = shape
         # get sampling methods for dense and/or conv2d
         sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
@@ -976,7 +977,7 @@ class CustomBuilder(CNNBuilder):
         model_layers = self._model.layers
         replace_value = [self._REPLACE_VALUE if 'replace_value' not in kwargs.keys() else kwargs['replace_value']][0]
         weights_result = []
-        size_new = shape_new[0] * shape_new[1] * shape_new[2]
+        size_new_orig = shape_new[0] * shape_new[1] * shape_new[2]
         if 'weights' in kwargs.keys():
             model_weights = kwargs['weights']
         # SOLVED: other layers
@@ -992,6 +993,8 @@ class CustomBuilder(CNNBuilder):
             else:
                 gathered_weights[name].append(model_weights[it])
         passed_ftl = False
+        size_new_ftl = 1
+        size_old_ftl = 1
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
@@ -1012,11 +1015,16 @@ class CustomBuilder(CNNBuilder):
                                 pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
                                 weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
                                                                      mode='constant', constant_values=replace_value)
+                    # find new size according to ftl weights
+                    size_new_ftl = weights_replace.size
+                    size_old_ftl = weights_ftl.size
                     weights_result.append(weights_replace)
                 passed_ftl = True
                 continue
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name and passed_ftl:
+                size_new = [size_new_orig if size_new_ftl == 1 else size_new_ftl][0]
+                size_old = [size_old_orig if size_old_ftl == 1 else size_old_ftl][0]
                 # 0 - kernel, 1 - bias
                 it = 0
                 # None and cut are the same here - Dense must be resized
@@ -1025,7 +1033,7 @@ class CustomBuilder(CNNBuilder):
                 elif sampling_method['dense'] == 'resize':
                     weights_result.append(resize_array(weights[it], (size_new, weights[0].shape[1])))
                 elif sampling_method['dense'] == 'pad':
-                    pads = [[0, size_new - shape[0] * shape[1] * shape[2]], [0, 0]]
+                    pads = [[0, size_new - size_old], [0, 0]]
                     pd = pad(weights[it], pad_width=pads, mode='constant', constant_values=replace_value)
                     weights_result.append(pd)
                 # add bias
