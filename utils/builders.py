@@ -9,7 +9,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
 from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
-from numpy import squeeze, ones, pad, array, argmax, expand_dims, ones_like
+from numpy import squeeze, pad, array, argmax, expand_dims, ones_like
+from numpy import max as np_max
 from numpy import resize as resize_array
 from cv2 import resize as resize_image
 from sklearn.utils import shuffle
@@ -959,11 +960,13 @@ class CustomBuilder(CNNBuilder):
         # get sampling methods for dense and/or conv2d
         sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
                            'ftl': ['pad' if 'ftl_method' not in kwargs.keys() else kwargs['ftl_method']][0],
+                           'conv': [None if 'conv_method' not in kwargs.keys() else kwargs['conv_method']][0],
                            }
         # make sure no incorrect methods are provided
         # pad - either cut (smaller) or pad (larger) images
-        for method in sampling_method.values():
+        for method in list(sampling_method.values())[:-1]:
             assert method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
+        assert sampling_method['conv'] in [None, 'pad', 'resize'], 'Incorrect sampling methods provided.'
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
                                         sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
@@ -990,7 +993,6 @@ class CustomBuilder(CNNBuilder):
                 gathered_weights.update({name: [model_weights[it]]})
             else:
                 gathered_weights[name].append(model_weights[it])
-        passed_ftl = False
         gathered_weights_new = {}
         model_weights_new = CustomBuilder(**arguments_sampled).model.get_weights()
         model_layers_new = CustomBuilder(**arguments_sampled).model.layers
@@ -1026,6 +1028,28 @@ class CustomBuilder(CNNBuilder):
                                                                      mode='constant', constant_values=replace_value)
                     weights_result.append(weights_replace)
                 continue
+            if 'conv' in layer_name:
+                # 0 - kernel
+                it = 0
+                nominator = np_max([_shn / _sh for _shn, _sh in zip(shape_new[:2], shape[:2])])
+                _shape_conv = weights[it].shape
+                _shape_conv_new = [*[int(_sh * nominator) for _sh in _shape_conv[:2]], *_shape_conv[2:]]
+                if not sampling_method['conv']:
+                    weights_replace = weights[it]
+                elif sampling_method['conv'] == 'resize':
+                    # because image accepts only 2 dimensions
+                    weights_replace = resize_array(weights[0], _shape_conv_new)
+                elif nominator < 1:
+                    weights_replace = weights[0][:_shape_conv_new[0], :_shape_conv_new[1], :, :]
+                else:
+                    _pads = [[(_shn - _sh) // 2, (_shn - _sh) // 2 + ((_shn - _sh) // 2) % 2] for _shn, _sh in zip(_shape_conv_new[:2],
+                                                                                                               _shape_conv[:2])]
+                    pads = [*_pads, [0, 0], [0, 0]]
+                    weights_replace = pad(weights[it], pad_width=pads,
+                                          mode='constant', constant_values=replace_value)
+                weights_result.append(weights_replace)
+                weights_result.append(weights[1])
+                continue
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name:
                 # 0 - kernel, 1 - bias
@@ -1043,7 +1067,6 @@ class CustomBuilder(CNNBuilder):
                     weights_result.append(pd)
                 # add bias
                 weights_result.append(weights[1])
-                passed_ftl = False
                 continue
             # other layers which should not be sampled (Conv2D, ...)
             if type(weights) is list:
