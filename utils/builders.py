@@ -955,7 +955,6 @@ class CustomBuilder(CNNBuilder):
         # TODO: adding Conv2d to layers list causes errors
         arguments_sampled = self._arguments['build'].copy()
         shape = arguments_sampled['input_shape']
-        size_old_orig = shape[0] * shape[1] * shape[2]
         shape_new = shape
         # get sampling methods for dense and/or conv2d
         sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
@@ -977,7 +976,6 @@ class CustomBuilder(CNNBuilder):
         model_layers = self._model.layers
         replace_value = [self._REPLACE_VALUE if 'replace_value' not in kwargs.keys() else kwargs['replace_value']][0]
         weights_result = []
-        size_new_orig = shape_new[0] * shape_new[1] * shape_new[2]
         if 'weights' in kwargs.keys():
             model_weights = kwargs['weights']
         # SOLVED: other layers
@@ -993,10 +991,19 @@ class CustomBuilder(CNNBuilder):
             else:
                 gathered_weights[name].append(model_weights[it])
         passed_ftl = False
-        builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
-        for new_ws in builder.model.get_weights():
-            print(new_ws.shape)
-        for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
+        gathered_weights_new = {}
+        model_weights_new = CustomBuilder(**arguments_sampled).model.get_weights()
+        model_layers_new = CustomBuilder(**arguments_sampled).model.layers
+        names = []
+        for layer in model_layers_new:
+            for rep in range(len(layer.weights)):
+                names.append(layer.name)
+        for it, name in enumerate(names):
+            if name not in gathered_weights_new.keys():
+                gathered_weights_new.update({name: [model_weights_new[it]]})
+            else:
+                gathered_weights_new[name].append(model_weights_new[it])
+        for layer_name, weights, weights_new in zip(gathered_weights.keys(), gathered_weights.values(), gathered_weights_new.values()):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
                 # additional extraction from list (thus [0])
@@ -1004,35 +1011,33 @@ class CustomBuilder(CNNBuilder):
                 for step in range(len(weights)):
                     weights_ftl = weights[step]
                     noof_weights = weights_ftl.shape[0]
-                    weights_replace = ones((noof_weights, shape_new[0], shape_new[1], shape[2])) * replace_value
+                    weights_replace = ones_like(weights_new[step]) * replace_value
                     for rep in range(noof_weights):
                         for ch in range(shape[2]):
                             if sampling_method['ftl'] == 'resize':
                                 weights_replace[rep, :, :, ch] = resize_image(weights_ftl[rep, :, :, ch],
-                                                                              shape_new[:2])
+                                                                              weights_new[step].shape[1:3])
                             elif shape_new[0] < shape[0]:
                                 weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
                             else:
-                                pads = [[0, int(shn - sh)] for shn, sh in zip(shape_new[:2], shape[:2])]
+                                pads = [[0, int(shn - sh)] for shn, sh in zip(weights_new[step].shape[1:3],
+                                                                              weights_ftl.shape[1:3])]
                                 weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
                                                                      mode='constant', constant_values=replace_value)
-                    # find new size according to ftl weights
-                    size_new_ftl = weights_replace.size
-                    size_old_ftl = weights_ftl.size
                     weights_result.append(weights_replace)
                 passed_ftl = True
                 continue
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name and passed_ftl:
-                size_new = [size_new_orig if size_new_ftl == 1 else size_new_ftl][0]
-                size_old = [size_old_orig if size_old_ftl == 1 else size_old_ftl][0]
                 # 0 - kernel, 1 - bias
                 it = 0
+                size_new = weights_new[it].shape[0]
+                size_old = weights[it].shape[0]
                 # None and cut are the same here - Dense must be resized
-                if shape_new[0] < shape[0] and sampling_method['dense'] != 'resize':
-                    weights_result.append(weights[it][:size_new, :])
-                elif sampling_method['dense'] == 'resize':
+                if sampling_method['dense'] == 'resize':
                     weights_result.append(resize_array(weights[it], (size_new, weights[0].shape[1])))
+                elif shape_new[0] < shape[0]:
+                    weights_result.append(weights[it][:size_new, :])
                 elif sampling_method['dense'] == 'pad':
                     pads = [[0, size_new - size_old], [0, 0]]
                     pd = pad(weights[it], pad_width=pads, mode='constant', constant_values=replace_value)
