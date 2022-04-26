@@ -993,8 +993,9 @@ class CustomBuilder(CNNBuilder):
             else:
                 gathered_weights[name].append(model_weights[it])
         passed_ftl = False
-        size_new_ftl = 1
-        size_old_ftl = 1
+        builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
+        for new_ws in builder.model.get_weights():
+            print(new_ws.shape)
         for layer_name, weights in zip(gathered_weights.keys(), gathered_weights.values()):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
@@ -1041,7 +1042,10 @@ class CustomBuilder(CNNBuilder):
                 passed_ftl = False
                 continue
             # other layers which should not be sampled (Conv2D, ...)
-            weights_result.append(weights)
+            if type(weights) is list:
+                weights_result.extend(weights)
+            else:
+                weights_result.append(weights)
         arguments_sampled['weights'] = weights_result
         builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
         for action in ['compile', 'train']:
