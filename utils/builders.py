@@ -790,6 +790,7 @@ class CNNBuilder(ModelBuilder):
 
 
 # Custom model builder - can build any model (including hybrid), based on layer information
+# TODO: add layer numbering
 class CustomBuilder(CNNBuilder):
     # TODO: default sampling initializations
     def __init__(self, layers, input_shape=(32, 32, 3), noof_classes=1, **kwargs):
@@ -1005,7 +1006,8 @@ class CustomBuilder(CNNBuilder):
                 gathered_weights_new.update({name: [model_weights_new[it]]})
             else:
                 gathered_weights_new[name].append(model_weights_new[it])
-        for layer_name, weights, weights_new in zip(gathered_weights.keys(), gathered_weights.values(), gathered_weights_new.values()):
+        # () protect from unpacking error (expected 4, got 2)
+        for idx, (layer_name, weights, weights_new) in enumerate(zip(gathered_weights.keys(), gathered_weights.values(), gathered_weights_new.values())):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
                 # additional extraction from list (thus [0])
@@ -1035,12 +1037,14 @@ class CustomBuilder(CNNBuilder):
                 _shape_conv = weights[it].shape
                 _shape_conv_new = [*[int(_sh * nominator) for _sh in _shape_conv[:2]], *_shape_conv[2:]]
                 if not sampling_method['conv']:
-                    weights_replace = weights[it]
+                    weights_result.extend(weights)
+                    # other methods require changing layers list
+                    continue
                 elif sampling_method['conv'] == 'resize':
                     # because image accepts only 2 dimensions
-                    weights_replace = resize_array(weights[0], _shape_conv_new)
+                    weights_replace = resize_array(weights[it], _shape_conv_new)
                 elif nominator < 1:
-                    weights_replace = weights[0][:_shape_conv_new[0], :_shape_conv_new[1], :, :]
+                    weights_replace = weights[it][:_shape_conv_new[0], :_shape_conv_new[1], :, :]
                 else:
                     _pads = [[(_shn - _sh) // 2, (_shn - _sh) // 2 + ((_shn - _sh) // 2) % 2] for _shn, _sh in zip(_shape_conv_new[:2],
                                                                                                                _shape_conv[:2])]
@@ -1049,6 +1053,7 @@ class CustomBuilder(CNNBuilder):
                                           mode='constant', constant_values=replace_value)
                 weights_result.append(weights_replace)
                 weights_result.append(weights[1])
+                arguments_sampled['layers'][idx]['conv2d']['kernel_size'] = _shape_conv_new[0]
                 continue
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name:
