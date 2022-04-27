@@ -995,6 +995,28 @@ class CustomBuilder(CNNBuilder):
             else:
                 gathered_weights[name].append(model_weights[it])
         gathered_weights_new = {}
+        nominator = np_max([_shn / _sh for _shn, _sh in zip(shape_new[:2], shape[:2])])
+        # it = 0
+        # while 'conv2d' not in list(gathered_weights.keys())[it]:
+        #     it += 1
+        # # because gathered weights contains 2 (usually) and model_weights is just a list with no names
+        # print(it * 2 + 1)
+        # this way ensures recalculation for all CLs
+        for idx, weight in enumerate(model_weights):
+            # some layers are not 4-dimensional
+            if len(weight.shape) < 4:
+                continue
+            # assuming that the number of filters > 2
+            if weight.shape[-1] < 2:
+                continue
+            _shape_conv = weight.shape
+            _shape_conv_new = [*[int(_sh * nominator) for _sh in _shape_conv[:2]], *_shape_conv[2:]]
+            idx_name = 0
+            # protection from numbered layers
+            while 'conv2d' not in list(arguments_sampled['layers'][idx_name].keys())[0]:
+                idx_name += 1
+            name = list(arguments_sampled['layers'][idx_name].keys())[0]
+            arguments_sampled['layers'][idx_name][name]['kernel_size'] = _shape_conv_new[0]
         model_weights_new = CustomBuilder(**arguments_sampled).model.get_weights()
         model_layers_new = CustomBuilder(**arguments_sampled).model.layers
         names = []
@@ -1007,7 +1029,7 @@ class CustomBuilder(CNNBuilder):
             else:
                 gathered_weights_new[name].append(model_weights_new[it])
         # () protect from unpacking error (expected 4, got 2)
-        for idx, (layer_name, weights, weights_new) in enumerate(zip(gathered_weights.keys(), gathered_weights.values(), gathered_weights_new.values())):
+        for layer_name, weights, weights_new in zip(gathered_weights.keys(), gathered_weights.values(), gathered_weights_new.values()):
             if 'ftl' in layer_name:
                 # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
                 # additional extraction from list (thus [0])
@@ -1031,11 +1053,9 @@ class CustomBuilder(CNNBuilder):
                     weights_result.append(weights_replace)
                 continue
             if 'conv' in layer_name:
+                # TODO: extract target shape from arguments_sampled - will not work with several CLs
                 # 0 - kernel
                 it = 0
-                nominator = np_max([_shn / _sh for _shn, _sh in zip(shape_new[:2], shape[:2])])
-                _shape_conv = weights[it].shape
-                _shape_conv_new = [*[int(_sh * nominator) for _sh in _shape_conv[:2]], *_shape_conv[2:]]
                 if not sampling_method['conv']:
                     weights_result.extend(weights)
                     # other methods require changing layers list
@@ -1053,7 +1073,6 @@ class CustomBuilder(CNNBuilder):
                                           mode='constant', constant_values=replace_value)
                 weights_result.append(weights_replace)
                 weights_result.append(weights[1])
-                arguments_sampled['layers'][idx]['conv2d']['kernel_size'] = _shape_conv_new[0]
                 continue
             # TODO: make sure passed_ftl is necessary
             if 'dense' in layer_name:
@@ -1063,7 +1082,7 @@ class CustomBuilder(CNNBuilder):
                 size_old = weights[it].shape[0]
                 # None and cut are the same here - Dense must be resized
                 if sampling_method['dense'] == 'resize':
-                    weights_result.append(resize_array(weights[it], (size_new, weights[0].shape[1])))
+                    weights_result.append(resize_array(weights[it], (size_new, weights[it].shape[1])))
                 elif shape_new[0] < shape[0]:
                     weights_result.append(weights[it][:size_new, :])
                 elif sampling_method['dense'] == 'pad':
