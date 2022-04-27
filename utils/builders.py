@@ -1004,7 +1004,7 @@ class CustomBuilder(CNNBuilder):
         # this way ensures recalculation for all CLs
         for idx, weight in enumerate(model_weights):
             # some layers are not 4-dimensional
-            if len(weight.shape) < 4:
+            if not sampling_method['conv'] or len(weight.shape) < 4:
                 continue
             # assuming that the number of filters > 2
             if weight.shape[-1] < 2:
@@ -1012,7 +1012,7 @@ class CustomBuilder(CNNBuilder):
             _shape_conv = weight.shape
             _shape_conv_new = [*[int(_sh * nominator) for _sh in _shape_conv[:2]], *_shape_conv[2:]]
             idx_name = 0
-            # protection from numbered layers
+            # TODO: protection from numbered layers
             while 'conv2d' not in list(arguments_sampled['layers'][idx_name].keys())[0]:
                 idx_name += 1
             name = list(arguments_sampled['layers'][idx_name].keys())[0]
