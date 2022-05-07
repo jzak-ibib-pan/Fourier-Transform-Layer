@@ -742,6 +742,7 @@ class CNNBuilder(ModelBuilder):
     def _get_allowed_backbones(self):
         return self._get_allowed_kwargs()['build']['model_type']
 
+    # TODO: removal
     @staticmethod
     def _get_backbone(model_type, input_shape, weights, **kwargs):
         model_type_low = model_type.lower()
@@ -930,6 +931,9 @@ class CustomBuilder(CNNBuilder):
                     }
         for back in CNNBuilder()._get_allowed_backbones():
             defaults.update({back: {'weights': None,
+                                    'insert': None,
+                                    'replace': None,
+                                    'index': -1,
                                     # redundant, but just in case
                                     'include_top': False},
                              })
@@ -971,13 +975,21 @@ class CustomBuilder(CNNBuilder):
         arguments = list(layer_dict.values())[0]
         # self. would import 'custom' model name thus causing erroneous behaviour
         if layer_name in self._allowed_backbones:
-            # 0 - Input Layer, has no inputs
             _layers = self._get_backbone_layers(model_type=layer_name, input_shape=previous.shape[1:],
-                                                **arguments)[1:]
+                                                **arguments)
             _arch = previous
-            for layer in _layers:
+            for it, layer in enumerate(_layers):
                 _layer_name = str(type(layer)).split('.')[-1][:-2]
+                # omit InputLayer, already provided
+                if 'Input' in _layer_name:
+                    continue
                 _model_layer_dict = {_layer_name: layer.get_config()}
+                if arguments and it == arguments['index'] and type(layer) == Conv2D:
+                    if 'replace' in arguments.keys():
+                        _arch = self._return_layer(arguments['replace'], _arch)[0]
+                        continue
+                    elif 'insert' in arguments.keys():
+                        _arch = self._return_layer(arguments['insert'], _arch)[0]
                 _arch = self._return_layer(_model_layer_dict, _arch)[0]
             return _arch, False
             # return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
