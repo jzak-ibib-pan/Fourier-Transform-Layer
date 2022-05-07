@@ -978,7 +978,6 @@ class CustomBuilder(CNNBuilder):
             for layer in _layers:
                 _layer_name = str(type(layer)).split('.')[-1][:-2]
                 _model_layer_dict = {_layer_name: layer.get_config()}
-                print(_layer_name)
                 _arch = self._return_layer(_model_layer_dict, _arch)[0]
             return _arch, False
             # return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
@@ -1010,7 +1009,7 @@ class CustomBuilder(CNNBuilder):
         if layer_name in ['ReLU']:
             return ReLU(**arguments)(previous), False
         if layer_name not in ['dense']:
-            return None, False
+            raise ValueError(f'{layer_name} not implemented yet.')
         return Dense(**arguments)(previous), True
 
     def _sample_model(self, **kwargs):
