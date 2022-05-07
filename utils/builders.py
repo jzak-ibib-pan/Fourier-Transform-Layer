@@ -771,6 +771,7 @@ class CNNBuilder(ModelBuilder):
         backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
         # update BatchNormalization momentum - otherwise several models (MobilenetV2, VGG16) do not work
         for layer in backbone.layers:
+            print(layer)
             if type(layer) != type(BatchNormalization):
                 continue
             layer.momentum=0.9
@@ -790,6 +791,7 @@ class CNNBuilder(ModelBuilder):
 
 
 # Custom model builder - can build any model (including hybrid), based on layer information
+# TODO: add _insert and _replace_layer methods
 # TODO: add layer numbering
 class CustomBuilder(CNNBuilder):
     # TODO: default sampling initializations
