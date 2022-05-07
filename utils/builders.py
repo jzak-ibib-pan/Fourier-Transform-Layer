@@ -4,6 +4,7 @@ from os.path import join, isdir
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate, Conv2DTranspose
+from tensorflow.keras.layers import Add, ZeroPadding2D, Activation, MaxPooling2D, ReLU, DepthwiseConv2D
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
@@ -771,11 +772,45 @@ class CNNBuilder(ModelBuilder):
         backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
         # update BatchNormalization momentum - otherwise several models (MobilenetV2, VGG16) do not work
         for layer in backbone.layers:
-            print(layer)
             if type(layer) != type(BatchNormalization):
                 continue
             layer.momentum=0.9
         return backbone
+
+    @staticmethod
+    def _get_backbone_layers(model_type, input_shape, weights, **kwargs):
+        model_type_low = model_type.lower()
+        _backbone = None
+        if 'mobilenet' in model_type_low:
+            if '2' not in model_type_low:
+                # load Mobilenet
+                _backbone = apps.mobilenet.MobileNet
+            else:
+                # load Mobilenetv2
+                _backbone = apps.mobilenet_v2.MobileNetV2
+        elif 'vgg' in model_type_low:
+            if '16' in model_type_low:
+                # load VGG16
+                _backbone = apps.vgg16.VGG16
+            elif '19' in model_type_low:
+                # load VGG19
+                _backbone = apps.vgg19.VGG19
+        elif 'resnet' in model_type_low:
+            if '50' in model_type_low:
+                # load resnet50
+                _backbone = apps.resnet_v2.ResNet50V2
+            elif '101' in model_type_low:
+                # load resnet101
+                _backbone = apps.resnet_v2.ResNet101V2
+        if not _backbone:
+            return None
+        backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
+        # update BatchNormalization momentum - otherwise several models (MobilenetV2, VGG16) do not work
+        for layer in backbone.layers:
+            if type(layer) != type(BatchNormalization):
+                continue
+            layer.momentum=0.9
+        return backbone.layers
 
     def _build_model(self, model_type, input_shape, noof_classes, weights=None, freeze=0, **kwargs):
         # could be streamlined but would lower readability
@@ -936,20 +971,42 @@ class CustomBuilder(CNNBuilder):
         arguments = list(layer_dict.values())[0]
         # self. would import 'custom' model name thus causing erroneous behaviour
         if layer_name in self._allowed_backbones:
-            return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
-                                      **arguments)(previous), False
-        if layer_name in ['conv2d']:
+            # 0 - Input Layer, has no inputs
+            _layers = self._get_backbone_layers(model_type=layer_name, input_shape=previous.shape[1:],
+                                                **arguments)[1:]
+            _arch = previous
+            for layer in _layers:
+                _layer_name = str(type(layer)).split('.')[-1][:-2]
+                _model_layer_dict = {_layer_name: layer.get_config()}
+                _arch = self._return_layer(_model_layer_dict, _arch)
+            return _arch, False
+            # return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
+            #                           **arguments)(previous), False
+        if layer_name in ['conv2d', 'Conv2D']:
             return Conv2D(**arguments)(previous), False
-        if layer_name in ['conv2dtranspose']:
+        if layer_name in ['conv2dtranspose', 'Conv2DTranspose']:
             return Conv2DTranspose(**arguments)(previous), False
         if layer_name in ['ftl']:
             if 'super_resolution' in layer_name:
                 return FTLSuperResolution(**arguments)(previous), False
             return FTL(**arguments)(previous), False
-        if layer_name in ['flatten']:
+        if layer_name in ['flatten', 'Flatten']:
             return Flatten()(previous), True
-        if layer_name in ['concatenate']:
+        if layer_name in ['concatenate', 'Concatenate']:
             return Concatenate(**arguments)(previous), False
+        # Add, ZeroPadding2D, Activation, MaxPooling2D, ReLU, DepthwiseConv2D
+        if layer_name in ['DepthwiseConv2D']:
+            return DepthwiseConv2D(**arguments)(previous), False
+        if layer_name in ['ZeroPadding2D']:
+            return ZeroPadding2D(**arguments)(previous), False
+        if layer_name in ['MaxPooling2D']:
+            return MaxPooling2D(**arguments)(previous), False
+        if layer_name in ['Add']:
+            return Add(**arguments)(previous), False
+        if layer_name in ['Activation']:
+            return Activation(**arguments)(previous), False
+        if layer_name in ['ReLU']:
+            return ReLU(**arguments)(previous), False
         if layer_name not in ['dense']:
             return None
         return Dense(**arguments)(previous), True
