@@ -978,6 +978,7 @@ class CustomBuilder(CNNBuilder):
             for layer in _layers:
                 _layer_name = str(type(layer)).split('.')[-1][:-2]
                 _model_layer_dict = {_layer_name: layer.get_config()}
+                print(_layer_name)
                 _arch = self._return_layer(_model_layer_dict, _arch)[0]
             return _arch, False
             # return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
@@ -994,9 +995,10 @@ class CustomBuilder(CNNBuilder):
             return Flatten()(previous), True
         if layer_name in ['concatenate', 'Concatenate']:
             return Concatenate(**arguments)(previous), False
-        # Add, ZeroPadding2D, Activation, MaxPooling2D, ReLU, DepthwiseConv2D
         if layer_name in ['DepthwiseConv2D']:
             return DepthwiseConv2D(**arguments)(previous), False
+        if layer_name in ['BatchNormalization']:
+            return BatchNormalization(**arguments)(previous), False
         if layer_name in ['ZeroPadding2D']:
             return ZeroPadding2D(**arguments)(previous), False
         if layer_name in ['MaxPooling2D']:
@@ -1008,7 +1010,7 @@ class CustomBuilder(CNNBuilder):
         if layer_name in ['ReLU']:
             return ReLU(**arguments)(previous), False
         if layer_name not in ['dense']:
-            return None
+            return None, False
         return Dense(**arguments)(previous), True
 
     def _sample_model(self, **kwargs):
