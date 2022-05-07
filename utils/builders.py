@@ -978,7 +978,7 @@ class CustomBuilder(CNNBuilder):
             for layer in _layers:
                 _layer_name = str(type(layer)).split('.')[-1][:-2]
                 _model_layer_dict = {_layer_name: layer.get_config()}
-                _arch = self._return_layer(_model_layer_dict, _arch)
+                _arch = self._return_layer(_model_layer_dict, _arch)[0]
             return _arch, False
             # return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
             #                           **arguments)(previous), False
