@@ -933,6 +933,8 @@ class CustomBuilder(CNNBuilder):
             defaults.update({back: {'weights': None,
                                     'insert': None,
                                     'replace': None,
+                                    # TODO: default indexes
+                                    # mobilenet - 2
                                     'index': -1,
                                     # redundant, but just in case
                                     'include_top': False},
@@ -985,10 +987,10 @@ class CustomBuilder(CNNBuilder):
                     continue
                 _model_layer_dict = {_layer_name: layer.get_config()}
                 if arguments and it == arguments['index'] and type(layer) == Conv2D:
-                    if 'replace' in arguments.keys():
+                    if 'replace' in arguments.keys() and arguments['replace']:
                         _arch = self._return_layer(arguments['replace'], _arch)[0]
                         continue
-                    elif 'insert' in arguments.keys():
+                    elif 'insert' in arguments.keys() and arguments['insert']:
                         _arch = self._return_layer(arguments['insert'], _arch)[0]
                 _arch = self._return_layer(_model_layer_dict, _arch)[0]
             return _arch, False
