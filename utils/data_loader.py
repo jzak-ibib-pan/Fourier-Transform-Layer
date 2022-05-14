@@ -541,6 +541,7 @@ class DatasetFlower(DataGenerator):
         return self._len_val
 
 
+# Class for fringe images generation
 class FringeGenerator(DataGenerator):
     def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
         # TODO: make VARIANCES and ROTATIONS relevant in init
@@ -620,5 +621,50 @@ class FringeGenerator(DataGenerator):
             yield np.array(X), to_categorical(Y, 2)
 
 
+# Class for loading images, according to motherlist
+class MotherlistGenerator(DataGenerator):
+    def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
+        super(MotherlistGenerator, self).__init__(out_shape=out_shape, **kwargs)
+        self._path_images = join(path_motherlist, dir_tiles)
+        self._path_mother = path_motherlist
+
+    @staticmethod
+    def _extract_motherlist_info(line):
+        data_image, data_target = line.split(';')
+        data_image = data_image.split(':')[1].strip()
+        data_target = data_target.split(':')[1].strip()
+        return data_image + '.tif', int(data_target)
+
+    def _generator(self):
+        with open(self._path_mother, 'r') as file:
+            _files = file.readlines()
+        # prepare indeces for shuffling
+        shuf = np.arange(len(_files))
+        # shuffle
+        shuffle(shuf)
+        idx_shuffle = 0
+        while True:
+            _X = np.zeros((self._batch, *self._out_shape))
+            _Y = np.zeros((self._batch,))
+            _comparison = np.zeros(self._out_shape)
+            rep = 0
+            # make sure every empty space is loaded with an image
+            while any([np.array_equal(_x, _comparison) for _x in _X]) and rep < self._batch:
+                # get the filename
+                _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
+                idx_shuffle += 1
+                if idx_shuffle >= len(_files):
+                    shuffle(shuf)
+                    idx_shuffle = 0
+                # get only images with fully marked masks
+                if 0 < _target < 1:
+                    continue
+                _X[rep] = self._preprocess_data(imread(join(self._path_images, _filename)))
+                _Y[rep] = _target
+                rep += 1
+            yield _X, to_categorical(_Y, self._noof_classes)
+
+
 if __name__ == '__main__':
-    loader = DatasetLoader()
+    loader = MotherlistGenerator(path_motherlist='Y:/Slinianki/miazsz/tiles_256', dir_tiles='obrazy')
+    print(loader.batch)
