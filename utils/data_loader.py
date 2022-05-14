@@ -669,8 +669,8 @@ class MotherlistGenerator(DataGenerator):
                         shuffle(shuf)
                         idx_shuffle = 0
                 # get only images with fully marked masks
-                # if 0 < _target < 1:
-                #     continue
+                if 0 < _target < 0.5:
+                    continue
                 _X[rep] = self._preprocess_data(imread(join(self._path_images, _filename)))
                 _Y[rep] = [0 if _target == 0 else 1][0]
                 rep += 1
