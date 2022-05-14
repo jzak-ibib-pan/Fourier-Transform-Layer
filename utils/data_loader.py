@@ -673,10 +673,8 @@ class MotherlistGenerator(DataGenerator):
                     if idx_shuffle >= len(_files):
                         np.random.shuffle(shuf)
                         idx_shuffle = 0
-                print(_target)
                 # get only images with fully marked masks
                 if 0 < _target < 0.5:
-                    print(f'Passed {_target}.')
                     continue
                 _X[rep] = self._preprocess_data(imread(join(self._path_images, _filename)))
                 _Y[rep] = [0 if _target == 0 else 1][0]
