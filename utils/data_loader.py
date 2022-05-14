@@ -630,6 +630,7 @@ class MotherlistGenerator(DataGenerator):
                                                   shuffle_seed=shuffle_seed, **kwargs)
         self._path_images = join(path_motherlist, dir_tiles)
         self._path_mother = join(path_motherlist, 'motherlist.txt')
+        self._noof_classes = 2
 
     @staticmethod
     def _extract_motherlist_info(line):
@@ -671,8 +672,7 @@ class MotherlistGenerator(DataGenerator):
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
     loader = MotherlistGenerator(path_motherlist='Y:/Slinianki/miazsz/tiles_256', dir_tiles='obrazy',
-                                 noof_classes=2,
-                                 out_shape=(256, 256, 3))
+                                 out_shape=(128, 128, 3))
     generator = loader.generator
     X, Y = next(generator)
     print(Y)
