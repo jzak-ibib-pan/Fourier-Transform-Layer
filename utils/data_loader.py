@@ -651,28 +651,14 @@ class MotherlistGenerator(DataGenerator):
             _Y = np.zeros((self._batch,))
             _comparison = np.zeros(self._out_shape)
             rep = 0
-            _target = 0
             # make sure every empty space is loaded with an image
             while any([np.array_equal(_x, _comparison) for _x in _X]) and rep < self._batch:
-                # make sure the first image is class 1
-                if rep == 0:
-                    while _target < 0.5 and idx_shuffle < len(_files):
-                        # get the filename
-                        _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
-                        idx_shuffle += 1
-                    else:
-                        if idx_shuffle >= len(_files):
-                            # means that no images were found
-                            print('No images >= 0.5 were found.')
-                            np.random.shuffle(shuf)
-                            idx_shuffle = 0
-                else:
-                    # get the filename
-                    _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
-                    idx_shuffle += 1
-                    if idx_shuffle >= len(_files):
-                        np.random.shuffle(shuf)
-                        idx_shuffle = 0
+                # get the filename
+                _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
+                idx_shuffle += 1
+                if idx_shuffle >= len(_files):
+                    np.random.shuffle(shuf)
+                    idx_shuffle = 0
                 # get only images with fully marked masks
                 if 0 < _target < 0.5:
                     continue
