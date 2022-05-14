@@ -301,6 +301,10 @@ class DataLoader:
     def noof_classes(self):
         return self._noof_classes
 
+    @property
+    def out_shape(self):
+        return self._out_shape
+
 
 # TODO: out_shape as None (?)
 class DatasetLoader(DataLoader):
