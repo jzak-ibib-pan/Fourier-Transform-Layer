@@ -622,18 +622,19 @@ class FringeGenerator(DataGenerator):
 
 
 # Class for loading images, according to motherlist
+# TODO: validation generator
 class MotherlistGenerator(DataGenerator):
     def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
         super(MotherlistGenerator, self).__init__(out_shape=out_shape, **kwargs)
         self._path_images = join(path_motherlist, dir_tiles)
-        self._path_mother = path_motherlist
+        self._path_mother = join(path_motherlist, 'motherlist.txt')
 
     @staticmethod
     def _extract_motherlist_info(line):
         data_image, data_target = line.split(';')
         data_image = data_image.split(':')[1].strip()
         data_target = data_target.split(':')[1].strip()
-        return data_image + '.tif', int(data_target)
+        return data_image + '.tif', float(data_target)
 
     def _generator(self):
         with open(self._path_mother, 'r') as file:
@@ -648,23 +649,41 @@ class MotherlistGenerator(DataGenerator):
             _Y = np.zeros((self._batch,))
             _comparison = np.zeros(self._out_shape)
             rep = 0
+            _target = 0
             # make sure every empty space is loaded with an image
             while any([np.array_equal(_x, _comparison) for _x in _X]) and rep < self._batch:
-                # get the filename
-                _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
-                idx_shuffle += 1
-                if idx_shuffle >= len(_files):
-                    shuffle(shuf)
-                    idx_shuffle = 0
+                # make sure the first image is class 1
+                if rep == 0:
+                    while _target == 0:
+                        # get the filename
+                        _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
+                        idx_shuffle += 1
+                        if idx_shuffle >= len(_files):
+                            shuffle(shuf)
+                            idx_shuffle = 0
+                else:
+                    # get the filename
+                    _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
+                    idx_shuffle += 1
+                    if idx_shuffle >= len(_files):
+                        shuffle(shuf)
+                        idx_shuffle = 0
                 # get only images with fully marked masks
-                if 0 < _target < 1:
-                    continue
+                # if 0 < _target < 1:
+                #     continue
                 _X[rep] = self._preprocess_data(imread(join(self._path_images, _filename)))
-                _Y[rep] = _target
+                _Y[rep] = [0 if _target == 0 else 1][0]
                 rep += 1
             yield _X, to_categorical(_Y, self._noof_classes)
 
 
 if __name__ == '__main__':
-    loader = MotherlistGenerator(path_motherlist='Y:/Slinianki/miazsz/tiles_256', dir_tiles='obrazy')
-    print(loader.batch)
+    from matplotlib import pyplot as plt
+    loader = MotherlistGenerator(path_motherlist='Y:/Slinianki/miazsz/tiles_256', dir_tiles='obrazy',
+                                 noof_classes=2,
+                                 out_shape=(256, 256, 3))
+    generator = loader.generator
+    X, Y = next(generator)
+    print(Y)
+    plt.imshow(np.squeeze(X[0]))
+    plt.show()
