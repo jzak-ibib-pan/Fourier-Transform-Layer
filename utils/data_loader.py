@@ -635,6 +635,9 @@ class MotherlistGenerator(DataGenerator):
         self._path_images = join(path_motherlist, dir_tiles)
         self._path_mother = join(path_motherlist, 'motherlist.txt')
         self._noof_classes = 2
+        with open(self._path_mother, 'r') as file:
+            self._length = len(file.readlines())
+
 
     @staticmethod
     def _extract_motherlist_info(line):
@@ -647,7 +650,7 @@ class MotherlistGenerator(DataGenerator):
         with open(self._path_mother, 'r') as file:
             _files = file.readlines()
         # prepare indeces for shuffling
-        shuf = np.arange(len(_files))
+        shuf = np.arange(self._length)
         # shuffle
         np.random.shuffle(shuf)
         idx_shuffle = 0
@@ -661,7 +664,7 @@ class MotherlistGenerator(DataGenerator):
                 # get the filename
                 _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
                 idx_shuffle += 1
-                if idx_shuffle >= len(_files):
+                if idx_shuffle >= self._length:
                     np.random.shuffle(shuf)
                     idx_shuffle = 0
                 # get only images with fully marked masks
@@ -672,6 +675,9 @@ class MotherlistGenerator(DataGenerator):
                 rep += 1
             yield _X, to_categorical(_Y, self._noof_classes)
 
+    @property
+    def length(self):
+        return self._length
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
