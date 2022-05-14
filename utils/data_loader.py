@@ -677,7 +677,7 @@ class MotherlistGenerator(DataGenerator):
 
     @property
     def length(self):
-        return self._length
+        return self._length // self._batch
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
