@@ -625,7 +625,9 @@ class FringeGenerator(DataGenerator):
 # TODO: validation generator
 class MotherlistGenerator(DataGenerator):
     def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
-        super(MotherlistGenerator, self).__init__(out_shape=out_shape, **kwargs)
+        super(MotherlistGenerator, self).__init__(out_shape=out_shape,
+                                                  batch=batch,
+                                                  shuffle_seed=shuffle_seed, **kwargs)
         self._path_images = join(path_motherlist, dir_tiles)
         self._path_mother = join(path_motherlist, 'motherlist.txt')
 
@@ -642,7 +644,7 @@ class MotherlistGenerator(DataGenerator):
         # prepare indeces for shuffling
         shuf = np.arange(len(_files))
         # shuffle
-        shuffle(shuf)
+        np.random.shuffle(shuf)
         idx_shuffle = 0
         while True:
             _X = np.zeros((self._batch, *self._out_shape))
@@ -654,22 +656,27 @@ class MotherlistGenerator(DataGenerator):
             while any([np.array_equal(_x, _comparison) for _x in _X]) and rep < self._batch:
                 # make sure the first image is class 1
                 if rep == 0:
-                    while _target == 0:
+                    while _target < 0.5 and idx_shuffle < len(_files):
                         # get the filename
                         _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
                         idx_shuffle += 1
+                    else:
                         if idx_shuffle >= len(_files):
-                            shuffle(shuf)
+                            # means that no images were found
+                            print('No images >= 0.5 were found.')
+                            np.random.shuffle(shuf)
                             idx_shuffle = 0
                 else:
                     # get the filename
                     _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
                     idx_shuffle += 1
                     if idx_shuffle >= len(_files):
-                        shuffle(shuf)
+                        np.random.shuffle(shuf)
                         idx_shuffle = 0
+                print(_target)
                 # get only images with fully marked masks
                 if 0 < _target < 0.5:
+                    print(f'Passed {_target}.')
                     continue
                 _X[rep] = self._preprocess_data(imread(join(self._path_images, _filename)))
                 _Y[rep] = [0 if _target == 0 else 1][0]
