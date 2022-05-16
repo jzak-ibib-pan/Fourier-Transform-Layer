@@ -1115,15 +1115,21 @@ class CustomBuilder(CNNBuilder):
                     for rep in range(noof_weights):
                         for ch in range(shape[2]):
                             if sampling_method['ftl'] == 'resize':
-                                weights_replace[rep, :, :, ch] = resize_image(weights_ftl[rep, :, :, ch],
-                                                                              weights_new[step].shape[1:3])
+                                _resized = resize_image(weights_ftl[rep, :, :, ch],
+                                                       weights_new[step].shape[1:3])
+                                if len(_resized.shape) == 2:
+                                    _resized = expand_dims(_resized, axis=-1)
+                                weights_replace[rep, :, :, ch] = _resized
                             elif shape_new[0] < shape[0]:
                                 weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
                             else:
                                 pads = [[0, int(shn - sh)] for shn, sh in zip(weights_new[step].shape[1:3],
                                                                               weights_ftl.shape[1:3])]
-                                weights_replace[rep, :, :, ch] = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
-                                                                     mode='constant', constant_values=replace_value)
+                                _padded = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
+                                              mode='constant', constant_values=replace_value)
+                                if len(_padded.shape) == 2:
+                                    _padded = expand_dims(_padded, axis=-1)
+                                weights_replace[rep, :, :, ch] = _padded
                     weights_result.append(weights_replace)
                 continue
             if 'conv' in layer_name:
