@@ -628,16 +628,31 @@ class FringeGenerator(DataGenerator):
 # Class for loading images, according to motherlist
 # TODO: validation generator
 class MotherlistGenerator(DataGenerator):
-    def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, split=0, shuffle_seed=None, **kwargs):
+    def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, shuffle_seed=None,
+                 split_val=0, split_test=0.15,
+                 **kwargs):
         super(MotherlistGenerator, self).__init__(out_shape=out_shape,
                                                   batch=batch,
                                                   shuffle_seed=shuffle_seed, **kwargs)
         self._path_images = join(path_motherlist, dir_tiles)
         self._path_mother = join(path_motherlist, 'motherlist.txt')
         self._noof_classes = 2
-        with open(self._path_mother, 'r') as file:
-            self._length = len(file.readlines())
-
+        with open(self._path_mother, 'r') as fil:
+            self._files = fil.readlines()
+        loof_length = len(self._files)
+        noof_files = (1 - split_val - split_test) * loof_length
+        noof_files_test = split_test * loof_length
+        noof_files_val = split_val * loof_length
+        # prepare indeces for shuffling
+        shuf = np.arange(self._length)
+        # shuffle
+        np.random.shuffle(shuf)
+        self._loof_train = shuf[:noof_files]
+        self._loof_val = shuf[noof_files : noof_files + noof_files_val]
+        self._loof_test = shuf[:-noof_files_test]
+        self._length = len(self._loof_train)
+        self._length_val = len(self._loof_val)
+        self._length_test = len(self._loof_test)
 
     @staticmethod
     def _extract_motherlist_info(line):
@@ -646,13 +661,15 @@ class MotherlistGenerator(DataGenerator):
         data_target = data_target.split(':')[1].strip()
         return data_image + '.tif', float(data_target)
 
-    def _generator(self):
-        with open(self._path_mother, 'r') as file:
-            _files = file.readlines()
-        # prepare indeces for shuffling
-        shuf = np.arange(self._length)
-        # shuffle
-        np.random.shuffle(shuf)
+    def _generator(self, flag='train'):
+        if flag == 'train':
+            shuf = self._loof_train
+        elif flag == 'test':
+            shuf = self._loof_test
+        elif flag == 'val':
+            shuf = self._loof_val
+        else:
+            return -1
         idx_shuffle = 0
         while True:
             _X = np.zeros((self._batch, *self._out_shape))
@@ -662,7 +679,7 @@ class MotherlistGenerator(DataGenerator):
             # make sure every empty space is loaded with an image
             while any([np.array_equal(_x, _comparison) for _x in _X]) and rep < self._batch:
                 # get the filename
-                _filename, _target = self._extract_motherlist_info(_files[shuf[idx_shuffle]])
+                _filename, _target = self._extract_motherlist_info(self._files[shuf[idx_shuffle]])
                 idx_shuffle += 1
                 if idx_shuffle >= self._length:
                     np.random.shuffle(shuf)
@@ -678,6 +695,15 @@ class MotherlistGenerator(DataGenerator):
     @property
     def length(self):
         return self._length // self._batch
+
+    @property
+    def length_test(self):
+        return self._length_test // self._batch
+
+    @property
+    def length_val(self):
+        return self._length_val // self._batch
+
 
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
