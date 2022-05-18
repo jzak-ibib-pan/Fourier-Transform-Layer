@@ -629,7 +629,7 @@ class FringeGenerator(DataGenerator):
 # TODO: validation generator
 class MotherlistGenerator(DataGenerator):
     def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, shuffle_seed=None,
-                 split_val=0, split_test=0.15,
+                 split_val=0.05, split_test=0.15,
                  **kwargs):
         super(MotherlistGenerator, self).__init__(out_shape=out_shape,
                                                   batch=batch,
@@ -640,11 +640,11 @@ class MotherlistGenerator(DataGenerator):
         with open(self._path_mother, 'r') as fil:
             self._files = fil.readlines()
         loof_length = len(self._files)
-        noof_files = (1 - split_val - split_test) * loof_length
-        noof_files_test = split_test * loof_length
-        noof_files_val = split_val * loof_length
+        noof_files = int((1 - split_val - split_test) * loof_length)
+        noof_files_test = int(split_test * loof_length)
+        noof_files_val = int(split_val * loof_length)
         # prepare indeces for shuffling
-        shuf = np.arange(self._length)
+        shuf = np.arange(loof_length)
         # shuffle
         np.random.shuffle(shuf)
         self._loof_train = shuf[:noof_files]
@@ -693,16 +693,28 @@ class MotherlistGenerator(DataGenerator):
             yield _X, to_categorical(_Y, self._noof_classes)
 
     @property
+    def generator(self):
+        return self._generator(flag='train')
+
+    @property
+    def validation_generator(self):
+        return self._generator(flag='val')
+
+    @property
+    def test_generator(self):
+        return self._generator(flag='test')
+
+    @property
     def length(self):
         return self._length // self._batch
 
     @property
-    def length_test(self):
-        return self._length_test // self._batch
-
-    @property
     def length_val(self):
         return self._length_val // self._batch
+
+    @property
+    def length_test(self):
+        return self._length_test // self._batch
 
 
 if __name__ == '__main__':
@@ -710,6 +722,18 @@ if __name__ == '__main__':
     loader = MotherlistGenerator(path_motherlist='Y:/Slinianki/miazsz/tiles_256', dir_tiles='obrazy',
                                  out_shape=(128, 128, 3))
     generator = loader.generator
+    X, Y = next(generator)
+    print(Y)
+    plt.imshow(np.squeeze(X[0]))
+    plt.show()
+
+    generator = loader.validation_generator
+    X, Y = next(generator)
+    print(Y)
+    plt.imshow(np.squeeze(X[0]))
+    plt.show()
+
+    generator = loader.test_generator
     X, Y = next(generator)
     print(Y)
     plt.imshow(np.squeeze(X[0]))
