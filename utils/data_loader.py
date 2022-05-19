@@ -664,10 +664,13 @@ class MotherlistGenerator(DataGenerator):
     def _generator(self, flag='train'):
         if flag == 'train':
             shuf = self._loof_train
+            _length = self._length
         elif flag == 'test':
             shuf = self._loof_test
+            _length = self._length_test
         elif flag == 'val':
             shuf = self._loof_val
+            _length = self._length_val
         else:
             return -1
         idx_shuffle = 0
@@ -681,7 +684,7 @@ class MotherlistGenerator(DataGenerator):
                 # get the filename
                 _filename, _target = self._extract_motherlist_info(self._files[shuf[idx_shuffle]])
                 idx_shuffle += 1
-                if idx_shuffle >= self._length:
+                if idx_shuffle >= _length:
                     np.random.shuffle(shuf)
                     idx_shuffle = 0
                 # get only images with fully marked masks
