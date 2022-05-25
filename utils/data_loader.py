@@ -626,7 +626,7 @@ class FringeGenerator(DataGenerator):
 
 
 # Class for loading images, according to motherlist
-# TODO: validation generator
+# SOLVED: validation generator
 class MotherlistGenerator(DataGenerator):
     def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, shuffle_seed=None,
                  split_val=0.05, split_test=0.15,
@@ -640,7 +640,8 @@ class MotherlistGenerator(DataGenerator):
         with open(self._path_mother, 'r') as fil:
             self._files = fil.readlines()
         loof_length = len(self._files)
-        noof_files = int((1 - split_val - split_test) * loof_length)
+        noof_files = [int((1 - split_val - split_test) * loof_length) if 'split_train' not in kwargs.keys() else
+                      int(kwargs['split_train'] * loof_length)][0]
         noof_files_test = int(split_test * loof_length)
         noof_files_val = int(split_val * loof_length)
         # prepare indeces for shuffling
@@ -648,7 +649,7 @@ class MotherlistGenerator(DataGenerator):
         # shuffle
         np.random.shuffle(shuf)
         self._loof_train = shuf[:noof_files]
-        self._loof_val = shuf[noof_files : noof_files + noof_files_val]
+        self._loof_val = shuf[noof_files: noof_files + noof_files_val]
         self._loof_test = shuf[:-noof_files_test]
         self._length = len(self._loof_train)
         self._length_val = len(self._loof_val)
