@@ -627,6 +627,7 @@ class FringeGenerator(DataGenerator):
 
 # Class for loading images, according to motherlist
 # SOLVED: validation generator
+# TODO: move properties to parent (DataGenerator)
 class MotherlistGenerator(DataGenerator):
     def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, shuffle_seed=None,
                  split_val=0.05, split_test=0.15,
@@ -650,7 +651,7 @@ class MotherlistGenerator(DataGenerator):
         np.random.shuffle(shuf)
         self._loof_train = shuf[:noof_files]
         self._loof_val = shuf[noof_files: noof_files + noof_files_val]
-        self._loof_test = shuf[:-noof_files_test]
+        self._loof_test = shuf[-noof_files_test:]
         self._length = len(self._loof_train)
         self._length_val = len(self._loof_val)
         self._length_test = len(self._loof_test)
