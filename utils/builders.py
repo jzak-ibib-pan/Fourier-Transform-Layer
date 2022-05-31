@@ -783,12 +783,12 @@ class CNNBuilder(ModelBuilder):
         model_type_low = model_type.lower()
         _backbone = None
         if 'mobilenet' in model_type_low:
-            if '2' not in model_type_low:
-                # load Mobilenet
-                _backbone = apps.mobilenet.MobileNet
-            else:
+            if '2' in model_type_low:
                 # load Mobilenetv2
                 _backbone = apps.mobilenet_v2.MobileNetV2
+            else:
+                # load Mobilenet
+                _backbone = apps.mobilenet.MobileNet
         elif 'vgg' in model_type_low:
             if '16' in model_type_low:
                 # load VGG16
@@ -988,7 +988,7 @@ class CustomBuilder(CNNBuilder):
                 _model_layer_dict = {_layer_name: layer.get_config()}
                 # make sure to incorporate numbers
                 if type(arguments["index"]) is not list:
-                    arguments["index"] = list(arguments["index"])
+                    arguments["index"] = [arguments["index"]]
                 if arguments and it in arguments['index']:
                     if 'replace' in arguments.keys() and arguments['replace'] and type(layer) == Conv2D:
                         _arch = self._return_layer(arguments['replace'], _arch)[0]
