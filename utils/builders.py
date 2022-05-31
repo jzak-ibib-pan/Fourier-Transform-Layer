@@ -986,6 +986,9 @@ class CustomBuilder(CNNBuilder):
                 if 'Input' in _layer_name:
                     continue
                 _model_layer_dict = {_layer_name: layer.get_config()}
+                # make sure to incorporate numbers
+                if type(arguments["index"]) is not list:
+                    arguments["index"] = list(arguments["index"])
                 if arguments and it in arguments['index']:
                     if 'replace' in arguments.keys() and arguments['replace'] and type(layer) == Conv2D:
                         _arch = self._return_layer(arguments['replace'], _arch)[0]
