@@ -24,6 +24,7 @@ from utils.losses import ssim
 from types import GeneratorType
 
 
+# TODO: error messages
 # SOLVED: parameters to kwargs
 # Generic builder
 class ModelBuilder:
@@ -768,6 +769,14 @@ class CNNBuilder(ModelBuilder):
             elif '101' in model_type_low:
                 # load resnet101
                 _backbone = apps.resnet_v2.ResNet101V2
+        elif 'densenet' in model_type_low:
+            if '121' in model_type_low:
+                _backbone = apps.DenseNet121
+            else:
+                print("Not implemented.")
+                return None
+        elif 'inception' in model_type_low:
+            _backbone = apps.InceptionV3
         if not _backbone:
             return None
         backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
