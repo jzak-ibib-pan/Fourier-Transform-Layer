@@ -117,7 +117,7 @@ class ModelBuilder:
                               # 'weights': None,
                               # 'freeze': 0, TODO: assertion
                                },
-                    'compile': {'optimizer': ['adam'],
+                    'compile': {'optimizer': ['adam', 'sgd'],
                                 'loss': ['mse'],
                                 # 'run_eagerly': False, TODO: assertion
                                 },
