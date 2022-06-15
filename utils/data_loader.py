@@ -730,11 +730,87 @@ class MembraneGenerator(DataGenerator):
         self._batch = batch
         self._seed = self._process_seed(shuffle_seed)
         self._out_shape = out_shape
-        self._noof_classes = 0
+        self.SHAPE = 256
+        self.DIVISIONS = {128: 11,
+                          256: 21,
+                          512: 45,
+                         }
+        self.RADIUS_MAX = 200 / self.SHAPE / self.DIVISIONS[self.SHAPE]
+        self.RADIUS_MIN = 1 / self.SHAPE / self.DIVISIONS[self.SHAPE]
 
-    @staticmethod
-    def _generate_data(out_shape):
-        return np.zeros(out_shape), 0
+    def _generator(self):
+        while True:
+            _X = np.zeros((self._batch, *self._out_shape))
+            _Y = np.zeros((self._batch, *self._out_shape))
+            for rep in range(self._batch):
+                _X[rep], _Y[rep] = self._generate_data_makro(self._out_shape, self.RADIUS_MAX)
+                _X[rep] = self._preprocess_data(_X[rep])
+            yield _X, _Y
+
+    def _generate_data_makro(self, out_shape, radius=50.0):
+        background_value = 255
+        output_map = np.zeros(out_shape)
+        output_color = np.ones_like(output_map) * background_value
+        X, Y = np.meshgrid(np.arange(out_shape[0]), np.arange(out_shape[1]))
+        Rmax = np.max(X ** 2 + Y ** 2 + 1e-16)
+        # centers of holes
+        x, y = np.random.randint(np.min(out_shape[:-1]) - 1, size=2)
+        # x, y, = (self.SHAPE // 2, self.SHAPE // 2)
+        # 1e-16 removes zero at middle of circle
+        R = (X - x) ** 2 + (Y - y) ** 2 + 1e-16
+        # makes sure all pores are normalized to the same value
+        # with np.max(R) normalization fringe pores were larger than ones wholly within
+        R = R / Rmax
+        locations = R <= radius
+        # to achieve smooth value descent
+        R /= np.max(R[locations])
+        # gives us control over min
+        low = 0.8
+        R *= (1 - low)
+        R += low
+        # make sure pores do not overlap (if needed)
+        output_map[locations] = 1
+        output_color[locations] = np.expand_dims((R[locations] + 1e-16) * background_value, axis=-1)
+        return output_map, output_color
+
+    def _generate_data(self, out_shape, radius=50.0):
+        background_value = 255
+        output_map = np.zeros(out_shape)
+        output_color = np.ones_like(output_map) * background_value
+        X, Y = np.meshgrid(np.arange(out_shape[0]), np.arange(out_shape[1]))
+        Rmax = np.max(X ** 2 + Y ** 2 + 1e-16)
+        # centers of holes
+        # x, y = np.random.randint(shape - 1, size=2)
+        x, y, = (self.SHAPE // 2, self.SHAPE // 2)
+        # 1e-16 removes zero at middle of circle
+        R = (X - x) ** 2 + (Y - y) ** 2 + 1e-16
+        # makes sure all pores are normalized to the same value
+        # with np.max(R) normalization fringe pores were larger than ones wholly within
+        R = R / Rmax
+        #
+        x_help, y_help = self.SHAPE // 2 + 100, self.SHAPE // 2
+        Rhelp = (X - x_help) ** 2 + (Y - y_help) ** 2 + 1e-16
+        Rhelp = Rhelp / Rmax
+        #
+        locations = R <= radius
+        # to achieve smooth value descent
+        R /= np.max(R[locations])
+        # gives us control over min
+        low = 0.8
+        R *= (1 - low)
+        R += low
+
+        locations_help = Rhelp <= radius
+        # to achieve smooth value descent
+        Rhelp /= np.max(Rhelp[locations_help])
+        # gives us control over min
+        low = 0.8
+        Rhelp *= (1 - low)
+        Rhelp += low
+        # make sure pores do not overlap (if needed)
+        output_map[np.logical_or(locations, locations_help)] = 1
+        output_color[np.logical_or(locations, locations_help)] = np.expand_dims((R[np.logical_or(locations, locations_help)] + 1e-16) * background_value, axis=-1)
+        return output_map, output_color
 
 
 def main():
@@ -761,3 +837,11 @@ def main():
 
 
 if __name__ == '__main__':
+    from matplotlib import pyplot as plt
+    membranes = MembraneGenerator((256, 256, 1))
+    generator = membranes.generator
+    X, Y = next(generator)
+    plt.imshow(np.squeeze(Y[0]))
+    plt.show()
+
+
