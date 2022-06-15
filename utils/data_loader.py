@@ -627,7 +627,8 @@ class FringeGenerator(DataGenerator):
 
 # Class for loading images, according to motherlist
 # SOLVED: validation generator
-# TODO: move properties to parent (DataGenerator)
+# TODO: move properties to parent (DataGenerator) - not really (?)
+# TODO: move split to parent (DataLoader) (?)
 class MotherlistGenerator(DataGenerator):
     def __init__(self, path_motherlist, dir_tiles, out_shape=(32, 32, 1), batch=4, shuffle_seed=None,
                  split_val=0.05, split_test=0.15,
@@ -722,7 +723,20 @@ class MotherlistGenerator(DataGenerator):
         return self._length_test // self._batch
 
 
-if __name__ == '__main__':
+class MembraneGenerator(DataGenerator):
+    def __init__(self, out_shape=(32, 32, 1), batch=4, shuffle_seed=None, **kwargs):
+        super(DataGenerator, self).__init__(out_shape=out_shape, **kwargs)
+        self._batch = batch
+        self._seed = self._process_seed(shuffle_seed)
+        self._out_shape = out_shape
+        self._noof_classes = 0
+
+    @staticmethod
+    def _generate_data(out_shape):
+        return np.zeros(out_shape), 0
+
+
+def main():
     from matplotlib import pyplot as plt
     loader = MotherlistGenerator(path_motherlist='Y:/Slinianki/miazsz/tiles_256', dir_tiles='obrazy',
                                  out_shape=(128, 128, 3))
@@ -743,3 +757,6 @@ if __name__ == '__main__':
     print(Y)
     plt.imshow(np.squeeze(X[0]))
     plt.show()
+
+
+if __name__ == '__main__':
