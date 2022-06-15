@@ -443,14 +443,15 @@ class DataGenerator(DataLoader):
     def _generate_data(out_shape):
         return np.zeros(out_shape), 0
 
-    # TODO: while and yield here
+    # SOLVED: while and yield here
     def _generator(self):
-        _X = np.zeros((self._batch, *self._out_shape))
-        _Y = np.zeros((self._batch,))
-        for rep in range(self._batch):
-            _X[rep], _Y[rep] = self._generate_data(self._out_shape)
-            _X[rep] = self._preprocess_data(_X[rep])
-        yield _X, to_categorical(_Y, self._noof_classes)
+        while True:
+            _X = np.zeros((self._batch, *self._out_shape))
+            _Y = np.zeros((self._batch,))
+            for rep in range(self._batch):
+                _X[rep], _Y[rep] = self._generate_data(self._out_shape)
+                _X[rep] = self._preprocess_data(_X[rep])
+            yield _X, to_categorical(_Y, self._noof_classes)
 
     @property
     def generator(self):
