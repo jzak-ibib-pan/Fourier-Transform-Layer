@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.utils import shuffle
 from scipy import ndimage
-from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY
+from cv2 import resize, imread, cvtColor, COLOR_RGB2GRAY, COLOR_BGR2GRAY
 from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10, cifar100
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.preprocessing import image_dataset_from_directory
@@ -268,7 +268,7 @@ class DataLoader:
         _data = data.copy()
         shape = [sh // 2 for sh in _data.shape[:2]]
         # make sure angle is not 0
-        _angle = np.random.randint(angle - 1) + 1
+        _angle = np.random.randint(np.max([2, angle]) - 1) + 1
         xy = ndimage.rotate(_data, _angle)
         shx, shy = [sh // 2 for sh in xy.shape[:2]]
         # this returned half an image
@@ -737,80 +737,87 @@ class MembraneGenerator(DataGenerator):
                          }
         self.RADIUS_MAX = 200 / self.SHAPE / self.DIVISIONS[self.SHAPE]
         self.RADIUS_MIN = 1 / self.SHAPE / self.DIVISIONS[self.SHAPE]
+        self._overlap = [False if "overlap" not in kwargs.keys() else kwargs["overlap"]][0]
 
     def _generator(self):
         while True:
             _X = np.zeros((self._batch, *self._out_shape))
             _Y = np.zeros((self._batch, *self._out_shape))
             for rep in range(self._batch):
-                _X[rep], _Y[rep] = self._generate_data_makro(self._out_shape, self.RADIUS_MAX)
+                _X[rep], _Y[rep] = self._generate_data(self._out_shape[0], self._overlap)[:2]
                 _X[rep] = self._preprocess_data(_X[rep])
             yield _X, _Y
 
-    def _generate_data_makro(self, out_shape, radius=50.0):
-        background_value = 255
-        output_map = np.zeros(out_shape)
-        output_color = np.ones_like(output_map) * background_value
-        X, Y = np.meshgrid(np.arange(out_shape[0]), np.arange(out_shape[1]))
+    def _draw_on_elipsis_thick_map(self, pores_map, pores_color, radius, overlap=False, center=None):
+        assert pores_map.shape[0] == pores_map.shape[1], 'Input is not square.'
+        shape = pores_map.shape[0]
+        output_map = pores_map.copy()
+        output_color = pores_color.copy()
+        X, Y = np.meshgrid(np.arange(shape), np.arange(shape))
         Rmax = np.max(X ** 2 + Y ** 2 + 1e-16)
         # centers of holes
-        x, y = np.random.randint(np.min(out_shape[:-1]) - 1, size=2)
-        # x, y, = (self.SHAPE // 2, self.SHAPE // 2)
+        if center:
+            x, y = center
+        else:
+            x, y = np.random.randint(shape - 1, size=2)
+        # t = np.random.rand() * 2 * 3.141592
+        # a = x / np.cos(t) / SHAPE
+        # b = y / np.sin(t) / SHAPE
+        a, b = 1, 1
         # 1e-16 removes zero at middle of circle
-        R = (X - x) ** 2 + (Y - y) ** 2 + 1e-16
+        R = ((X - x) / a) ** 2 + ((Y - y) / b) ** 2 + 1e-16
+        if np.random.rand() > 0.1:
+            a, b = np.random.rand() + 0.25, np.random.rand() + 0.25
+            # 1e-16 removes zero at middle of circle
+            R = ((X - x) / a) ** 2 + ((Y - y) / b) ** 2 + 1e-16
+            # rotate by max 45 degrees
+            if np.random.rand() > 0.1:
+                # X, Y = np.meshgrid(np.arange(shape * 2), np.arange(shape * 2))
+                # Rmax = np.max(X ** 2 + Y ** 2 + 1e-16)
+                # # 1e-16 removes zero at middle of circle
+                # R = ((X - x) / a) ** 2 + ((Y - y) / b) ** 2 + 1e-16
+                # rotate by center of an image (not object)
+                R = self._augment_rotate(R, np.random.randint(45) + 1)
         # makes sure all pores are normalized to the same value
         # with np.max(R) normalization fringe pores were larger than ones wholly within
         R = R / Rmax
-        locations = R <= radius
-        # to achieve smooth value descent
-        R /= np.max(R[locations])
-        # gives us control over min
-        low = 0.8
-        R *= (1 - low)
-        R += low
         # make sure pores do not overlap (if needed)
-        output_map[locations] = 1
-        output_color[locations] = np.expand_dims((R[locations] + 1e-16) * background_value, axis=-1)
-        return output_map, output_color
+        if not overlap and np.sum(pores_map[R <= radius]) > 1:
+            return output_map, output_color, False
+        output_map[R <= radius] = 1
+        output_color[R <= radius] = np.expand_dims((R[R <= radius] + 1e-2) * np.random.rand(), axis=-1)
+        return output_map, output_color, True
 
-    def _generate_data(self, out_shape, radius=50.0):
-        background_value = 255
-        output_map = np.zeros(out_shape)
-        output_color = np.ones_like(output_map) * background_value
-        X, Y = np.meshgrid(np.arange(out_shape[0]), np.arange(out_shape[1]))
-        Rmax = np.max(X ** 2 + Y ** 2 + 1e-16)
-        # centers of holes
-        # x, y = np.random.randint(shape - 1, size=2)
-        x, y, = (self.SHAPE // 2, self.SHAPE // 2)
-        # 1e-16 removes zero at middle of circle
-        R = (X - x) ** 2 + (Y - y) ** 2 + 1e-16
-        # makes sure all pores are normalized to the same value
-        # with np.max(R) normalization fringe pores were larger than ones wholly within
-        R = R / Rmax
-        #
-        x_help, y_help = self.SHAPE // 2 + 100, self.SHAPE // 2
-        Rhelp = (X - x_help) ** 2 + (Y - y_help) ** 2 + 1e-16
-        Rhelp = Rhelp / Rmax
-        #
-        locations = R <= radius
-        # to achieve smooth value descent
-        R /= np.max(R[locations])
-        # gives us control over min
-        low = 0.8
-        R *= (1 - low)
-        R += low
+    def _generate_data(self, shape, overlap=False):
+        # im = np.ones((shape, shape, 1), dtype=np.uint8) * 255//2 + np.uint8(np.random.rand() * 10)
+        # 95 - mean by counting in 300x
+        background_value = 180 + np.uint8(np.random.rand() * 20)
+        im = np.ones((shape, shape, 1), dtype=np.uint8) * background_value
+        pores_map = np.zeros_like(im)
+        pores_color = np.zeros_like(pores_map, dtype=np.float64)
+        # fill = (np.random.rand() + 0.11) / 1.3
+        fill = 0.1
+        radius_max = 70 / self.SHAPE / self.DIVISIONS[self.SHAPE]
+        radius_min = 1 / self.SHAPE / self.DIVISIONS[self.SHAPE]
+        epsilon = 0.90
+        # drawing - radii progressively smaller
+        while np.sum(pores_map) / shape ** 2 < fill:
+            # radius = radius_max / epsilon * fill * 1.5 - tested on range 0.01 - 0.9, radius max 60
+            # radius = radius_max / epsilon * fill - tested on range 0.05 - 0.85, radius max 60
+            radius = radius_max / epsilon * fill
+            pores_map_before = pores_map
+            x, y = np.random.randint(shape - 1, size=2)
+            while np.array_equal(pores_map_before, pores_map) and radius >= radius_min:
+                radius *= epsilon
+                pores_map, pores_color, _ = self._draw_on_elipsis_thick_map(pores_map, pores_color, radius,
+                                                                      overlap=overlap, center=(x, y))
+            #print(np.sum(pores_map) / shape ** 2)
 
-        locations_help = Rhelp <= radius
-        # to achieve smooth value descent
-        Rhelp /= np.max(Rhelp[locations_help])
-        # gives us control over min
-        low = 0.8
-        Rhelp *= (1 - low)
-        Rhelp += low
-        # make sure pores do not overlap (if needed)
-        output_map[np.logical_or(locations, locations_help)] = 1
-        output_color[np.logical_or(locations, locations_help)] = np.expand_dims((R[np.logical_or(locations, locations_help)] + 1e-16) * background_value, axis=-1)
-        return output_map, output_color
+        pores_color = pores_color / np.max(pores_color)
+        im[pores_map == 1] = np.uint8(pores_color[pores_map == 1] * background_value)
+        im = np.repeat(im, repeats=3, axis=-1)
+        im = cvtColor(im, COLOR_BGR2GRAY)
+        return np.expand_dims(im, axis=-1), pores_map, np.round(np.sum(pores_map) / shape ** 2, 4)
 
 
 def main():
@@ -841,7 +848,45 @@ if __name__ == '__main__':
     membranes = MembraneGenerator((256, 256, 1))
     generator = membranes.generator
     X, Y = next(generator)
-    plt.imshow(np.squeeze(Y[0]))
+    plt.imshow(np.squeeze(X[0]))
     plt.show()
 
-
+    # to copy
+    # def draw_membranes(shape, overlap=False):
+    # # im = np.ones((shape, shape, 1), dtype=np.uint8) * 255//2 + np.uint8(np.random.rand() * 10)
+    # # 95 - mean by counting in 300x
+    # background_value = 180 + np.uint8(np.random.rand() * 20)
+    # im = np.ones((shape, shape, 1), dtype=np.uint8) * background_value
+    # pores_map = np.zeros_like(im)
+    # pores_color = np.zeros_like(pores_map, dtype=np.float64)
+    # fill = (np.random.rand() + 0.11) / 1.4
+    # # fill = 0.9
+    # # fill = 1.01 / 1.4
+    # # fill = np.max([np.random.rand() - 0.3, 0.2])
+    # radius_max = 30 / SHAPE / DIVISIONS[SHAPE]
+    # radius_min = 1 / SHAPE / DIVISIONS[SHAPE]
+    # draw_count = 0
+    # draws_max = 100
+    # epsilon = 0.95
+    # # first drawing - random radii
+    # while np.sum(pores_map) / shape ** 2 < fill and draw_count < 2:
+    #     radius = np.max([np.random.rand(), radius_min / radius_max]) * radius_max
+    #     pores_map, pores_color, _ = draw_on_pores_map(pores_map, pores_color, radius, overlap=overlap)
+    #     draw_count += 1
+    # # second drawing - radii progressively smaller
+    # draw_count = 0
+    # radius = radius_max
+    # while np.sum(pores_map) / shape ** 2 < fill:
+    #     if draw_count > draws_max or np.random.rand() > 0.5:
+    #         fill *= epsilon
+    #         radius = np.max([radius * epsilon, radius_min])
+    #         draw_count = 0
+    #     pores_map, pores_color, flag_draw = draw_on_pores_map(pores_map, pores_color, radius, overlap=overlap)
+    #     if not flag_draw:
+    #         draw_count += 1
+    #
+    # pores_color = pores_color / np.max(pores_color)
+    # im[pores_map == 1] = np.uint8(pores_color[pores_map == 1] * background_value)
+    # im = np.repeat(im, repeats=3, axis=-1)
+    # im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    # return im, np.round(np.sum(pores_map) / shape ** 2, 4), pores_map
