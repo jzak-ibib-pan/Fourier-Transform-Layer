@@ -1000,10 +1000,10 @@ class CustomBuilder(CNNBuilder):
                     arguments["index"] = [arguments["index"]]
                 if arguments and it in arguments['index']:
                     if 'replace' in arguments.keys() and arguments['replace'] and type(layer) == Conv2D:
-                        _arch = self._return_layer(arguments['replace'][it], _arch)[0]
+                        _arch = self._return_layer(arguments['replace']["index"], _arch)[0]
                         continue
                     elif 'insert' in arguments.keys() and arguments['insert']:
-                        _arch = self._return_layer(arguments['insert'][it], _arch)[0]
+                        _arch = self._return_layer(arguments['insert']["index"], _arch)[0]
                 _arch = self._return_layer(_model_layer_dict, _arch)[0]
             return _arch, False
             # return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
