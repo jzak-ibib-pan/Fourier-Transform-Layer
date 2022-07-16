@@ -819,6 +819,14 @@ class MembraneGenerator(DataGenerator):
         im = cvtColor(im, COLOR_BGR2GRAY)
         return np.expand_dims(im, axis=-1), pores_map, np.round(np.sum(pores_map) / shape ** 2, 4)
 
+    @staticmethod
+    def _generate_pores_within_pores():
+        # make 1 - 2 macro pores - biggest darkness range
+        # treat them as part of background
+        # make further micro pores - medium darkness range with few very dark
+        # make further nano pores - light to medium darkness range
+        return True
+
 
 def main():
     from matplotlib import pyplot as plt
