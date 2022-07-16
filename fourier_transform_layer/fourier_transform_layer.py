@@ -65,8 +65,9 @@ class FTL(Layer):
         #     if self._activation is not None:
         #         return self._activation(x)
         #     return x
-        if self._flag_already_fft:
-            sh = input_tensor.shape
+        sh = input_tensor.shape
+        # also make sure there are at two tensors to split
+        if self._flag_already_fft and sh[-1] == 2:
             real, imag = tf.split(input_tensor, num_or_size_splits=sh[-1], axis=-1)
         else:
             real, imag = self._perform_fft(input_tensor, self._flag_normalize)
