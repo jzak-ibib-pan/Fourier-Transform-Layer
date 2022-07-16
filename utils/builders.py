@@ -990,26 +990,36 @@ class CustomBuilder(CNNBuilder):
                                                 **arguments)
             _arch = previous
             for it, layer in enumerate(_layers):
+                _flag_replace = False
                 _layer_name = str(type(layer)).split('.')[-1][:-2]
                 # omit InputLayer, already provided
                 if 'Input' in _layer_name:
                     continue
                 _model_layer_dict = {_layer_name: layer.get_config()}
-                # make sure to incorporate numbers
-                if type(arguments["index"]) is not list:
-                    arguments["index"] = [arguments["index"]]
-                if arguments and it in arguments['index']:
-                    if 'replace' in arguments.keys() and arguments['replace'] and type(layer) == Conv2D:
-                        if 'index' in arguments['replace'].keys():
-                            _arch = self._return_layer(arguments['replace']['index'], _arch)[0]
-                        else:
-                            _arch = self._return_layer(arguments['replace'], _arch)[0]
+                # make sure there is something to replace or insert
+                for command in ['replace', 'insert']:
+                    _command = [None if command not in arguments.keys() else command][0]
+                    if _command is None:
                         continue
-                    elif 'insert' in arguments.keys() and arguments['insert']:
-                        if 'index' in arguments['insert'].keys():
-                            _arch = self._return_layer(arguments['insert']['index'], _arch)[0]
-                        else:
-                            _arch = self._return_layer(arguments['insert'], _arch)[0]
+                    if type(arguments[_command]) is not list:
+                        arguments[_command] = [arguments[_command]]
+                    if None in arguments[_command]:
+                        continue
+                    for _layer_args in arguments[_command]:
+                        _key = list(_layer_args.keys())[0]
+                        # because index is not a parameters of layer building
+                        if 'index' not in _layer_args[_key].keys() or it != _layer_args[_key]['index']:
+                            continue
+                        _args_no_index = _layer_args.copy()
+                        _args_no_index[_key].pop('index')
+                        if _command == 'replace' and type(layer) == Conv2D:
+                            _arch = self._return_layer(_args_no_index, _arch)[0]
+                            _flag_replace = True
+                            continue
+                        elif _command == 'insert':
+                            _arch = self._return_layer(_args_no_index, _arch)[0]
+                if _flag_replace:
+                    continue
                 _arch = self._return_layer(_model_layer_dict, _arch)[0]
             return _arch, False
             # return self._get_backbone(model_type=layer_name, input_shape=previous.shape[1:],
