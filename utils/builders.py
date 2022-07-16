@@ -1050,7 +1050,7 @@ class CustomBuilder(CNNBuilder):
             return Activation(**arguments)(previous), False
         if layer_name in ['ReLU']:
             return ReLU(**arguments)(previous), False
-        if layer_name not in ['dense']:
+        if layer_name not in ['dense', 'Dense']:
             raise ValueError(f'{layer_name} not implemented yet.')
         return Dense(**arguments)(previous), True
 
