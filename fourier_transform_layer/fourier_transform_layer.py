@@ -2,15 +2,17 @@ import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.activations import relu, softmax, sigmoid, tanh, selu
 from utils.sampling import DIRECTIONS, sampling_calculation
+from numpy import arange
 
 # SOLVED: remove concatenate requirement
+# SOLVED: add fft_already parameter to split the trainings
 # TODO: find source of nan loss and eliminate - nan appears with SGD; disappears with Adam or run_eagerly in compile
 # TODO: get_config implementation
 # TODO: move bias initializer to kwargs, depending on use_bias - to consider
 class FTL(Layer):
     def __init__(self, activation=None, kernel_initializer='he_normal', train_imaginary=True, inverse=False,
                  use_bias=False, bias_initializer='zeros', calculate_abs=True, normalize_to_image_shape=False,
-                 **kwargs):
+                 already_fft=False, **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
@@ -38,6 +40,7 @@ class FTL(Layer):
         self._flag_use_bias = use_bias
         self._bias_initializer = bias_initializer
         self._flag_calculate_abs = calculate_abs
+        self._flag_already_fft = already_fft
 
     def build(self, input_shape):
         self._kernel = self.add_weight(name='kernel',
@@ -62,8 +65,11 @@ class FTL(Layer):
         #     if self._activation is not None:
         #         return self._activation(x)
         #     return x
-
-        real, imag = self._perform_fft(input_tensor, self._flag_normalize)
+        if self._flag_already_fft:
+            sh = input_tensor.shape
+            real, imag = tf.split(input_tensor, num_or_size_splits=sh[-1], axis=-1)
+        else:
+            real, imag = self._perform_fft(input_tensor, self._flag_normalize)
         return self._call_process_split_fft(real, imag)
 
     def compute_output_shape(self, input_shape):
