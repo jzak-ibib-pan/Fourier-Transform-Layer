@@ -43,13 +43,14 @@ class FTL(Layer):
         self._flag_already_fft = already_fft
 
     def build(self, input_shape):
+        kernel_shape = [input_shape[1:] if not self._flag_already_fft else [*input_shape[1:-1], 1]][0]
         self._kernel = self.add_weight(name='kernel',
-                                      shape=(self._kernel_shape_0[self._flag_train_imaginary], *input_shape[1:]),
+                                      shape=(self._kernel_shape_0[self._flag_train_imaginary], *kernel_shape),
                                       initializer=self._kernel_initializer,
                                       trainable=True)
         if self._flag_use_bias:
             self._bias = self.add_weight(name='bias',
-                                        shape=(self._kernel_shape_0[self._flag_train_imaginary], *input_shape[1:]),
+                                        shape=(self._kernel_shape_0[self._flag_train_imaginary], *kernel_shape),
                                         initializer=self._bias_initializer,
                                         trainable=True)
 
@@ -74,9 +75,12 @@ class FTL(Layer):
         return self._call_process_split_fft(real, imag)
 
     def compute_output_shape(self, input_shape):
+        output_shape = input_shape
+        if self._flag_already_fft:
+            output_shape = [*input_shape[:-1], 1]
         if self._flag_calculate_abs:
-            return input_shape, input_shape
-        return input_shape
+            return output_shape, output_shape
+        return output_shape
 
     def _call_process_split_fft(self, real, imag):
         _real = tf.multiply(real, self._kernel[0])
