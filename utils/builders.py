@@ -4,7 +4,7 @@ from os.path import join, isdir
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate, Conv2DTranspose
-from tensorflow.keras.layers import Add, ZeroPadding2D, Activation, MaxPooling2D, ReLU, DepthwiseConv2D
+from tensorflow.keras.layers import Add, ZeroPadding2D, Activation, MaxPooling2D, AveragePooling2D, ReLU, DepthwiseConv2D
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
@@ -1044,6 +1044,8 @@ class CustomBuilder(CNNBuilder):
             return ZeroPadding2D(**arguments)(previous), False
         if layer_name in ['MaxPooling2D']:
             return MaxPooling2D(**arguments)(previous), False
+        if layer_name in ['AveragePooling2D']:
+            return AveragePooling2D(**arguments)(previous), False
         if layer_name in ['Add']:
             return Add(**arguments)(previous), False
         if layer_name in ['Activation']:
@@ -1215,6 +1217,120 @@ class CustomBuilder(CNNBuilder):
 
     def sample_model(self, **kwargs):
         return self._sample_model(**kwargs)
+
+    def _sample_ftl_by_pool(self, **kwargs):
+        # SOLVED: finding FTL in the model
+        # TODO: adding Conv2d to layers list causes errors
+        arguments_sampled = self._arguments['build'].copy()
+        shape = arguments_sampled['input_shape']
+        shape_new = shape
+        # get sampling methods for dense and/or conv2d
+        sampling_method = ['pad' if 'ftl_method' not in kwargs.keys() else kwargs['ftl_method']][0]
+        # make sure no incorrect methods are provided
+        # pad - either cut (smaller) or pad (larger) images
+        assert sampling_method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
+        if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
+            shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
+                                        sign=self._SAMPLING_DIRECTIONS[kwargs['direction']])
+        if 'shape' in kwargs.keys():
+            shape_new = kwargs['shape']
+        arguments_sampled['input_shape'] = (*shape_new, shape[2])
+        # final shape
+        shape_new = arguments_sampled['input_shape']
+        model_weights = self._model.get_weights()
+        model_layers = self._model.layers
+        replace_value = [self._REPLACE_VALUE if 'replace_value' not in kwargs.keys() else kwargs['replace_value']][0]
+        weights_result = []
+        if 'weights' in kwargs.keys():
+            model_weights = kwargs['weights']
+        # SOLVED: other layers
+        # gather layers and weights
+        gathered_weights = {}
+        names = []
+        for layer in model_layers:
+            for rep in range(len(layer.weights)):
+                names.append(layer.name)
+        for it, name in enumerate(names):
+            if name not in gathered_weights.keys():
+                gathered_weights.update({name: [model_weights[it]]})
+            else:
+                gathered_weights[name].append(model_weights[it])
+        gathered_weights_new = {}
+        nominator = np_max([_shn / _sh for _shn, _sh in zip(shape_new[:2], shape[:2])])
+        # it = 0
+        # while 'conv2d' not in list(gathered_weights.keys())[it]:
+        #     it += 1
+        # # because gathered weights contains 2 (usually) and model_weights is just a list with no names
+        # print(it * 2 + 1)
+        # this way ensures recalculation for all CLs
+        for idx, weight in enumerate(model_weights):
+            # assuming that the number of filters > 2
+            if weight.shape[-1] < 2:
+                continue
+            _shape_conv = weight.shape
+            _shape_conv_new = [*[int(_sh * nominator) for _sh in _shape_conv[:2]], *_shape_conv[2:]]
+            idx_name = 0
+            # TODO: protection from numbered layers
+            while 'conv2d' not in list(arguments_sampled['layers'][idx_name].keys())[0]:
+                idx_name += 1
+            name = list(arguments_sampled['layers'][idx_name].keys())[0]
+            arguments_sampled['layers'][idx_name][name]['kernel_size'] = _shape_conv_new[0]
+        model_weights_new = CustomBuilder(**arguments_sampled).model.get_weights()
+        model_layers_new = CustomBuilder(**arguments_sampled).model.layers
+        names = []
+        for layer in model_layers_new:
+            for rep in range(len(layer.weights)):
+                names.append(layer.name)
+        for it, name in enumerate(names):
+            if name not in gathered_weights_new.keys():
+                gathered_weights_new.update({name: [model_weights_new[it]]})
+            else:
+                gathered_weights_new[name].append(model_weights_new[it])
+        # () protect from unpacking error (expected 4, got 2)
+        for layer_name, weights, weights_new in zip(gathered_weights.keys(), gathered_weights.values(), gathered_weights_new.values()):
+            if 'ftl' in layer_name:
+                # now its known that weights are FTL (1u2, X, X, C) and maybe bias (1u2, X, X, C)
+                # additional extraction from list (thus [0])
+                # includes bias
+                for step in range(len(weights)):
+                    weights_ftl = weights[step]
+                    noof_weights = weights_ftl.shape[0]
+                    weights_replace = ones_like(weights_new[step]) * replace_value
+                    for rep in range(noof_weights):
+                        for ch in range(shape[2]):
+                            if sampling_method == 'resize':
+                                _resized = resize_image(weights_ftl[rep, :, :, ch],
+                                                       weights_new[step].shape[1:3])
+                                if len(_resized.shape) == 2:
+                                    _resized = expand_dims(_resized, axis=-1)
+                                weights_replace[rep, :, :, ch] = _resized
+                            elif shape_new[0] < shape[0]:
+                                weights_replace[rep, :, :, ch] = weights_ftl[rep, :shape_new[0], :shape_new[1], ch]
+                            else:
+                                pads = [[0, int(shn - sh)] for shn, sh in zip(weights_new[step].shape[1:3],
+                                                                              weights_ftl.shape[1:3])]
+                                _padded = pad(squeeze(weights_ftl[rep, :, :, ch]), pad_width=pads,
+                                              mode='constant', constant_values=replace_value)
+                                if len(_padded.shape) == 2:
+                                    _padded = expand_dims(_padded, axis=-1)
+                                weights_replace[rep, :, :, ch] = _padded
+                    weights_result.append(weights_replace)
+                continue
+            # other layers which should not be sampled (Conv2D, ...)
+            if type(weights) is list:
+                weights_result.extend(weights)
+            else:
+                weights_result.append(weights)
+        arguments_sampled['weights'] = weights_result
+        builder = CustomBuilder(filename=self._filename_original, filepath=self._filepath, **arguments_sampled)
+        for action in ['compile', 'train']:
+            builder._arguments[action] = self._arguments[action]
+        if 'compile' in kwargs.keys() and kwargs['compile']:
+            builder.compile_model(**self._arguments['compile'])
+        return builder
+
+    def sample_ftl_by_pool(self, **kwargs):
+        return self._sample_ftl_by_pool(**kwargs)
 
     @staticmethod
     def _operation(value, nominator=2, sign='div'):

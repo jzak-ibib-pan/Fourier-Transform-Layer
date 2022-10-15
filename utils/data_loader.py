@@ -9,7 +9,7 @@ from os import listdir
 from os.path import join, isfile
 from warnings import warn
 
-
+# TODO: uniform validation length and generator names
 # TODO: for imread remember to switch channels to keep RGB2GRAY working as expected
 # TODO: add sampling somewhere
 class DataLoader:
