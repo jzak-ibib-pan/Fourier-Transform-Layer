@@ -1229,6 +1229,8 @@ class CustomBuilder(CNNBuilder):
         return self._sample_model(**kwargs)
 
     def _sample_ftl_by_pool(self, **kwargs):
+        # This method only requires FTL to change shape; pooling then returns the size to the basic one, on which the
+        # model was trained. Hence dense and conv2d methods are not required.
         # SOLVED: finding FTL in the model
         # TODO: adding Conv2d to layers list causes errors
         arguments_sampled = self._arguments['build'].copy()
@@ -1241,13 +1243,10 @@ class CustomBuilder(CNNBuilder):
         shape = arguments_sampled['input_shape']
         shape_new = shape
         # get sampling methods for dense and/or conv2d
-        sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
-                           'ftl': ['pad' if 'ftl_method' not in kwargs.keys() else kwargs['ftl_method']][0],
-                           }
+        sampling_method = ['pad' if 'ftl_method' not in kwargs.keys() else kwargs['ftl_method']][0]
         # make sure no incorrect methods are provided
         # pad - either cut (smaller) or pad (larger) images
-        for method in list(sampling_method.values()):
-            assert method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
+        assert sampling_method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
         # pad - either cut (smaller) or pad (larger) images
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
@@ -1304,7 +1303,7 @@ class CustomBuilder(CNNBuilder):
                     weights_replace = ones_like(weights_new[step]) * replace_value
                     for rep in range(noof_weights):
                         for ch in range(shape[2]):
-                            if sampling_method['ftl'] == 'resize':
+                            if sampling_method == 'resize':
                                 _resized = resize_image(weights_ftl[rep, :, :, ch],
                                                         weights_new[step].shape[1:3])
                                 if len(_resized.shape) == 2:
@@ -1321,23 +1320,6 @@ class CustomBuilder(CNNBuilder):
                                     _padded = expand_dims(_padded, axis=-1)
                                 weights_replace[rep, :, :, ch] = squeeze(_padded)
                     weights_result.append(weights_replace)
-                continue
-            if 'dense' in layer_name:
-                # 0 - kernel, 1 - bias
-                it = 0
-                size_new = weights_new[it].shape[0]
-                size_old = weights[it].shape[0]
-                # None and cut are the same here - Dense must be resized
-                if sampling_method['dense'] == 'resize':
-                    weights_result.append(resize_array(weights[it], (size_new, weights[it].shape[1])))
-                elif shape_new[0] < shape[0]:
-                    weights_result.append(weights[it][:size_new, :])
-                elif sampling_method['dense'] == 'pad':
-                    pads = [[0, size_new - size_old], [0, 0]]
-                    pd = pad(weights[it], pad_width=pads, mode='constant', constant_values=replace_value)
-                    weights_result.append(pd)
-                # add bias
-                weights_result.append(weights[1])
                 continue
             # other layers which should not be sampled (Conv2D, ...)
             if type(weights) is list:
