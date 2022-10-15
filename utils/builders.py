@@ -900,11 +900,12 @@ class CustomBuilder(CNNBuilder):
                               'bias_constraint': None,
                               },
                     'flatten': {},
+                    # strides must be None to achieve halving
                     'avepooling': {'pool_size': 2,
-                                   'strides': 1,
+                                   'strides': None,
                                    'padding': 'valid'},
                     'maxpooling': {'pool_size': 2,
-                                   'strides': 1,
+                                   'strides': None,
                                    'padding': 'valid'},
                     'concatenate': {'axis': -1,
                                     },
@@ -1231,9 +1232,12 @@ class CustomBuilder(CNNBuilder):
         # SOLVED: finding FTL in the model
         # TODO: adding Conv2d to layers list causes errors
         arguments_sampled = self._arguments['build'].copy()
+
         # TODO: calculating pooling size from shapes
+        # TODO: finding pooling by "pooling"
         # change pooling size to keep the result of FTL + pooling the same shape
-        arguments_sampled['layers'][1].update({'avepooling': {'pool_size': 2}})
+        arguments_sampled['layers'][1]['avepooling'].update({'pool_size': 2})
+
         shape = arguments_sampled['input_shape']
         shape_new = shape
         # get sampling methods for dense and/or conv2d
