@@ -1236,9 +1236,14 @@ class CustomBuilder(CNNBuilder):
         arguments_sampled = self._arguments['build'].copy()
 
         # TODO: calculating pooling size from shapes
-        # TODO: finding pooling by "pooling"
+        # SOLVED: finding pooling by "pooling"
         # change pooling size to keep the result of FTL + pooling the same shape
-        arguments_sampled['layers'][1]['avepooling'].update({'pool_size': 2})
+        it_pool = 0
+        key_pool = 'avepooling'
+        while 'pooling' not in str(list(arguments_sampled['layers'][it_pool].keys())[0]):
+            it_pool += 1
+        key_pool = list(arguments_sampled['layers'][it_pool].keys())[0]
+        arguments_sampled['layers'][it_pool][key_pool].update({'pool_size': 2})
 
         shape = arguments_sampled['input_shape']
         shape_new = shape
