@@ -84,7 +84,7 @@ class ModelBuilder:
                                 'run_eagerly': False,
                                 },
                     'train': {'epochs': 10,
-                              'batch': 8,
+                              'batch': 4,
                               'call_time': True,
                               'call_stop': True,
                               'call_stop_kwargs': {'baseline': 0.80,
@@ -462,6 +462,7 @@ class ModelBuilder:
 
     # Text manipulation methods
     def save_model_info(self, notes='', extension='', **kwargs):
+        fname = [self._filename if "filename" not in kwargs.keys() else kwargs["filename"]][0]
         assert type(notes) == str, 'Notes must be a string.'
         self._update_all_lengths()
         if 'fourier' in self._arguments['build']['model_type']:
@@ -473,7 +474,7 @@ class ModelBuilder:
         format_used = ['.txt' if len(extension) < 1 else extension][0]
         if '.' not in format_used:
             format_used = '.' + format_used
-        with open(join(self._filepath, self._filename + format_used), 'w') as fil:
+        with open(join(self._filepath, fname + format_used), 'w') as fil:
             for action in ['build', 'compile', 'train']:
                 fil.write(f'{action.capitalize()} arguments\n')
                 fil.write(self._prepare_argument_text(self._arguments[action]))
@@ -1243,7 +1244,7 @@ class CustomBuilder(CNNBuilder):
         while 'pooling' not in str(list(arguments_sampled['layers'][it_pool].keys())[0]):
             it_pool += 1
         key_pool = list(arguments_sampled['layers'][it_pool].keys())[0]
-        arguments_sampled['layers'][it_pool][key_pool].update({'pool_size': 2})
+        arguments_sampled['layers'][it_pool][key_pool].update({'pool_size': 4})
 
         shape = arguments_sampled['input_shape']
         shape_new = shape
