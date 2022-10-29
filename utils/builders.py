@@ -462,7 +462,7 @@ class ModelBuilder:
 
     # Text manipulation methods
     def save_model_info(self, notes='', extension='', **kwargs):
-        fname = [self._filename if "filename" not in kwargs.keys() else kwargs["filename"]][0]
+        fname = [self._filename if "filename" not in kwargs.keys() else self._filename + kwargs["filename"]][0]
         assert type(notes) == str, 'Notes must be a string.'
         self._update_all_lengths()
         if 'fourier' in self._arguments['build']['model_type']:
