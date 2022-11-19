@@ -605,6 +605,7 @@ class ModelBuilder:
         return result
 
     def _prepare_metrics_text(self, history, suffixes=None):
+        _history = history[0]
         _MAX_TRAILS = {'loss': 6,
                        'acc': 4,
                        'top': 4,
@@ -619,22 +620,25 @@ class ModelBuilder:
                        }
         text_result = ''
         text_result += 'epochs'.center(15) + ' -- '
-        for key in history[0].keys():
+        for key in _history.keys():
             key_str = [key if not suffixes else suffixes[key]][0]
             width = self._determine_text_width(key, _MAX_WIDTHS)
             text_result += str(key_str).center(max([len(key_str), width])) +' || '
         text_result += '\n'
-        for epoch in range(len(history)):
+        # changes for RTX in server, may be caused by newer TF
+        _epochs = [1 if type(_history["loss"]) is not list else len(_history["loss"])][0]
+        for epoch in range(_epochs):
             # epoch_str = str(epoch)
             # # may be possible to use {epoch:0xd}
             # while len(epoch_str) < len(str(len(history))):
             #     epoch_str = '0' + epoch_str
             # do not expect more than 10k training epochs
             # text_result += ('Epoch ' + epoch_str).center(15) +' -- '
-            text_result +=  f'Epoch {epoch:0{len(str(len(history)))}d}'.center(15) +' -- '
-            for key, value in zip(history[epoch].keys(), history[epoch].values()):
+            text_result +=  f'Epoch {epoch:0{len(str(_epochs))}d}'.center(15) + ' -- '
+            for key, value in zip(_history.keys(), _history.values()):
                 key_str = [key if not suffixes else suffixes[key]][0]
-                value_used = [value if type(value) is not list else value[0]][0]
+                # crucial change
+                value_used = [value if type(value) is not list else value[epoch]][0]
                 width = max([len(key_str), self._determine_text_width(key, _MAX_WIDTHS)])
                 trail = self._determine_text_width(key, _MAX_TRAILS)
                 text_result += f'{value_used:{width}.{trail}f} || '
