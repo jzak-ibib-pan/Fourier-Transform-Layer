@@ -724,6 +724,10 @@ class ModelBuilder:
     def filename(self):
         return self._filename
 
+    @filename.setter
+    def filename(self, fname):
+        self._filename = fname
+
     @property
     def filepath(self):
         return self._filepath
@@ -1096,7 +1100,7 @@ class CustomBuilder(CNNBuilder):
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
         # TODO: see if it shouldn't be (*shape_new[:2], shape[2])
-        arguments_sampled['input_shape'] = (*shape_new, shape[2])
+        arguments_sampled['input_shape'] = (*shape_new[:2], shape[2])
         # final shape
         shape_new = arguments_sampled['input_shape']
         model_weights = self._model.get_weights()
