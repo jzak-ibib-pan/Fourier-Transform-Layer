@@ -1248,16 +1248,6 @@ class CustomBuilder(CNNBuilder):
         # TODO: adding Conv2d to layers list causes errors
         arguments_sampled = self._arguments['build'].copy()
 
-        # TODO: calculating pooling size from shapes
-        # SOLVED: finding pooling by "pooling"
-        # change pooling size to keep the result of FTL + pooling the same shape
-        it_pool = 0
-        key_pool = 'avepooling'
-        while 'pooling' not in str(list(arguments_sampled['layers'][it_pool].keys())[0]):
-            it_pool += 1
-        key_pool = list(arguments_sampled['layers'][it_pool].keys())[0]
-        arguments_sampled['layers'][it_pool][key_pool].update({'pool_size': 4})
-
         shape = arguments_sampled['input_shape']
         shape_new = shape
         # get sampling methods for dense and/or conv2d
@@ -1274,6 +1264,17 @@ class CustomBuilder(CNNBuilder):
         arguments_sampled['input_shape'] = (*shape_new[:2], shape[2])
         # final shape
         shape_new = arguments_sampled['input_shape']
+
+        # SOLVED: calculating pooling size from shapes
+        # SOLVED: finding pooling by "pooling"
+        # change pooling size to keep the result of FTL + pooling the same shape
+        it_pool = 0
+        key_pool = 'avepooling'
+        while 'pooling' not in str(list(arguments_sampled['layers'][it_pool].keys())[0]):
+            it_pool += 1
+        key_pool = list(arguments_sampled['layers'][it_pool].keys())[0]
+        arguments_sampled['layers'][it_pool][key_pool].update({'pool_size': (shape_new[0] // shape[0], shape_new[1] // shape[1])})
+
         model_weights = self._model.get_weights()
         model_layers = self._model.layers
         replace_value = [self._REPLACE_VALUE if 'replace_value' not in kwargs.keys() else kwargs['replace_value']][0]
