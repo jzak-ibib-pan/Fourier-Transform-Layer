@@ -106,6 +106,8 @@ class EarlyStopOnBaseline(Callback):
         # restore best weights
         if not self._restore_weights:
             return
+        if self._best_weights is None:
+            return
         self.model.set_weights(self._best_weights)
         if not self._verbose:
             return

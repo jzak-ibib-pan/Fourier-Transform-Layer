@@ -486,6 +486,7 @@ class ModelBuilder:
                 eva_text = self._prepare_metrics_text([self._evaluation], suffixes)
                 fil.write(f'Evaluation: \n{eva_text}')
             if len(self._history) > 0:
+                print(self._history)
                 suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length=-1, sign='_')
                 hist_text = self._prepare_metrics_text(self._history, suffixes)
                 fil.write(f'Training history: \n{hist_text}')
@@ -606,7 +607,7 @@ class ModelBuilder:
         return result
 
     def _prepare_metrics_text(self, history, suffixes=None):
-        _history = history[0]
+        _history = history.copy()
         _MAX_TRAILS = {'loss': 6,
                        'acc': 4,
                        'top': 4,
@@ -621,13 +622,14 @@ class ModelBuilder:
                        }
         text_result = ''
         text_result += 'epochs'.center(15) + ' -- '
-        for key in _history.keys():
+        for key in _history[0].keys():
             key_str = [key if not suffixes else suffixes[key]][0]
             width = self._determine_text_width(key, _MAX_WIDTHS)
             text_result += str(key_str).center(max([len(key_str), width])) +' || '
         text_result += '\n'
         # changes for RTX in server, may be caused by newer TF
-        _epochs = [1 if type(_history["loss"]) is not list else len(_history["loss"])][0]
+        #_epochs = [1 if type(_history["loss"]) is not list else len(_history["loss"])][0]
+        _epochs = len(_history)
         for epoch in range(_epochs):
             # epoch_str = str(epoch)
             # # may be possible to use {epoch:0xd}
@@ -635,8 +637,8 @@ class ModelBuilder:
             #     epoch_str = '0' + epoch_str
             # do not expect more than 10k training epochs
             # text_result += ('Epoch ' + epoch_str).center(15) +' -- '
-            text_result +=  f'Epoch {epoch:0{len(str(_epochs))}d}'.center(15) + ' -- '
-            for key, value in zip(_history.keys(), _history.values()):
+            text_result += f'Epoch {epoch:0{len(str(_epochs))}d}'.center(15) + ' -- '
+            for key, value in zip(_history[epoch].keys(), _history[epoch].values()):
                 key_str = [key if not suffixes else suffixes[key]][0]
                 # crucial change
                 value_used = [value if type(value) is not list else value[epoch]][0]
@@ -689,19 +691,18 @@ class ModelBuilder:
 
     @staticmethod
     def _merge_history_and_times(history, times):
-        _history = history.copy()
-        if len(history) == 1 and len(history[0]['loss']) > 1:
-            # history after full training, instead of by 1 epoch
-            _history = []
-            for it in range(len(history[0]['loss'])):
-                _hist = {}
-                for key in history[0].keys():
-                    _hist.update({key: history[0][key][it]})
-                _history.append(_hist)
-        assert len(_history) == len(times), 'History and times are not the same length.'
+        _history = history[0]
+        # history after full training, instead of by 1 epoch
+        reshaped_history = []
+        for it in range(len(_history['loss'])):
+            _hist = {}
+            for key in _history.keys():
+                _hist.update({key: _history[key][it]})
+            reshaped_history.append(_hist)
+        assert len(reshaped_history) == len(times), 'History and times are not the same length.'
         for it, time in enumerate(times):
-            _history[it].update({'time': time})
-        return _history
+            reshaped_history[it].update({'time': time})
+        return reshaped_history
 
     # Properties
     @property
@@ -913,6 +914,7 @@ class CustomBuilder(CNNBuilder):
                               'bias_constraint': None,
                               },
                     'flatten': {},
+                    'BatchNormalization': {},
                     # strides must be None to achieve halving
                     'avepooling': {'pool_size': 2,
                                    'strides': None,
