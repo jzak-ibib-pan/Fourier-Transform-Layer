@@ -10,6 +10,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
 from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
+from tensorflow.keras.optimizers import Adam
 from numpy import squeeze, pad, array, argmax, expand_dims, ones_like
 from numpy import max as np_max
 from numpy import resize as resize_array
@@ -84,7 +85,7 @@ class ModelBuilder:
                                 'run_eagerly': False,
                                 },
                     'train': {'epochs': 10,
-                              'batch': 8,
+                              'batch': 4,
                               'call_time': True,
                               'call_stop': True,
                               'call_stop_kwargs': {'baseline': 0.80,
@@ -462,6 +463,7 @@ class ModelBuilder:
 
     # Text manipulation methods
     def save_model_info(self, notes='', extension='', **kwargs):
+        fname = [self._filename if "filename" not in kwargs.keys() else self._filename + kwargs["filename"]][0]
         assert type(notes) == str, 'Notes must be a string.'
         self._update_all_lengths()
         if 'fourier' in self._arguments['build']['model_type']:
@@ -473,7 +475,7 @@ class ModelBuilder:
         format_used = ['.txt' if len(extension) < 1 else extension][0]
         if '.' not in format_used:
             format_used = '.' + format_used
-        with open(join(self._filepath, self._filename + format_used), 'w') as fil:
+        with open(join(self._filepath, fname + format_used), 'w') as fil:
             for action in ['build', 'compile', 'train']:
                 fil.write(f'{action.capitalize()} arguments\n')
                 fil.write(self._prepare_argument_text(self._arguments[action]))
@@ -484,6 +486,7 @@ class ModelBuilder:
                 eva_text = self._prepare_metrics_text([self._evaluation], suffixes)
                 fil.write(f'Evaluation: \n{eva_text}')
             if len(self._history) > 0:
+                print(self._history)
                 suffixes = self._make_suffixes(metrics=[key for key in self._history[0].keys()], length=-1, sign='_')
                 hist_text = self._prepare_metrics_text(self._history, suffixes)
                 fil.write(f'Training history: \n{hist_text}')
@@ -604,6 +607,7 @@ class ModelBuilder:
         return result
 
     def _prepare_metrics_text(self, history, suffixes=None):
+        _history = history.copy()
         _MAX_TRAILS = {'loss': 6,
                        'acc': 4,
                        'top': 4,
@@ -618,22 +622,26 @@ class ModelBuilder:
                        }
         text_result = ''
         text_result += 'epochs'.center(15) + ' -- '
-        for key in history[0].keys():
+        for key in _history[0].keys():
             key_str = [key if not suffixes else suffixes[key]][0]
             width = self._determine_text_width(key, _MAX_WIDTHS)
             text_result += str(key_str).center(max([len(key_str), width])) +' || '
         text_result += '\n'
-        for epoch in range(len(history)):
+        # changes for RTX in server, may be caused by newer TF
+        #_epochs = [1 if type(_history["loss"]) is not list else len(_history["loss"])][0]
+        _epochs = len(_history)
+        for epoch in range(_epochs):
             # epoch_str = str(epoch)
             # # may be possible to use {epoch:0xd}
             # while len(epoch_str) < len(str(len(history))):
             #     epoch_str = '0' + epoch_str
             # do not expect more than 10k training epochs
             # text_result += ('Epoch ' + epoch_str).center(15) +' -- '
-            text_result +=  f'Epoch {epoch:0{len(str(len(history)))}d}'.center(15) +' -- '
-            for key, value in zip(history[epoch].keys(), history[epoch].values()):
+            text_result += f'Epoch {epoch:0{len(str(_epochs))}d}'.center(15) + ' -- '
+            for key, value in zip(_history[epoch].keys(), _history[epoch].values()):
                 key_str = [key if not suffixes else suffixes[key]][0]
-                value_used = [value if type(value) is not list else value[0]][0]
+                # crucial change
+                value_used = [value if type(value) is not list else value[epoch]][0]
                 width = max([len(key_str), self._determine_text_width(key, _MAX_WIDTHS)])
                 trail = self._determine_text_width(key, _MAX_TRAILS)
                 text_result += f'{value_used:{width}.{trail}f} || '
@@ -683,19 +691,18 @@ class ModelBuilder:
 
     @staticmethod
     def _merge_history_and_times(history, times):
-        _history = history.copy()
-        if len(history) == 1 and len(history[0]['loss']) > 1:
-            # history after full training, instead of by 1 epoch
-            _history = []
-            for it in range(len(history[0]['loss'])):
-                _hist = {}
-                for key in history[0].keys():
-                    _hist.update({key: history[0][key][it]})
-                _history.append(_hist)
-        assert len(_history) == len(times), 'History and times are not the same length.'
+        _history = history[0]
+        # history after full training, instead of by 1 epoch
+        reshaped_history = []
+        for it in range(len(_history['loss'])):
+            _hist = {}
+            for key in _history.keys():
+                _hist.update({key: _history[key][it]})
+            reshaped_history.append(_hist)
+        assert len(reshaped_history) == len(times), 'History and times are not the same length.'
         for it, time in enumerate(times):
-            _history[it].update({'time': time})
-        return _history
+            reshaped_history[it].update({'time': time})
+        return reshaped_history
 
     # Properties
     @property
@@ -718,6 +725,10 @@ class ModelBuilder:
     def filename(self):
         return self._filename
 
+    @filename.setter
+    def filename(self, fname):
+        self._filename = fname
+
     @property
     def filepath(self):
         return self._filepath
@@ -732,7 +743,8 @@ class CNNBuilder(ModelBuilder):
 
     @staticmethod
     def _define_allowed_kwargs():
-        allowed = {'build' : {'model_type': ['mobilenet', 'mobilenet2', 'vgg16', 'vgg19', 'resnet50', 'resnet101'],
+        allowed = {'build' : {'model_type': ['mobilenet', 'mobilenet2', 'vgg16', 'vgg19', 'resnet50', 'resnet101',
+                                             'unet'],
                               },
                    'compile': {'optimizer': ['adam', 'sgd'],
                                'loss': ['mse', 'categorical_crossentropy'],
@@ -812,6 +824,8 @@ class CNNBuilder(ModelBuilder):
             elif '101' in model_type_low:
                 # load resnet101
                 _backbone = apps.resnet_v2.ResNet101V2
+        elif 'unet' in model_type_low:
+            _backbone = unet_modified
         if not _backbone:
             return None
         backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
@@ -900,11 +914,13 @@ class CustomBuilder(CNNBuilder):
                               'bias_constraint': None,
                               },
                     'flatten': {},
+                    'BatchNormalization': {},
+                    # strides must be None to achieve halving
                     'avepooling': {'pool_size': 2,
-                                   'strides': 1,
+                                   'strides': None,
                                    'padding': 'valid'},
                     'maxpooling': {'pool_size': 2,
-                                   'strides': 1,
+                                   'strides': None,
                                    'padding': 'valid'},
                     'concatenate': {'axis': -1,
                                     },
@@ -1086,7 +1102,7 @@ class CustomBuilder(CNNBuilder):
         if 'shape' in kwargs.keys():
             shape_new = kwargs['shape']
         # TODO: see if it shouldn't be (*shape_new[:2], shape[2])
-        arguments_sampled['input_shape'] = (*shape_new, shape[2])
+        arguments_sampled['input_shape'] = (*shape_new[:2], shape[2])
         # final shape
         shape_new = arguments_sampled['input_shape']
         model_weights = self._model.get_weights()
@@ -1228,22 +1244,19 @@ class CustomBuilder(CNNBuilder):
         return self._sample_model(**kwargs)
 
     def _sample_ftl_by_pool(self, **kwargs):
+        # This method only requires FTL to change shape; pooling then returns the size to the basic one, on which the
+        # model was trained. Hence dense and conv2d methods are not required.
         # SOLVED: finding FTL in the model
         # TODO: adding Conv2d to layers list causes errors
         arguments_sampled = self._arguments['build'].copy()
-        # TODO: calculating pooling size from shapes
-        # change pooling size to keep the result of FTL + pooling the same shape
-        arguments_sampled['layers'][1].update({'avepooling': {'pool_size': 2}})
+
         shape = arguments_sampled['input_shape']
         shape_new = shape
         # get sampling methods for dense and/or conv2d
-        sampling_method = {'dense': ['pad' if 'dense_method' not in kwargs.keys() else kwargs['dense_method']][0],
-                           'ftl': ['pad' if 'ftl_method' not in kwargs.keys() else kwargs['ftl_method']][0],
-                           }
+        sampling_method = ['pad' if 'ftl_method' not in kwargs.keys() else kwargs['ftl_method']][0]
         # make sure no incorrect methods are provided
         # pad - either cut (smaller) or pad (larger) images
-        for method in list(sampling_method.values()):
-            assert method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
+        assert sampling_method in ['pad', 'resize'], 'Incorrect sampling methods provided.'
         # pad - either cut (smaller) or pad (larger) images
         if 'direction' in kwargs.keys() and 'nominator' in kwargs.keys():
             shape_new = self._operation(shape[:2], nominator=kwargs['nominator'],
@@ -1253,6 +1266,17 @@ class CustomBuilder(CNNBuilder):
         arguments_sampled['input_shape'] = (*shape_new[:2], shape[2])
         # final shape
         shape_new = arguments_sampled['input_shape']
+
+        # SOLVED: calculating pooling size from shapes
+        # SOLVED: finding pooling by "pooling"
+        # change pooling size to keep the result of FTL + pooling the same shape
+        it_pool = 0
+        key_pool = 'avepooling'
+        while 'pooling' not in str(list(arguments_sampled['layers'][it_pool].keys())[0]):
+            it_pool += 1
+        key_pool = list(arguments_sampled['layers'][it_pool].keys())[0]
+        arguments_sampled['layers'][it_pool][key_pool].update({'pool_size': (shape_new[0] // shape[0], shape_new[1] // shape[1])})
+
         model_weights = self._model.get_weights()
         model_layers = self._model.layers
         replace_value = [self._REPLACE_VALUE if 'replace_value' not in kwargs.keys() else kwargs['replace_value']][0]
@@ -1300,7 +1324,7 @@ class CustomBuilder(CNNBuilder):
                     weights_replace = ones_like(weights_new[step]) * replace_value
                     for rep in range(noof_weights):
                         for ch in range(shape[2]):
-                            if sampling_method['ftl'] == 'resize':
+                            if sampling_method == 'resize':
                                 _resized = resize_image(weights_ftl[rep, :, :, ch],
                                                         weights_new[step].shape[1:3])
                                 if len(_resized.shape) == 2:
@@ -1317,23 +1341,6 @@ class CustomBuilder(CNNBuilder):
                                     _padded = expand_dims(_padded, axis=-1)
                                 weights_replace[rep, :, :, ch] = squeeze(_padded)
                     weights_result.append(weights_replace)
-                continue
-            if 'dense' in layer_name:
-                # 0 - kernel, 1 - bias
-                it = 0
-                size_new = weights_new[it].shape[0]
-                size_old = weights[it].shape[0]
-                # None and cut are the same here - Dense must be resized
-                if sampling_method['dense'] == 'resize':
-                    weights_result.append(resize_array(weights[it], (size_new, weights[it].shape[1])))
-                elif shape_new[0] < shape[0]:
-                    weights_result.append(weights[it][:size_new, :])
-                elif sampling_method['dense'] == 'pad':
-                    pads = [[0, size_new - size_old], [0, 0]]
-                    pd = pad(weights[it], pad_width=pads, mode='constant', constant_values=replace_value)
-                    weights_result.append(pd)
-                # add bias
-                weights_result.append(weights[1])
                 continue
             # other layers which should not be sampled (Conv2D, ...)
             if type(weights) is list:

@@ -1,0 +1,105 @@
+Build arguments
+	model_type                               -                                   custom
+	input_shape                              -                            (320, 240, 3)
+	noof_classes                             -                                        4
+	weights                                  -                                     None
+	freeze                                   -                                        0
+	layers                                   -           ['conv2d', 'flatten', 'dense']
+Compile arguments
+	optimizer                                -                                     adam
+	loss                                     -                 categorical_crossentropy
+	run_eagerly                              -                                    False
+	metrics_000                              -                     categorical_accuracy
+	metrics_001                              -                                    top-5
+	metrics_002                              -                                     mAUC
+	metrics_003                              -                                     uAUC
+Train arguments
+	epochs                                   -                                      100
+	batch                                    -                                        8
+	call_time                                -                                     True
+	call_stop                                -                                     True
+	call_stop_kwargs-baseline                -                                     0.01
+	call_stop_kwargs-monitor                 -                 val_categorical_accuracy
+	call_stop_kwargs-patience                -                                        2
+	call_stop_kwargs-min_delta               -                                    0.001
+	call_stop_kwargs-restore_best            -                                     True
+	call_checkpoint                          -                                    False
+	call_checkpoint_kwargs-monitor           -                 val_categorical_accuracy
+	call_checkpoint_kwargs-mode              -                                     auto
+	call_checkpoint_kwargs-save_freq         -                                    epoch
+	call_checkpoint_kwargs-save_weights_only -                                     True
+	call_checkpoint_kwargs-save_best_only    -                                     True
+	save_memory                              -                                     True
+	save_final                               -                                     True
+	generator                                -                                 built-in
+	validation                               -                                 built-in
+	steps                                    -                                      996
+	val_steps                                -                                      249
+	validation_split                         -                                      0.2
+	verbose                                  -                                        1
+	dataset                                  -                                generator
+	validation_size                          -                                      249
+Larger datasets.
+Evaluation: 
+     epochs     --      loss     || cat_acc  ||   top5   ||    mAU    ||    uAU    || 
+    Epoch 0     --      4.001203 ||   0.2662 ||   1.0000 ||  0.507284 ||  0.506907 || 
+Training history: 
+     epochs     --      loss     || cat_acc  ||   top5   ||    mAU    ||    uAU    ||    val_loss   || val_cat_acc || val_top5 ||  val_mAU  ||  val_uAU  ||     time     || 
+    Epoch 0     --    138.534210 ||   0.2557 ||   1.0000 ||  0.504721 ||  0.504724 ||      3.370495 ||      0.2466 ||   1.0000 ||  0.504287 ||  0.505526 ||  4148.912097 || 
+    Epoch 1     --      0.961716 ||   0.6931 ||   1.0000 ||  0.892547 ||  0.892054 ||      3.032493 ||      0.2526 ||   1.0000 ||  0.500832 ||  0.501253 ||  4548.113365 || 
+    Epoch 2     --      0.264709 ||   0.9296 ||   1.0000 ||  0.990334 ||  0.990301 ||      3.517610 ||      0.2461 ||   1.0000 ||  0.499996 ||  0.501852 ||  4540.183891 || 
+    Epoch 3     --      0.390203 ||   0.8885 ||   1.0000 ||  0.977646 ||  0.977591 ||      3.492185 ||      0.2551 ||   1.0000 ||  0.499447 ||  0.499876 ||  4568.240122 || 
+    Epoch 4     --      0.260755 ||   0.9238 ||   1.0000 ||  0.987352 ||  0.987288 ||      3.672459 ||      0.2587 ||   1.0000 ||  0.497247 ||  0.497038 ||  4561.399045 || 
+    Epoch 5     --      0.122677 ||   0.9647 ||   1.0000 ||  0.996164 ||  0.996175 ||      4.368067 ||      0.2526 ||   1.0000 ||  0.502645 ||  0.503008 ||  4573.484596 || 
+    Epoch 6     --      0.166055 ||   0.9504 ||   1.0000 ||  0.994205 ||  0.994221 ||      3.997856 ||      0.2637 ||   1.0000 ||  0.505825 ||  0.506002 ||  4599.916081 || 
+    Epoch 7     --      0.098686 ||   0.9721 ||   1.0000 ||  0.997032 ||  0.997026 ||      4.611610 ||      0.2536 ||   1.0000 ||  0.501855 ||  0.502344 ||  4577.449864 || 
+    Epoch 8     --      0.143176 ||   0.9643 ||   1.0000 ||  0.995736 ||  0.995732 ||      4.760442 ||      0.2456 ||   1.0000 ||  0.495639 ||  0.496543 ||  4568.044927 || 
+Layers list:
+	conv2d                                   -                    (9, 9, 3, 950)|(950,)
+	conv2d-filters                           -                                      950
+	conv2d-kernel_size                       -                                        9
+	conv2d-strides                           -                                   (1, 1)
+	conv2d-padding                           -                                    valid
+	conv2d-data_format                       -                                     None
+	conv2d-dilation_rate                     -                                   (1, 1)
+	conv2d-groups                            -                                        1
+	conv2d-activation                        -                                     relu
+	conv2d-use_bias                          -                                     True
+	conv2d-kernel_initializer                -                                he_normal
+	conv2d-bias_initializer                  -                                    zeros
+	conv2d-kernel_regularizer                -                                     None
+	conv2d-bias_regularizer                  -                                     None
+	conv2d-activity_regularizer              -                                     None
+	conv2d-kernel_constraint                 -                                     None
+	conv2d-bias_constraint                   -                                     None
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	flatten_2                                -                                         
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	dense_2                                  -                       (68764800, 4)|(4,)
+	dense_2-units                            -                                        4
+	dense_2-activation                       -                                  softmax
+	dense_2-use_bias                         -                                     True
+	dense_2-kernel_initializer               -                           glorot_uniform
+	dense_2-bias_initializer                 -                                    zeros
+	dense_2-kernel_regularizer               -                                     None
+	dense_2-bias_regularizer                 -                                     None
+	dense_2-activity_regularizer             -                                     None
+	dense_2-kernel_constraint                -                                     None
+	dense_2-bias_constraint                  -                                     None
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+Model: "functional_5"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+input_3 (InputLayer)         [(None, 320, 240, 3)]     0         
+_________________________________________________________________
+conv2d (Conv2D)              (None, 312, 232, 950)     231800    
+_________________________________________________________________
+flatten_2 (Flatten)          (None, 68764800)          0         
+_________________________________________________________________
+dense_2 (Dense)              (None, 4)                 275059204 
+=================================================================
+Total params: 275,291,004
+Trainable params: 275,291,004
+Non-trainable params: 0
+_________________________________________________________________

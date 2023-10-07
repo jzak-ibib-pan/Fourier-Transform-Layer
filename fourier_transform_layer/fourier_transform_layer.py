@@ -10,9 +10,18 @@ from numpy import arange
 # TODO: get_config implementation
 # TODO: move bias initializer to kwargs, depending on use_bias - to consider
 class FTL(Layer):
-    def __init__(self, activation=None, kernel_initializer='he_normal', train_imaginary=True, inverse=False,
-                 use_bias=False, bias_initializer='zeros', calculate_abs=True, normalize_to_image_shape=False,
-                 already_fft=False, **kwargs):
+    def __init__(
+            self,
+            activation=None,
+            kernel_initializer='he_normal',
+            train_imaginary=True,
+            inverse=False,
+            use_bias=False,
+            bias_initializer='zeros',
+            calculate_abs=True,
+            normalize_to_image_shape=False,
+            already_fft=False,
+            **kwargs):
         super(FTL, self).__init__(**kwargs)
         # activation - what activation to pull from keras; available for now: None, relu, softmax, sigmoid, tanh, selu;
         # recommended - None, relu or selu
