@@ -1,0 +1,92 @@
+Build arguments
+	model_type                               -                                   custom
+	input_shape                              -                              (32, 32, 3)
+	noof_classes                             -                                       10
+	weights                                  -                                     None
+	freeze                                   -                                        0
+	layers                                   -              ['ftl', 'flatten', 'dense']
+Compile arguments
+	optimizer                                -                                     adam
+	loss                                     -                 categorical_crossentropy
+	run_eagerly                              -                                    False
+	metrics_000                              -                     categorical_accuracy
+	metrics_001                              -                                    top-5
+	metrics_002                              -                                     mAUC
+	metrics_003                              -                                     uAUC
+Train arguments
+	epochs                                   -                                      100
+	batch                                    -                                        8
+	call_time                                -                                     True
+	call_stop                                -                                     True
+	call_stop_kwargs-baseline                -                                      0.3
+	call_stop_kwargs-monitor                 -                 val_categorical_accuracy
+	call_stop_kwargs-patience                -                                        2
+	call_stop_kwargs-min_delta               -                                    0.001
+	call_stop_kwargs-restore_best            -                                     True
+	call_checkpoint                          -                                    False
+	call_checkpoint_kwargs-monitor           -                 val_categorical_accuracy
+	call_checkpoint_kwargs-mode              -                                     auto
+	call_checkpoint_kwargs-save_freq         -                                    epoch
+	call_checkpoint_kwargs-save_weights_only -                                     True
+	call_checkpoint_kwargs-save_best_only    -                                     True
+	save_memory                              -                                     True
+	save_final                               -                                     True
+	validation_split                         -                                      0.2
+	verbose                                  -                                        1
+	dataset_size                             -                                    50000
+CPU - local PC (IP: 180)
+Evaluation: 
+     epochs     --      loss     || cat_acc  ||   top5   ||    mAU    ||    uAU    || 
+    Epoch 0     --      1.534380 ||   0.4652 ||   0.9046 ||  0.861207 ||  0.864059 || 
+Training history: 
+     epochs     --      loss     || cat_acc  ||   top5   ||    mAU    ||    uAU    ||    val_loss   || val_cat_acc || val_top5 ||  val_mAU  ||  val_uAU  ||     time     || 
+    Epoch 0     --      1.734325 ||   0.3983 ||   0.8641 ||  0.790401 ||  0.792830 ||      1.632798 ||      0.4406 ||   0.8863 ||  0.841612 ||  0.842723 ||    46.374662 || 
+    Epoch 1     --      1.586231 ||   0.4502 ||   0.8972 ||  0.849933 ||  0.853554 ||      1.582350 ||      0.4608 ||   0.8970 ||  0.853014 ||  0.854079 ||    45.390311 || 
+    Epoch 2     --      1.524518 ||   0.4750 ||   0.9040 ||  0.861789 ||  0.865445 ||      1.574733 ||      0.4572 ||   0.9043 ||  0.860850 ||  0.857549 ||    45.203885 || 
+    Epoch 3     --      1.531081 ||   0.4698 ||   0.9057 ||  0.860485 ||  0.864196 ||      1.536532 ||      0.4765 ||   0.9034 ||  0.863983 ||  0.864037 ||    45.343469 || 
+    Epoch 4     --      1.495036 ||   0.4854 ||   0.9132 ||  0.867702 ||  0.871289 ||      1.482729 ||      0.4809 ||   0.9161 ||  0.873031 ||  0.873860 ||    45.687189 || 
+    Epoch 5     --      1.461868 ||   0.4963 ||   0.9176 ||  0.873370 ||  0.877142 ||      1.465352 ||      0.4933 ||   0.9204 ||  0.875385 ||  0.877382 ||    45.687193 || 
+    Epoch 6     --      1.439670 ||   0.5032 ||   0.9206 ||  0.877867 ||  0.881291 ||      1.444030 ||      0.5017 ||   0.9201 ||  0.878287 ||  0.880659 ||    45.562217 || 
+    Epoch 7     --      1.417131 ||   0.5095 ||   0.9250 ||  0.881930 ||  0.885350 ||      1.447298 ||      0.5001 ||   0.9197 ||  0.879681 ||  0.879724 ||    45.530919 || 
+    Epoch 8     --      1.420369 ||   0.5088 ||   0.9238 ||  0.881115 ||  0.884605 ||      1.452782 ||      0.5000 ||   0.9217 ||  0.881009 ||  0.879973 ||    45.624680 || 
+Layers list:
+	ftl                                      -                           (1, 32, 32, 3)
+	ftl-activation                           -                                     relu
+	ftl-kernel_initializer                   -                                he_normal
+	ftl-train_imaginary                      -                                    False
+	ftl-inverse                              -                                     True
+	ftl-use_bias                             -                                    False
+	ftl-bias_initializer                     -                                    zeros
+	ftl-calculate_abs                        -                                    False
+	ftl-normalize_to_image_shape             -                                    False
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	flatten_2                                -                                         
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	dense_2                                  -                         (6144, 10)|(10,)
+	dense_2-units                            -                                       10
+	dense_2-activation                       -                                  softmax
+	dense_2-use_bias                         -                                     True
+	dense_2-kernel_initializer               -                           glorot_uniform
+	dense_2-bias_initializer                 -                                    zeros
+	dense_2-kernel_regularizer               -                                     None
+	dense_2-bias_regularizer                 -                                     None
+	dense_2-activity_regularizer             -                                     None
+	dense_2-kernel_constraint                -                                     None
+	dense_2-bias_constraint                  -                                     None
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+Model: "functional_5"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+input_3 (InputLayer)         [(None, 32, 32, 3)]       0         
+_________________________________________________________________
+ftl (FTL)                    (None, 32, 32, 6)         3072      
+_________________________________________________________________
+flatten_2 (Flatten)          (None, 6144)              0         
+_________________________________________________________________
+dense_2 (Dense)              (None, 10)                61450     
+=================================================================
+Total params: 64,522
+Trainable params: 64,522
+Non-trainable params: 0
+_________________________________________________________________

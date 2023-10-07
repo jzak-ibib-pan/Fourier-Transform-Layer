@@ -32,7 +32,7 @@ class EarlyStopOnBaseline(Callback):
                  restore_best: bool = True, verbose: int = 1):
         super(EarlyStopOnBaseline, self).__init__()
         assert monitor in ['acc', 'loss', 'val_acc', 'val_loss', 'categorical_accuracy', 'val_categorical_accuracy',
-                           'top_k_categorical_accuracy'], \
+                           'top_k_categorical_accuracy', 'val_binary_accuracy'], \
             self._inform_user_of_error('monitor')
         assert 0 < baseline < 1, self._inform_user_of_error('baseline')
         assert min_delta >= 0, self._inform_user_of_error('min_delta')
@@ -46,7 +46,7 @@ class EarlyStopOnBaseline(Callback):
         self._restore_weights = restore_best
         self._verbose = verbose
         self._patience_counter = 0
-        self._flag_monitor_accuracy = any([a in monitor for a in ['acc', 'accuracy']])
+        self._flag_monitor_accuracy = 'acc' in monitor
         # assume loss is the monitored value
         self._best_value = 1e10
         if self._flag_monitor_accuracy:
@@ -57,7 +57,6 @@ class EarlyStopOnBaseline(Callback):
         self._delta_sign = {True: 1,
                             False: -1,
                             }
-
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
@@ -94,13 +93,6 @@ class EarlyStopOnBaseline(Callback):
                 self._best_weights = self.model.get_weights()
             return
 
-        # restore best weights
-        if self._restore_weights:
-            self.model.set_weights(self._best_weights)
-            if self._verbose:
-                print(f'\tRestoring weights @ {self._monitor} = '
-                      f'{round(self._best_value + self._delta * self._delta_sign[self._flag_monitor_accuracy], 4)} vs '
-                      f'{round(monitored_value, 4)}.')
         self._patience_counter += 1
         if self._patience_counter < self._patience:
             return
@@ -109,6 +101,18 @@ class EarlyStopOnBaseline(Callback):
             print(f'\tEpoch {epoch}: Terminating training.')
         self.model.stop_training = True
         self._stopped_training = True
+
+    def on_train_end(self, logs=None):
+        # restore best weights
+        if not self._restore_weights:
+            return
+        if self._best_weights is None:
+            return
+        self.model.set_weights(self._best_weights)
+        if not self._verbose:
+            return
+        print(f'\tRestoring weights @ {self._monitor} = '
+              f'{round(self._best_value + self._delta * self._delta_sign[self._flag_monitor_accuracy], 4)}')
 
     def get_kwargs(self):
         return {'monitor': self._monitor,

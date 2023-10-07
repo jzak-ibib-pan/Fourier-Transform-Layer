@@ -1,0 +1,108 @@
+Build arguments
+	model_type                               -                                   custom
+	input_shape                              -                              (32, 32, 3)
+	noof_classes                             -                                       10
+	weights                                  -                                     None
+	freeze                                   -                                        0
+	layers                                   -           ['conv2d', 'flatten', 'dense']
+Compile arguments
+	optimizer                                -                                     adam
+	loss                                     -                 categorical_crossentropy
+	run_eagerly                              -                                    False
+	metrics_000                              -                     categorical_accuracy
+	metrics_001                              -                                    top-5
+	metrics_002                              -                                     mAUC
+	metrics_003                              -                                     uAUC
+Train arguments
+	epochs                                   -                                      100
+	batch                                    -                                        8
+	call_time                                -                                     True
+	call_stop                                -                                     True
+	call_stop_kwargs-baseline                -                                      0.3
+	call_stop_kwargs-monitor                 -                 val_categorical_accuracy
+	call_stop_kwargs-patience                -                                        2
+	call_stop_kwargs-min_delta               -                                    0.001
+	call_stop_kwargs-restore_best            -                                     True
+	call_checkpoint                          -                                    False
+	call_checkpoint_kwargs-monitor           -                 val_categorical_accuracy
+	call_checkpoint_kwargs-mode              -                                     auto
+	call_checkpoint_kwargs-save_freq         -                                    epoch
+	call_checkpoint_kwargs-save_weights_only -                                     True
+	call_checkpoint_kwargs-save_best_only    -                                     True
+	save_memory                              -                                     True
+	save_final                               -                                     True
+	validation_split                         -                                      0.2
+	verbose                                  -                                        1
+	dataset_size                             -                                    50000
+CPU - local PC (IP: 180)
+Evaluation: 
+     epochs     --      loss     || cat_acc  ||   top5   ||    mAU    ||    uAU    || 
+    Epoch 0     --      2.563458 ||   0.5075 ||   0.9296 ||  0.852965 ||  0.857117 || 
+Training history: 
+     epochs     --      loss     || cat_acc  ||   top5   ||    mAU    ||    uAU    ||    val_loss   || val_cat_acc || val_top5 ||  val_mAU  ||  val_uAU  ||     time     || 
+    Epoch 00    --      1.586337 ||   0.4487 ||   0.9048 ||  0.852184 ||  0.856642 ||      1.469340 ||      0.5022 ||   0.9152 ||  0.881838 ||  0.877605 ||    17.466647 || 
+    Epoch 01    --      1.321293 ||   0.5523 ||   0.9380 ||  0.898018 ||  0.902220 ||      1.343423 ||      0.5490 ||   0.9382 ||  0.902935 ||  0.901192 ||    16.950124 || 
+    Epoch 02    --      1.158250 ||   0.6081 ||   0.9567 ||  0.920935 ||  0.924942 ||      1.173553 ||      0.6082 ||   0.9546 ||  0.923314 ||  0.923518 ||    16.725155 || 
+    Epoch 03    --      1.033986 ||   0.6477 ||   0.9666 ||  0.936419 ||  0.939998 ||      1.218037 ||      0.5963 ||   0.9528 ||  0.921279 ||  0.918608 ||    16.132050 || 
+    Epoch 04    --      1.033301 ||   0.6496 ||   0.9664 ||  0.936412 ||  0.940146 ||      1.056673 ||      0.6432 ||   0.9647 ||  0.936279 ||  0.937675 ||    16.591526 || 
+    Epoch 05    --      0.929255 ||   0.6818 ||   0.9726 ||  0.948088 ||  0.951376 ||      0.918906 ||      0.6856 ||   0.9754 ||  0.949485 ||  0.952860 ||    16.101457 || 
+    Epoch 06    --      0.831271 ||   0.7171 ||   0.9789 ||  0.957860 ||  0.960844 ||      0.892480 ||      0.6918 ||   0.9765 ||  0.954119 ||  0.955576 ||    16.587392 || 
+    Epoch 07    --      0.752435 ||   0.7464 ||   0.9815 ||  0.965157 ||  0.967703 ||      0.773342 ||      0.7317 ||   0.9829 ||  0.963947 ||  0.966082 ||    16.476791 || 
+    Epoch 08    --      0.676370 ||   0.7700 ||   0.9860 ||  0.971421 ||  0.973746 ||      0.772137 ||      0.7400 ||   0.9807 ||  0.966567 ||  0.966645 ||    16.893999 || 
+    Epoch 09    --      0.611764 ||   0.7916 ||   0.9882 ||  0.976388 ||  0.978389 ||      0.662330 ||      0.7766 ||   0.9867 ||  0.973479 ||  0.974930 ||    16.699250 || 
+    Epoch 10    --      0.554403 ||   0.8106 ||   0.9895 ||  0.980304 ||  0.982212 ||      0.591984 ||      0.7974 ||   0.9876 ||  0.978732 ||  0.979862 ||    16.552148 || 
+    Epoch 11    --      0.501987 ||   0.8296 ||   0.9919 ||  0.983584 ||  0.985212 ||      0.575846 ||      0.8001 ||   0.9884 ||  0.980347 ||  0.980657 ||    16.401080 || 
+    Epoch 12    --      0.453208 ||   0.8444 ||   0.9923 ||  0.986435 ||  0.987805 ||      0.506833 ||      0.8267 ||   0.9921 ||  0.984346 ||  0.984933 ||    16.521576 || 
+    Epoch 13    --      0.421698 ||   0.8572 ||   0.9937 ||  0.987916 ||  0.989199 ||      0.503417 ||      0.8250 ||   0.9920 ||  0.984922 ||  0.985194 ||    16.418316 || 
+    Epoch 14    --      0.419803 ||   0.8578 ||   0.9937 ||  0.988026 ||  0.989254 ||      0.451221 ||      0.8494 ||   0.9937 ||  0.987358 ||  0.987785 ||    16.623357 || 
+    Epoch 15    --      0.378360 ||   0.8727 ||   0.9951 ||  0.990219 ||  0.991277 ||      0.477260 ||      0.8363 ||   0.9926 ||  0.986286 ||  0.986482 ||    16.964745 || 
+    Epoch 16    --      0.385104 ||   0.8683 ||   0.9950 ||  0.990002 ||  0.991109 ||      0.443436 ||      0.8503 ||   0.9950 ||  0.987505 ||  0.988140 ||    16.703923 || 
+Layers list:
+	conv2d                                   -                      (5, 5, 3, 41)|(41,)
+	conv2d-filters                           -                                       41
+	conv2d-kernel_size                       -                                        5
+	conv2d-strides                           -                                   (1, 1)
+	conv2d-padding                           -                                    valid
+	conv2d-data_format                       -                                     None
+	conv2d-dilation_rate                     -                                   (1, 1)
+	conv2d-groups                            -                                        1
+	conv2d-activation                        -                                     relu
+	conv2d-use_bias                          -                                     True
+	conv2d-kernel_initializer                -                                he_normal
+	conv2d-bias_initializer                  -                                    zeros
+	conv2d-kernel_regularizer                -                                     None
+	conv2d-bias_regularizer                  -                                     None
+	conv2d-activity_regularizer              -                                     None
+	conv2d-kernel_constraint                 -                                     None
+	conv2d-bias_constraint                   -                                     None
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	flatten_2                                -                                         
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	dense_2                                  -                        (32144, 10)|(10,)
+	dense_2-units                            -                                       10
+	dense_2-activation                       -                                  softmax
+	dense_2-use_bias                         -                                     True
+	dense_2-kernel_initializer               -                           glorot_uniform
+	dense_2-bias_initializer                 -                                    zeros
+	dense_2-kernel_regularizer               -                                     None
+	dense_2-bias_regularizer                 -                                     None
+	dense_2-activity_regularizer             -                                     None
+	dense_2-kernel_constraint                -                                     None
+	dense_2-bias_constraint                  -                                     None
+	######################################## - XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+Model: "model_2"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+input_3 (InputLayer)         [(None, 32, 32, 3)]       0         
+_________________________________________________________________
+conv2d (Conv2D)              (None, 28, 28, 41)        3116      
+_________________________________________________________________
+flatten_2 (Flatten)          (None, 32144)             0         
+_________________________________________________________________
+dense_2 (Dense)              (None, 10)                321450    
+=================================================================
+Total params: 324,566
+Trainable params: 324,566
+Non-trainable params: 0
+_________________________________________________________________
