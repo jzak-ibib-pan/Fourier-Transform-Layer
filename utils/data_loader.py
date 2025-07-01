@@ -552,7 +552,7 @@ class FringeGenerator(DataGenerator):
         # TODO: make VARIANCES and ROTATIONS relevant in init
         # no kwargs here - not expecting to perform additional augmentations
         # SOLVED: updated to DataLoader flags - unnecessary
-        super(FringeGenerator, self).__init__(out_shape, batch, shuffle_seed)
+        super(FringeGenerator, self).__init__(out_shape, batch, shuffle_seed, **kwargs)
         self._noof_classes = 2
         self._VARIANCES = [1e-1, 1e-2, 1e-3, 1e-4]
         self._ROTATIONS = [25, 45, 135, 170]
@@ -588,12 +588,18 @@ class FringeGenerator(DataGenerator):
             xy = np.tile(y, (self._out_shape[1], 1))
             if self._flag_rotation:
                 # 5 instead of 2 - more fringes after rotating
-                x = np.linspace(shift, shift + 5 * np.pi, self._out_shape[0] * 2)
+                # x = np.linspace(shift, shift + 5 * np.pi, self._out_shape[0] * 2)
+                # y = 32.0 + (31.0 * np.sin(x * 2 + np.deg2rad(45)))
+                # y = np.uint8(y)
+                # # vertical fringes
+                # xy = np.tile(y, (self._out_shape[1] * 2, 1))
+                # xy = self._augment_rotate(xy, self._aug_flags['rotation']['angle'])
+                x = np.linspace(shift, shift + 5 * np.pi, self._out_shape[0])
                 y = 32.0 + (31.0 * np.sin(x * 2))
                 y = np.uint8(y)
                 # vertical fringes
-                xy = np.tile(y, (self._out_shape[1] * 2, 1))
-                xy = self._augment_rotate(xy, self._aug_flags['rotation']['angle'])
+                xy = np.tile(y, (self._out_shape[1], 1))
+                xy = self._augment_rotate(xy, 45)
             target = 1
         else:
             # horizontal fringes
@@ -615,6 +621,9 @@ class FringeGenerator(DataGenerator):
         x_t = np.expand_dims(x_t, axis=-1)
 
         return x_t, target
+
+    def generate_data(self, *args):
+        return next(self._generator())
 
     def _generator(self):
         while True:

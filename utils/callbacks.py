@@ -34,7 +34,7 @@ class EarlyStopOnBaseline(Callback):
         assert monitor in ['acc', 'loss', 'val_acc', 'val_loss', 'categorical_accuracy', 'val_categorical_accuracy',
                            'top_k_categorical_accuracy', 'val_binary_accuracy'], \
             self._inform_user_of_error('monitor')
-        assert 0 < baseline < 1, self._inform_user_of_error('baseline')
+        #assert 0 < baseline < 1, self._inform_user_of_error('baseline')
         assert min_delta >= 0, self._inform_user_of_error('min_delta')
         assert patience >= 0, self._inform_user_of_error('patience')
         assert verbose in [0, 1], self._inform_user_of_error('verbose')
@@ -92,6 +92,11 @@ class EarlyStopOnBaseline(Callback):
             if self._restore_weights:
                 self._best_weights = self.model.get_weights()
             return
+
+        # restore weights if acc == 1. to stop overtraining
+        # if logs.get("categorical_accuracy") == 1 and self._restore_weights:
+        if self._restore_weights:
+            self.model.set_weights(self._best_weights)
 
         self._patience_counter += 1
         if self._patience_counter < self._patience:

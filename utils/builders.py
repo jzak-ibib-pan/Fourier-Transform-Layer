@@ -3,15 +3,16 @@ from os import listdir, mkdir
 from os.path import join, isdir
 from datetime import datetime as dt
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate, Conv2DTranspose
-from tensorflow.keras.layers import Add, ZeroPadding2D, Activation, MaxPooling2D, AveragePooling2D, ReLU, DepthwiseConv2D
+from tensorflow.keras.layers import Flatten, Dense, BatchNormalization, Input, Conv2D, Concatenate, concatenate, Conv2DTranspose
+from tensorflow.keras.layers import Add, ZeroPadding2D, Activation, MaxPooling2D, AveragePooling2D, ReLU, DepthwiseConv2D, UpSampling2D, Dropout, Reshape
+from tensorflow import image as tfimage
 import tensorflow.keras.applications as apps
 from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC
+from tensorflow.keras.metrics import Accuracy, CategoricalAccuracy, TopKCategoricalAccuracy, AUC, BinaryAccuracy
 from tensorflow.keras.utils import to_categorical
 from tensorflow import data as tfdata
-from tensorflow.keras.optimizers import Adam
-from numpy import squeeze, pad, array, argmax, expand_dims, ones_like
+from tensorflow.keras.optimizers import Adam, SGD
+from numpy import squeeze, pad, array, argmax, expand_dims, ones_like, mod
 from numpy import max as np_max
 from numpy import resize as resize_array
 from cv2 import resize as resize_image
@@ -22,7 +23,91 @@ from fourier_transform_layer.fourier_transform_layer import FTL, FTLSuperResolut
 from utils.callbacks import TimeHistory, EarlyStopOnBaseline
 from utils.sampling import DIRECTIONS, sampling_calculation
 from utils.losses import ssim
+from inspect import isgenerator
 from types import GeneratorType
+
+
+def unet_modified(input_shape=(None, None, 1), categories=2, **kwargs):
+    # updated merge to to concacenate to remove warnings
+    # updated Model
+    # increased number of filters of up8 and beyond
+    # added BatchNorm after every upsampling (ups)
+    inputs = Input(input_shape)
+
+    conv1 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(inputs)
+    conv1 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    conv2 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool1)
+    conv2 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    conv3 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool2)
+    conv3 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+    conv4 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool3)
+    conv4 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv4)
+    drop4 = Dropout(0.5)(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
+
+    conv5 = Conv2D(1024, 3, activation='relu', padding='same', kernel_initializer='he_normal')(pool4)
+    conv5 = Conv2D(1024, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv5)
+    drop5 = Dropout(0.5)(conv5)
+
+    up6 = Conv2D(512, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+        UpSampling2D(size=(2, 2))(drop5))
+    up6 = BatchNormalization()(up6)
+    ###########################################################################
+    # JZ update?
+    merge6 = concatenate([drop4, up6], axis=3)
+    # merge6 = merge([drop4,up6], mode = 'concat', concat_axis = 3)
+    ###########################################################################
+    conv6 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge6)
+    conv6 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv6)
+
+    up7 = Conv2D(256, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+        UpSampling2D(size=(2, 2))(conv6))
+    up7 = BatchNormalization()(up7)
+    ###########################################################################
+    # JZ update?
+    merge7 = concatenate([conv3, up7], axis=3)
+    # merge7 = merge([conv3,up7], mode = 'concat', concat_axis = 3)
+    ###########################################################################
+    conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge7)
+    conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv7)
+    ###########################################################################
+    # JZ update?
+    # up8 = Conv2D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv7))
+    up8 = Conv2D(256, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+        UpSampling2D(size=(2, 2))(conv7))
+    up8 = BatchNormalization()(up8)
+    merge8 = concatenate([conv2, up8], axis=3)
+    # merge8 = merge([conv2,up8], mode = 'concat', concat_axis = 3)
+    # conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
+    conv8 = Conv2D(192, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge8)
+    # conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
+    conv8 = Conv2D(192, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv8)
+
+    # up9 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv8))
+    up9 = Conv2D(128, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
+        UpSampling2D(size=(2, 2))(conv8))
+    up9 = BatchNormalization()(up9)
+    # JZ update?
+    merge9 = concatenate([conv1, up9], axis=3)
+    # merge9 = merge([conv1,up9], mode = 'concat', concat_axis = 3)
+    # conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
+    conv9 = Conv2D(96, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge9)
+    # conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+    conv9 = Conv2D(96, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
+    # conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+    conv9 = Conv2D(24, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
+
+    if categories == 1:
+        conv10 = Conv2D(categories, 1, activation='sigmoid', strides=(1, 1))(conv9)
+    else:
+        conv10 = Conv2D(categories, 1, activation='softmax', strides=(1, 1))(conv9)
+
+    # conv10 = Conv2D(categories, 1, activation = 'sigmoid', strides=(1, 1))(conv9)
+    model = Model(inputs, conv10)
+    return model
 
 
 # TODO: error messages
@@ -194,18 +279,32 @@ class ModelBuilder:
     def compile_model_from_info(self):
         self._compile_model(**self._arguments['compile'])
 
+    def _get_optimizer(self, optimizer, lr=1e-3):
+        if optimizer == "adam":
+            return Adam(learning_rate=lr)
+        if optimizer == "sgd":
+            return SGD(learning_rate=lr)
+
     def _compile_model(self, optimizer, loss, **kwargs):
-        _loss = [loss if loss != 'ssim' else ssim][0]
+        _loss = loss if loss != 'ssim' else ssim
         metrics = []
+        lr = 1e-3
+        if 'learning_rate' in kwargs.keys():
+            lr = kwargs['learning_rate']
+            # inputting learning rate leads to later issues with compilation
+            kwargs.pop('learning_rate')
+        _optimizer = self._get_optimizer(optimizer, lr)
         if 'metrics' not in kwargs.keys():
-            self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
+            self._model.compile(optimizer=_optimizer, loss=_loss, **kwargs)
             return
         if any([type(metric) is not str for metric in kwargs['metrics']]):
-            self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
+            self._model.compile(optimizer=_optimizer, loss=_loss, **kwargs)
             return
         for metric in kwargs['metrics']:
             if metric == 'accuracy':
                 metrics.append(Accuracy())
+            if metric == "binary_accuracy":
+                metrics.append(BinaryAccuracy())
             if metric == 'categorical_accuracy':
                 metrics.append(CategoricalAccuracy())
             if metric == 'topk_categorical_accuracy':
@@ -216,8 +315,8 @@ class ModelBuilder:
                 metrics.append(AUC(multi_label=False, name='uAUC', num_thresholds=1000))
         kwargs['metrics'] = metrics
         self._arguments['compile'] = self._verify_arguments(self._arguments['compile'],
-                                                            optimizer=optimizer, loss=_loss, **kwargs)
-        self._model.compile(optimizer=optimizer, loss=_loss, **kwargs)
+                                                            optimizer=_optimizer, loss=_loss, **kwargs)
+        self._model.compile(optimizer=_optimizer, loss=_loss, **kwargs)
         return
 
     # wrapper
@@ -783,12 +882,23 @@ class CNNBuilder(ModelBuilder):
                 _backbone = apps.resnet_v2.ResNet101V2
         elif 'densenet' in model_type_low:
             if '121' in model_type_low:
-                _backbone = apps.DenseNet121
+                _backbone = apps.densenet.DenseNet121
+            elif '169' in model_type_low:
+                _backbone = apps.densenet.DenseNet169
+            elif '201' in model_type_low:
+                _backbone = apps.densenet.DenseNet201
             else:
                 print("Not implemented.")
                 return None
         elif 'inception' in model_type_low:
-            _backbone = apps.InceptionV3
+            if 'v3' in model_type_low:
+                _backbone = apps.inception_v3.InceptionV3
+            elif 'v2' in model_type_low:
+                _backbone = apps.inception_resnet_v2.InceptionResNetV2
+        elif "xception" in model_type_low:
+            _backbone = apps.xception.Xception
+        elif "unet" in model_type_low:
+            _backbone = unet_modified
         if not _backbone:
             return None
         backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
@@ -826,6 +936,23 @@ class CNNBuilder(ModelBuilder):
                 _backbone = apps.resnet_v2.ResNet101V2
         elif 'unet' in model_type_low:
             _backbone = unet_modified
+        elif 'densenet' in model_type_low:
+            if '121' in model_type_low:
+                _backbone = apps.densenet.DenseNet121
+            elif '169' in model_type_low:
+                _backbone = apps.densenet.DenseNet169
+            elif '201' in model_type_low:
+                _backbone = apps.densenet.DenseNet201
+            else:
+                print("Not implemented.")
+                return None
+        elif 'inception' in model_type_low:
+            if 'v3' in model_type_low:
+                _backbone = apps.inception_v3.InceptionV3
+            elif 'v2' in model_type_low:
+                _backbone = apps.inception_resnet_v2.InceptionResNetV2
+        elif "xception" in model_type_low:
+            _backbone = apps.xception.Xception
         if not _backbone:
             return None
         backbone = _backbone(input_shape=input_shape, weights=weights, include_top=False)
@@ -842,11 +969,126 @@ class CNNBuilder(ModelBuilder):
         if not backbone:
             return None
         architecture = backbone.output
+        if model_type in ["unet"]:
+            return Model(inputs=[backbone.input], outputs=[backbone.output])
         # Classify
         flat = Flatten()(architecture)
         act = ['softmax' if noof_classes > 1 else 'sigmoid'][0]
         out = Dense(noof_classes, activation=act)(flat)
         return Model(inputs=[backbone.input], outputs=[out])
+
+
+# custom model builder to make a Unet-like architecture from any built-in CNN
+class CustomUnetBuilder(CNNBuilder):
+    def __init__(self,
+                 backbone:str,
+                 input_shape=(32, 32, 3),
+                 # at least background and foreground
+                 noof_classes=2,
+                 noof_ftl_heads=-1,
+                 reversed_heads=False,
+                 **kwargs
+                 ):
+        self._max_ftl_heads = 0
+        self._SAMPLING_DIRECTIONS = DIRECTIONS
+        # TODO: name checking
+        # l = _NAMES[0] in layers[0].keys()
+        # assert all(_NAMES in layer.keys() for layer in layers), \
+        #     f'Unsupported name. Supported names: {_NAMES}.'
+        kwargs.update({'model_type': backbone})
+        self._allowed_backbones = CNNBuilder()._get_allowed_backbones()
+        super(CustomUnetBuilder, self).__init__(input_shape=input_shape,
+                                                # this noof_classes should not have an impact, it should be thrown out
+                                                noof_classes=noof_classes,
+                                                **kwargs)
+        self._model, self._max_ftl_heads = self._add_ftl_heads(
+            self._model,
+            noof_ftl_heads,
+            noof_classes,
+            input_shape,
+            reversed_heads
+            )
+
+    @property
+    def max_ftl_heads(self):
+        return self._max_ftl_heads
+
+    @staticmethod
+    def _define_allowed_kwargs():
+        allowed = {'build' : {'model_type': ['mobilenet', 'mobilenet2',
+                                             'densenet121', 'densenet169', 'densenet201',
+                                             'vgg16', 'vgg19',
+                                             # These are not OK right now
+                                             #'inceptionv2', 'inceptionv3',
+                                             'xception',
+                                             'unet',
+                                             ]
+                              },
+                   'compile': {'optimizer': ['adam', 'sgd'],
+                               'loss': ['mse', 'categorical_crossentropy'],
+                               },
+                   }
+        return allowed
+
+    @staticmethod
+    def _add_ftl_heads(
+            arch,
+            noof_heads,
+            noof_classes,
+            input_shape,
+            reverse=False
+        ):
+        decs = []
+        it = -1
+        while it < len(arch.layers) - 1:
+            it = it + 1
+            layer = arch.layers[it]
+            #print(f"{it}: {layer.output_shape}")
+            # find shape mod 2
+            if any([modu != 0 for modu in mod(layer.output_shape[1:2], 2)]):
+                continue
+            itx = it
+            if itx >= len(arch.layers) or itx == 0:
+                continue
+            lay = arch.layers[itx]
+            # find another layer which has different (smaller) output shape
+            while lay.output_shape[1:2] == layer.output_shape[1:2] and itx < len(arch.layers) - 1:
+                itx = itx + 1
+                lay = arch.layers[itx]
+            #if np.mod(lay.output_shape[1:2], input_shape[:-1]) != [0, 0]:
+            lay = arch.layers[itx - 1]
+            it = itx
+            # make sure there is a multiplication
+            if any([modu != 0 for modu in mod(input_shape[:-1], lay.output_shape[1:2])]):
+                continue
+            upsample = input_shape[0] // lay.output_shape[1]
+            current_dec = Conv2D(filters=1, kernel_size=1, activation=None)(lay.output)
+            """
+            current_dec =  FTLSuperResolution(
+                activation="relu",
+                kernel_initializer="ones",
+                #train_imaginary=True,
+                #inverse=True,
+                #calculate_abs=True,
+                already_fft=False,
+                sampling_nominator=upsample,
+                direction="up"
+            )(current_dec)
+            """
+            current_dec = tfimage.resize(current_dec, [input_shape[0], input_shape[1]])
+            decs.append(current_dec)
+        max_ftl_heads = len(decs)
+        if 0 < noof_heads < len(decs):
+            if reverse:
+                decs = decs[:noof_heads]
+            else:
+                decs = decs[-noof_heads:]
+        if len(decs) > 1:
+            dec = concatenate(decs, axis=-1)
+        else:
+            dec = decs[0]
+        dec = Conv2D(filters=noof_classes, kernel_size=1, activation="sigmoid", trainable=True)(dec)
+        return Model(arch.input, dec), max_ftl_heads
 
 
 # Custom model builder - can build any model (including hybrid), based on layer information
@@ -924,6 +1166,8 @@ class CustomBuilder(CNNBuilder):
                                    'padding': 'valid'},
                     'concatenate': {'axis': -1,
                                     },
+                    'reshape': {'target_shape': (1, -1)
+                                },
                     # https://keras.io/api/layers/convolution_layers/convolution2d_transpose/
                     'conv2dtranspose' : {'filters': 1,
                                          'kernel_size': 1,
@@ -1060,6 +1304,8 @@ class CustomBuilder(CNNBuilder):
             return Flatten()(previous), True
         if layer_name in ['concatenate', 'Concatenate']:
             return Concatenate(**arguments)(previous), False
+        if layer_name in ['reshape', 'Reshape']:
+            return Reshape(**arguments)(previous), False
         if layer_name in ['DepthwiseConv2D']:
             return DepthwiseConv2D(**arguments)(previous), False
         if layer_name in ['BatchNormalization']:
@@ -1389,4 +1635,8 @@ class FourierBuilder(CustomBuilder):
 
 
 if __name__ == '__main__':
-    print(FourierBuilder())
+    print(CustomUnetBuilder(
+        backbone="mobilenet",
+        noof_ftl_heads=1,
+        input_shape=(256, 256, 3)
+        ).model.summary())
